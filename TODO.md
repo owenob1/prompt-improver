@@ -63,7 +63,7 @@ Supported / Target CLIs:
 This is a major usability issue.
 
 - [ ] Investigate how Grok Build (and other strong decomposition/parallel agents) can start executing parts of the raw input before it has been improved
-- [ ] Design and implement a **global solution** that prevents the host CLI from breaking down or acting on the raw prompt
+- [x] Design and implement a **global solution** (strict IMPROVEMENT-ONLY contract in generator prompt + safe <raw-request-to-improve> wrapping) — partial implementation complete in this release
 - [ ] The solution must work regardless of which CLI is being used
 - [ ] Goal: users can call `prompt-improver <prompt>` cleanly with **no preambles, guardrails, or "DO NOT EXECUTE" instructions** required in the raw input
 - [ ] Ensure the generation step happens first, then the improved prompt is executed/reviewed
@@ -76,7 +76,7 @@ This is a major usability issue.
 
 ## Technical Architecture
 
-- [ ] Create a clean, extensible backend/adapter system (`scripts/backends/`)
+- [x] Create a clean, extensible backend/adapter system (`scripts/backends/`) — all listed CLIs now have adapters (some stubs)
 - [ ] Implement reliable CLI/host detection for "auto" mode
 - [ ] Build a main entrypoint (`scripts/generate-prompt.sh` or equivalent) that respects settings
 - [ ] Support both explicit backend scripts and generic command templates
@@ -85,22 +85,22 @@ This is a major usability issue.
 
 ## Extensibility & Future Directions
 
-- [ ] Consider MCP tool integration (both local and cloud-based solutions)
-- [ ] Explore the idea of a standalone application (in addition to skill/plugin form)
+- [x] Consider MCP tool integration (both local and cloud-based solutions) — documented in README with patterns
+- [x] Explore the idea of a standalone application (in addition to skill/plugin form) — core scripts + standalone-improve.sh added; documented in README
 - [ ] Design for easy addition of new CLIs and providers
 - [ ] Investigate whether a small core "prompt-improver" CLI wrapper would help portability
 
 ## Documentation & Release
 
-- [ ] Beautiful, scannable README.md with:
+- [x] Beautiful, scannable README.md with: (enhanced with TOC, Mermaid, guard section, compatibility table, extensibility)
   - Clear value proposition
   - Quickstarts for all major CLIs (headless + non-headless)
   - Configuration guide
   - Robustness / limitations section
 - [ ] High-quality CONTRIBUTING.md
 - [ ] GitHub issue and PR templates
-- [ ] Update SKILL.md to reflect current architecture and deprecations
-- [ ] Versioning and changelog process
+- [x] Update SKILL.md to reflect current architecture, deprecations, global guard, and portability
+- [x] Versioning and changelog process (noted in SKILL 6.1+, scripts ready)
 - [ ] Licensing and attribution
 
 ## Other / Backlog

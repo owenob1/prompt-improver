@@ -77,9 +77,9 @@ BACKEND_TO_USE="$BACKEND"
 if [ "$BACKEND_TO_USE" = "auto" ]; then
   # Parse preferred list (simple)
   if command -v jq >/dev/null 2>&1; then
-    mapfile -t PREFS < <(jq -r '.[]' <<< "$PREFERRED_BACKENDS" 2>/dev/null || echo "grok claude gemini")
+    mapfile -t PREFS < <(jq -r '.[]' <<< "$PREFERRED_BACKENDS" 2>/dev/null || echo "grok claude gemini cline opencode kimi kiro codex")
   else
-    PREFS=(grok claude gemini)
+    PREFS=(grok claude gemini cline opencode kimi kiro codex)
   fi
   BACKEND_TO_USE=$(detect_backend "${PREFS[@]}")
 fi

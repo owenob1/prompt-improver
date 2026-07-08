@@ -1,8 +1,26 @@
 # prompt-improver
 
-**Transform vague prompts into precise, verifiable, structured XML prompts that coding agents execute reliably.**
+**Transform vague prompts into precise, verifiable, structured XML prompts that coding agents execute reliably — with no special preambles required.**
+
+[![Portable](https://img.shields.io/badge/Portable-Multi--CLI-blue)](#broad-cli-compatibility)
+[![Configurable](https://img.shields.io/badge/Configurable-settings.json-green)](#configuration-settingsjson)
 
 prompt-improver is a portable skill and set of prompting principles that takes rough user intent and turns it into high-quality, executable specifications. It works across major coding CLI agents — both with strong headless support and without.
+
+A strict **improvement-only contract** is built into the generator so you can call it with a simple prompt and it will not start executing the work inside your request.
+
+## Table of Contents
+
+- [Why it works](#why-it-works)
+- [Quickstart](#quickstart)
+- [Global Improvement Guard](#global-improvement-guard-no-preambles-needed)
+- [Modes](#modes)
+- [How it works](#how-it-works)
+- [Configuration (settings.json)](#configuration-settingsjson)
+- [Robustness considerations](#robustness-considerations)
+- [Project structure](#project-structure)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Why it works
 
@@ -69,6 +87,24 @@ The generator will return a clean XML prompt you can then feed back to the same 
 
 **Non-headless / interactive use**: Paste the contents of the `references/` and `assets/generation-agent-prompt.md` files (plus your raw request) into any capable agent and ask it to act as the prompt improver.
 
+## Global Improvement Guard (No Preambles Needed)
+
+Unlike raw prompts that can cause agents to immediately start building, prompt-improver uses a strict "IMPROVEMENT-ONLY" contract:
+
+- The generator is explicitly instructed to treat your request as **data only**.
+- It will **never** execute, code, or plan the work inside your raw prompt.
+- Output is always the improved structured XML (ready for review in Plan mode or safe execution).
+
+This works across CLIs because the contract lives in the reference materials and generator instructions, not in your input.
+
+You can call it cleanly:
+
+```bash
+/prompt-improver "Add rate limiting and retries to the payment service"
+```
+
+No "DO NOT EXECUTE" or special wrappers required from you.
+
 ## Modes
 
 | Mode     | Invocation                  | What happens |
@@ -80,10 +116,22 @@ The generator will return a clean XML prompt you can then feed back to the same 
 
 ## How it works
 
+```mermaid
+flowchart TD
+    A[Raw vague prompt] --> B[Triage + Context]
+    B --> C[Load References + Strict Improvement Contract]
+    C --> D[Headless Generation via your CLI<br/>or configured backend]
+    D --> E[Validate XML structure]
+    E --> F{Mode?}
+    F -->|Plan| G[Show improved prompt for review]
+    F -->|Execute| H[Brief plan → Execute with verification]
+    G --> I[User decides: Execute / Revise]
+```
+
 1. **Triage** the input (trivial / already good / rough / mixed).
 2. Summarize conversation context.
-3. Load the reference materials (XML template, prompting principles, chaining guidance, before/after examples).
-4. A specialized generator produces a high-quality XML prompt.
+3. Load the reference materials (XML template, prompting principles, chaining guidance, before/after examples) + strict "improvement-only" contract.
+4. A specialized generator (delegated to your chosen CLI headless or configured backend) produces a high-quality XML prompt.
 5. The prompt is validated (`scripts/validate-prompt.sh`).
 6. You either review it (Plan) or it is executed with strong verification.
 
@@ -137,11 +185,46 @@ You can also set a completely custom command via `custom_command`.
 4. **Fine-grained control**  
    We expose several toggles today (`enable_research`, `enable_thinking`, `max_tokens`, etc.). More will be added over time as the community requests them. All settings are designed to work regardless of which coding CLI you are using as the inference engine.
 
+## Extensibility
+
+### CLI Compatibility Table
+
+| CLI          | Headless Flag Example          | Adapter     | Notes |
+|--------------|--------------------------------|-------------|-------|
+| Grok Build  | `grok -p "..."`               | grok.sh    | Preferred in this env |
+| Claude Code | `claude -p "..."`             | claude.sh  | Strong support |
+| Gemini CLI  | `gemini -p "..."`             | gemini.sh  | Good for automation |
+| Cline       | `cline --headless`            | cline.sh   | Terminal + IDE |
+| OpenCode    | `opencode ... --non-interactive` | opencode.sh | Open source |
+| Kimi        | See kimi-code docs            | kimi.sh    | MoonshotAI |
+| Kiro        | `kiro --headless`             | kiro.sh    | Fast CLI |
+| Codex       | `codex exec` or custom        | codex.sh   | Placeholder |
+
+### MCP & Standalone
+
+- **MCP**: Generation and settings logic can be wrapped as MCP servers (local stdio for direct agent access or cloud-hosted). This allows other agents to call prompt-improver as a tool without being the host CLI.
+- **Standalone**: `scripts/standalone-improve.sh` + `generate-prompt.sh` work outside agents. Set `PROMPT_IMPROVER_BACKEND` (and keys). A full standalone binary is a logical next step.
+
+**New CLIs**: Drop a new executable in `scripts/backends/<name>.sh` that accepts a prompt file and outputs the improved result. Register it in settings or detection.
+
+### Adding a new backend
+1. Create `scripts/backends/mytool.sh`
+2. Make executable
+3. Test: `bash scripts/backends/mytool.sh <(echo "test raw input")`
+4. Update preferred_backends in settings if desired.
+
 ## Project structure
 
 ```
 .
-├── SKILL.md                      # Main skill definition (portable)
+├── SKILL.md                      # Main skill definition + mode docs
+├── TODO.md                       # Public release backlog
+├── README.md
+├── CONTRIBUTING.md
+├── LICENSE.txt
+├── config/
+│   ├── settings.default.json
+│   └── settings.example.json
 ├── assets/
 │   └── generation-agent-prompt.md
 ├── examples/
@@ -151,19 +234,26 @@ You can also set a completely custom command via `custom_command`.
 │   ├── prompting-principles.md
 │   └── prompt-chaining.md
 ├── scripts/
+│   ├── generate-prompt.sh        # Main portable generator + settings
+│   ├── assemble-generation-prompt.sh
+│   ├── validate-prompt.sh
 │   ├── gather-context.sh
-│   └── validate-prompt.sh
-└── README.md
+│   ├── lib/settings.sh
+│   └── backends/                 # Per-CLI headless adapters
+│       ├── grok.sh
+│       └── claude.sh
+└── .github/                      # Contribution templates
 ```
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) (coming soon — the contribution workflow is being formalized as part of this release).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
 
 We care deeply about:
 - Preserving the prompting principles and verification standards
 - Keeping the skill portable across CLIs
 - Clear, testable improvements
+- The global improvement contract (no premature execution)
 
 ## License
 

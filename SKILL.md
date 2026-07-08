@@ -154,18 +154,21 @@ Read by the orchestrator (embedded into the generation prompt so the generator d
 
 ## Portability & Configuration
 
-This skill is designed to work with many coding agents.
+This skill is designed to work with many coding agents (Grok Build, Claude Code, Gemini CLI, Cline, OpenCode, Kiro, Kimi, Codex, etc.).
 
-**Default behavior**: When invoked inside a coding CLI, prompt-improver will try to use *that CLI's headless mode* for the generation step (e.g. `grok -p`, `claude -p`, `gemini -p`).
+**Default behavior**: Auto-detects the host CLI and uses its headless mode for generation (e.g. `grok -p`, `claude -p`). Falls back gracefully.
 
-**Configuration**: See `config/settings.default.json` and the README for `settings.json` options, including:
-- Forcing a specific backend
-- Model selection
-- `max_tokens`
+**Global guard**: A strict "IMPROVEMENT-ONLY" contract is embedded so raw requests are never executed by the generator — no user preambles required.
+
+**Configuration**: See `config/settings.default.json` and README. Supports:
+- `backend`, `model`, `max_tokens`
 - `enable_research`, `enable_thinking`
-- Fallback behavior when a CLI lacks headless support
+- `fallback_strategy`
+- Custom commands and preferred backends
 
-See the README for the full configuration and robustness details.
+Full details and quickstarts in README.md.
+
+New CLIs: Add adapter in `scripts/backends/`.
 
 ---
 
