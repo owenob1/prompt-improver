@@ -1,11 +1,11 @@
 ---
 name: prompt-improver
-description: Transforms vague prompts into structured XML and executes them. Modes: execute (default), plan (review before running). Task mode is deprecated (the original connected task system is no longer used). Use when the user says improve prompt, make this work better, prompt engineer, or structure a prompt.
+description: Transforms vague prompts into structured XML and executes them. Modes: execute (default), plan (review before running). Task mode is deprecated. Portable across major coding CLIs (headless + non-headless). Use when the user says improve prompt, make this work better, prompt engineer, or structure a prompt.
 argument-hint: [plan] [prompt-text or description of what to improve]
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent, AskUserQuestion
 metadata:
   author: Owen Innes
-  version: 6.0.0
+  version: 6.1.0
   category: prompt-engineering
   tags: [prompting, xml, agentic-coding, workflow, portable]
 intelligence_tier: 3
@@ -151,6 +151,16 @@ Read by the orchestrator (embedded into the generation prompt so the generator d
 - Prompting principles: [references/prompting-principles.md](references/prompting-principles.md)
 - Prompt chaining: [references/prompt-chaining.md](references/prompt-chaining.md)
 - Before/after examples: [examples/before-after.md](examples/before-after.md)
+
+## Portability
+
+This skill is designed to work with many coding agents (Grok Build, Claude Code, Gemini CLI, Cline, OpenCode, Kiro, Kimi Code CLI, and similar tools).
+
+The most portable approach:
+- Use `scripts/assemble-generation-prompt.sh "your request"` to get a self-contained prompt.
+- Feed the result to your CLI using its headless / direct prompt flag.
+
+See the README for concrete examples per tool.
 
 ---
 
