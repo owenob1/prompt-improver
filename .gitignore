@@ -1,0 +1,19 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*~
+
+# Temporary / build
+*.tmp
+*.log
+
+# The srcpilot index (local only)
+.srcpilot/
+
+# Keep the skill files clean for distribution
+# (nothing else to ignore for this repo)

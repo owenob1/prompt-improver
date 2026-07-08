@@ -1,13 +1,13 @@
 ---
 name: prompt-improver
-description: Transforms vague prompts into structured XML and executes them. Modes: execute (default), plan (review before running), task (create persistent tasks without executing). Use when the user says improve prompt, make this work better, prompt engineer, or structure a prompt.
-argument-hint: [plan|task] [prompt-text or description of what to improve]
+description: Transforms vague prompts into structured XML and executes them. Modes: execute (default), plan (review before running). Task mode is deprecated (the original connected task system is no longer used). Use when the user says improve prompt, make this work better, prompt engineer, or structure a prompt.
+argument-hint: [plan] [prompt-text or description of what to improve]
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent, AskUserQuestion
 metadata:
   author: Owen Innes
   version: 6.0.0
   category: prompt-engineering
-  tags: [prompting, xml, claude-code, workflow]
+  tags: [prompting, xml, agentic-coding, workflow, portable]
 intelligence_tier: 3
 cache_class: cold
 when_not_to_use: When the input is already a well-structured XML prompt or detailed implementation spec — skip generation and execute directly.
@@ -23,17 +23,18 @@ Transform rough user input into structured XML prompts and execute them directly
 |------------|------|-----------|
 | `/prompt-improver <prompt>` | **Execute** (default) | Generate, brief summary, execute immediately |
 | `/prompt-improver plan <prompt>` | **Plan** | Generate, show full XML, wait for user decision |
-| `/prompt-improver task <prompt>` | **Task** | Generate, create persistent tasks via task_create, do not execute |
 
-When the first word of $ARGUMENTS is `plan` or `task` (case-insensitive), activate that mode. Strip the mode word from the arguments before passing the rest as raw input.
+**Task mode is deprecated.** The original integration with an external task system is no longer active. Structured `<task>` output is still produced by the underlying XML template when useful and can be requested via the prompt content itself.
+
+When the first word of $ARGUMENTS is `plan` (case-insensitive), activate Plan mode. Strip the mode word from the arguments before passing the rest as raw input.
 
 **Mode ambiguity:** If $ARGUMENTS does not start with a mode word AND the input is complex enough that multiple modes could apply, use AskUserQuestion to disambiguate:
 
 - **Single-select** with `preview` enabled
-- **question**: describe what you received and why you're unsure (e.g. "This is a multi-step spec — should I execute it now or create a task tree for later?")
+- **question**: describe what you received and why you're unsure
 - **header**: "Mode"
-- **Options**: the 3 modes (Execute, Plan, Task) — but tailor the descriptions to the ACTUAL input. E.g. if the input has 8 tasks, the Task option description should say "Creates 8 subtasks with dependencies" not generic text. The preview for each should show what the output would look like for THIS specific input.
-- **Recommend the best fit** by putting it first with "(Recommended)" in the label — base the recommendation on input complexity (simple → Execute, risky/large → Plan, multi-session/team → Task).
+- **Options**: Execute or Plan (tailor descriptions to the ACTUAL input). Task-related structured output can still be produced by the generator when the prompt benefits from it.
+- **Recommend the best fit** by putting it first with "(Recommended)" in the label — base the recommendation on input complexity (simple → Execute, risky/large/review-needed → Plan).
 
 If the input is clearly simple (single action, obvious intent), default to Execute without asking.
 
@@ -53,7 +54,7 @@ Before doing anything, resolve and classify the input:
 
 **Classify** the resolved content:
 - **Trivial** (typo, rename, single-line fix): Ask: "This looks straightforward — should I just do it directly?"
-- **Already execution-ready** (well-structured XML, detailed spec with code examples/schemas/verification criteria, comprehensive implementation guide, long structured prompt with clear requirements): **Skip the generation agent entirely.** The input is already good — go straight to Phase 2 using the content as-is. In task mode, go straight to task creation/decomposition.
+- **Already execution-ready** (well-structured XML, detailed spec with code examples/schemas/verification criteria, comprehensive implementation guide, long structured prompt with clear requirements): **Skip the generation agent entirely.** The input is already good — go straight to Phase 2 using the content as-is.
 - **Rough input** (vague description, bullet points, incomplete thoughts, missing context): This is where prompt-improver adds the most value. Proceed to Step 2 and the generation agent.
 - **Mixed** (some sections detailed, others vague): Proceed to Step 2, but tell the generation agent to preserve detailed sections and enrich only the vague ones.
 
@@ -80,7 +81,7 @@ Read the agent prompt from `${CLAUDE_SKILL_DIR}/assets/generation-agent-prompt.m
 Spawn a general-purpose Agent with that prompt, substituting:
 - `{CONVERSATION_SUMMARY}` — the summary from Step 2
 - `{RAW_INPUT}` — the user's original prompt text
-- `{MODE}` — execute, plan, or task
+- `{MODE}` — execute or plan (task mode is deprecated)
 - `{REFERENCE_MATERIALS}` — content from the reference files read in Step 3
 
 ---
@@ -125,90 +126,13 @@ Spawn a general-purpose Agent with that prompt, substituting:
    - **Edit**: Acknowledge changes, ask again.
    - **Discard**: Acknowledge and stop.
 
-### Task mode (`/prompt-improver task ...`)
+### Task mode (deprecated)
 
-Create persistent tasks from the generated prompt instead of executing. This mode connects prompt-improver to the task management system.
+**Task mode is deprecated.** The previous integration with an external persistent task system (e.g. `task_create`) is no longer active in this release.
 
-1. **Run Phase 1 (Generate)** identically to execute/plan modes — same agent, same references, same validation.
+The generator can still produce high-quality structured `<task>` blocks inside the XML output when the input benefits from decomposition (this is part of the core XML template and prompting principles). Users who want task-style output can request it explicitly in the prompt text or use the Plan mode to review a generated prompt that includes a task tree.
 
-2. **Create parent task**: Call the MCP `task_create` tool with:
-   - `content`: the overall description from the user's input
-   - `priority`: "high"
-   - `tags`: ["prompt-improved"]
-   - `metadata`: `{"generated_prompt": "<the full XML prompt>"}`
-
-3. **Create subtasks**: When creating subtasks, create ALL phases upfront with equal detail. Verification, testing, and documentation tasks must have the same depth of acceptance criteria and verification commands as implementation tasks. Do not create partial task trees.
-
-   For each `<task>` block in the generated XML prompt, call `task_create` with:
-   - `parent_id`: the parent task's ID (returned from step 2)
-   - `priority`: derive from position (first tasks get "high", later ones get "medium")
-   - `tags`: ["prompt-improved", task-name-from-xml]
-   - `dependencies`: map `depends-on` attributes to the corresponding subtask IDs (create tasks in order, track ID mapping)
-   - `content`: structured as a **self-contained PRD** so an autonomous agent can execute with zero clarification:
-
-     ```markdown
-     ## [Task Title]
-
-     ## Description
-     [What this task does and why it matters in the context of the parent goal]
-
-     ## Acceptance Criteria
-     - [ ] [Verb-led, measurable, pass/fail criterion]
-     - [ ] [Each criterion independently verifiable]
-
-     ## File References
-     - **Read:** [exact paths the agent needs to understand before starting]
-     - **Modify:** [exact paths the agent will change]
-     - **Do not touch:** [paths that must remain unchanged]
-
-     ## Reference Patterns
-     - Follow `[path]` for [aspect — e.g. naming conventions, error handling, test structure]
-
-     ## Constraints
-     - [Hard limits — e.g. no new dependencies, must be backwards compatible]
-
-     ## Out of Scope
-     - [Explicitly excluded items to prevent scope creep]
-
-     ## Verification
-     - `[exact shell command]` — [what it proves]
-     - `[exact shell command]` — [what it proves]
-
-     ## Risk Level
-     [low / medium / high — with one-line justification]
-     ```
-
-     Every section is required. An executing agent must be able to complete this task from the content alone without re-reading the source spec.
-
-   - `metadata`: structured data for programmatic access:
-     ```json
-     {
-       "file_references": { "read": [...], "modify": [...], "do_not_touch": [...] },
-       "acceptance_criteria": ["verb-led criterion 1", "..."],
-       "out_of_scope": ["excluded item 1", "..."],
-       "verification_commands": ["npm test -- --grep auth", "..."],
-       "reference_patterns": [{ "path": "src/example.ts", "aspect": "error handling" }],
-       "risk_level": "low|medium|high"
-     }
-     ```
-
-4. **Parallel execution note**: When the task tree contains 3+ independent subtasks (no mutual dependencies), include a recommendation to use TeamCreate for parallel execution when the user starts the work. Add `"recommended_strategy": "parallel"` or `"sequential"` to the parent task's metadata.
-
-5. **Completeness validation**: After creating all tasks, verify:
-   - Count the number of `<task>` blocks in the generated prompt vs the number of subtasks created. If there's a mismatch, warn the user about missing tasks.
-   - Verify each subtask has acceptance criteria, file references, and verification commands. Warn about any that are missing sections.
-   - Check that verification/testing tasks are not significantly thinner than implementation tasks.
-
-6. **Present the task tree** to the user:
-   ```
-   Created task tree:
-   - [task-parent-id] Overall description (high, prompt-improved)
-     - [task-sub1] First subtask (high, depends on: none)
-     - [task-sub2] Second subtask (medium, depends on: sub1)
-     - [task-sub3] Third subtask (medium, depends on: sub1)
-   ```
-
-7. **Execute immediately**. After presenting the task tree, invoke the `/claudetools:task-manager start` skill to begin executing the tasks automatically — do not wait for the user to run it manually.
+If a portable, CLI-agnostic "export structured tasks" flag or output format proves valuable across many coding agents, it may be re-introduced in a future version behind a clean, optional flag (e.g. `--structured-tasks`). Any such addition will be designed to work via headless invocation on all supported CLIs.
 
 ## Edge cases
 
@@ -222,7 +146,7 @@ If the agent returns "Phase 1 of N":
 
 ## Reference files
 
-Read by the main conversation in Step 3 and embedded in the agent prompt (the agent does not read these files directly):
+Read by the orchestrator (embedded into the generation prompt so the generator does not need to read external files):
 - XML template: [references/xml-template.md](references/xml-template.md)
 - Prompting principles: [references/prompting-principles.md](references/prompting-principles.md)
 - Prompt chaining: [references/prompt-chaining.md](references/prompt-chaining.md)
@@ -233,15 +157,14 @@ Read by the main conversation in Step 3 and embedded in the agent prompt (the ag
 <critical_safety_rules>
 NEVER skip the triage step — classify the input before spawning any agent. Spawning a generation agent on already-excellent input wastes tokens and may overwrite good structure.
 NEVER show the XML to the user in Execute mode — brief summary only. The XML is the implementation detail, not the deliverable.
-NEVER create a partial task tree in Task mode — ALL phases must have the same depth of acceptance criteria and verification commands. Thin verification tasks fail downstream agents.
+When producing structured task output (even in deprecated Task mode paths), all phases must have the same depth of acceptance criteria and verification commands.
 </critical_safety_rules>
 
 <decision_boundaries>
 CORRECT: Input is a well-structured XML prompt with clear requirements, code examples, and verification criteria → classify as "already execution-ready," skip generation agent, go straight to Phase 2.
 INCORRECT: Input is a well-structured XML prompt → always spawn the generation agent anyway "just to improve it."
 
-CORRECT: Task mode, 5 `<task>` blocks in the generated XML → create exactly 5 subtasks, verify count matches, warn if any is missing sections.
-INCORRECT: Task mode, 5 `<task>` blocks → create 3 subtasks because the other 2 seemed redundant.
+When generating structured `<task>` output: 5 `<task>` blocks in the generated XML should be treated as 5 units of work with matching verification depth.
 </decision_boundaries>
 
 <reasoning>
