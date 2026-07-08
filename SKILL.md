@@ -152,15 +152,20 @@ Read by the orchestrator (embedded into the generation prompt so the generator d
 - Prompt chaining: [references/prompt-chaining.md](references/prompt-chaining.md)
 - Before/after examples: [examples/before-after.md](examples/before-after.md)
 
-## Portability
+## Portability & Configuration
 
-This skill is designed to work with many coding agents (Grok Build, Claude Code, Gemini CLI, Cline, OpenCode, Kiro, Kimi Code CLI, and similar tools).
+This skill is designed to work with many coding agents.
 
-The most portable approach:
-- Use `scripts/assemble-generation-prompt.sh "your request"` to get a self-contained prompt.
-- Feed the result to your CLI using its headless / direct prompt flag.
+**Default behavior**: When invoked inside a coding CLI, prompt-improver will try to use *that CLI's headless mode* for the generation step (e.g. `grok -p`, `claude -p`, `gemini -p`).
 
-See the README for concrete examples per tool.
+**Configuration**: See `config/settings.default.json` and the README for `settings.json` options, including:
+- Forcing a specific backend
+- Model selection
+- `max_tokens`
+- `enable_research`, `enable_thinking`
+- Fallback behavior when a CLI lacks headless support
+
+See the README for the full configuration and robustness details.
 
 ---
 

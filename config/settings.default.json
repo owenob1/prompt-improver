@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "backend": "auto",
+  "model": null,
+  "max_tokens": 12000,
+  "enable_research": true,
+  "enable_thinking": true,
+  "headless_only": true,
+  "fallback_strategy": "manual",
+  "preferred_backends": ["grok", "claude", "gemini", "cline", "openai"],
+  "custom_command": null,
+  "allow_web_search": true,
+  "allow_code_execution_in_generation": false,
+  "notes": "backend: auto | grok | claude | gemini | ... | custom\nfallback_strategy: manual | error | use_another_backend\nSet PROMPT_IMPROVER_BACKEND, PROMPT_IMPROVER_MODEL etc as env vars to override."
+}

@@ -1,16 +1,8 @@
 #!/usr/bin/env bash
 # assemble-generation-prompt.sh
 #
-# Assembles the full materials needed to run prompt-improver's generator
-# with any coding CLI that supports a direct/headless prompt.
-#
-# Usage:
-#   bash scripts/assemble-generation-prompt.sh "your raw request here"
-#
-# Then feed the output to your CLI in headless mode, e.g.:
-#   claude -p "$(bash scripts/assemble-generation-prompt.sh 'add rate limiting')"
-#   gemini -p "$(bash scripts/assemble-generation-prompt.sh '...')"
-#   grok -p "$(bash scripts/assemble-generation-prompt.sh '...')"
+# Low-level assembler. Most users should use `scripts/generate-prompt.sh` instead,
+# which handles settings, backend detection, and calling the right CLI headlessly.
 
 set -euo pipefail
 

@@ -89,6 +89,54 @@ The generator will return a clean XML prompt you can then feed back to the same 
 
 The heavy lifting of good prompting lives in the reference files so the same high standards apply no matter which CLI you use.
 
+## Configuration (`settings.json`)
+
+prompt-improver looks for settings in this order:
+
+1. Environment variables (`PROMPT_IMPROVER_*`)
+2. `.prompt-improver/settings.json` (project)
+3. `~/.config/prompt-improver/settings.json` (user)
+4. `config/settings.default.json` (shipped defaults)
+
+Example `settings.json`:
+
+```json
+{
+  "backend": "auto",
+  "model": "claude-3-5-sonnet-20241022",
+  "max_tokens": 8000,
+  "enable_research": true,
+  "enable_thinking": true,
+  "fallback_strategy": "manual",
+  "preferred_backends": ["grok", "claude", "gemini"]
+}
+```
+
+**Important settings:**
+
+- `backend`: `auto` (recommended) or force a specific one.
+- `fallback_strategy`: what to do if the chosen CLI has no (or broken) headless mode.
+  - `manual` (default) → print the assembled prompt for you to use manually.
+  - `error` → fail hard.
+- `max_tokens`: hard limit on the size of the *improved* prompt generated.
+- `enable_research` / `enable_thinking`: passed into the generator prompt so it knows whether it can use tools or internal reasoning.
+
+You can also set a completely custom command via `custom_command`.
+
+## Robustness considerations
+
+1. **CLI loses headless support**  
+   The `fallback_strategy` setting controls this. By default we gracefully drop to "manual" mode and give you the full prompt to paste.
+
+2. **Model availability**  
+   We do not hardcode model lists. Use the `model` setting with whatever your chosen provider currently offers (e.g. `grok-4`, `gemini-2.5-pro`, `claude-3-5-sonnet-20241022`). "latest" aliases usually work when the CLI supports them.
+
+3. **Output token limits**  
+   Use `max_tokens` in settings. The generator will try to respect it.
+
+4. **Fine-grained control**  
+   We expose several toggles today (`enable_research`, `enable_thinking`, `max_tokens`, etc.). More will be added over time as the community requests them. All settings are designed to work regardless of which coding CLI you are using as the inference engine.
+
 ## Project structure
 
 ```
