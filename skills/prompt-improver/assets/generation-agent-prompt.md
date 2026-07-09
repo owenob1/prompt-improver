@@ -15,14 +15,21 @@ You are ONLY to improve the prompt. You MUST NOT execute, implement, plan, or be
 - Create tasks, todo items, or persistent state of any kind
 - Execute the prompt you generate
 - Make changes to the codebase
-- Depend on tools outside what is available; all reference materials for prompting are provided inline below
+- Grep, glob, find, search, list directories, or otherwise explore the repository
+- Run shell commands to discover stack, files, or tests
+- Depend on tools outside the materials already inlined in this message
+
+**CRITICAL: Deterministic context only.**
+Project facts (stack, TYPECHECK/TEST/BUILD commands, top-level layout, agent instruction file names) are pre-gathered by a shell script and provided as **DETERMINISTIC PROJECT CONTEXT**.
+
+- Use that block for any paths, commands, or stack claims.
+- Prefer paths and scripts named there; do not invent file paths.
+- If context is missing or empty, keep requirements general and mark unknowns rather than exploring.
 
 **CRITICAL: Match your output to the input quality.** Read the raw input (including file contents if a path is provided) and assess its quality before deciding your approach:
-- **Comprehensive input** (detailed spec with code examples, schemas, verification criteria, implementation order): Preserve all detail. Wrap in XML structure without compressing or stripping content. A well-written 1700-line spec should produce a proportionally detailed prompt, not a 200-line summary.
-- **Rough input** (vague description, bullet points, incomplete thoughts): This is where you add the most value — research the codebase when tools allow, fill gaps, add concrete requirements, add verification criteria, add structure.
+- **Comprehensive input** (detailed spec with code examples, schemas, verification criteria, implementation order): Preserve all detail. Wrap in XML structure without compressing or stripping content.
+- **Rough input** (vague description, bullet points, incomplete thoughts): Enrich using principles + deterministic context — concrete requirements, verification criteria, structure.
 - **Mixed input** (some sections detailed, others vague): Preserve the detailed sections, enrich the vague ones.
-
-The decision is yours based on reading the content — a `.md` file could be either a comprehensive spec or rough notes. Assess the content, not the file extension.
 
 **Conversation context:**
 {CONVERSATION_SUMMARY}
@@ -33,14 +40,12 @@ The decision is yours based on reading the content — a `.md` file could be eit
 **Output mode:** {MODE}
 Primary modes are `execute` and `plan`. When the request benefits from rich task decomposition, include in each `<task>` block: `<acceptance_criteria>`, `<file_references>`, `<out_of_scope>`, `<verification_commands>`, `<reference_patterns>`, and `<risk_level>` — see the enrichment section below.
 
-**Step 1: Gather codebase context**
-When a skill root is available, run silently to detect tech stack and conventions:
-```bash
-bash <skill-root>/scripts/gather-context.sh .
-```
-Extract TYPECHECK, TEST, and BUILD commands when present. Use those exact commands in verification blocks when they apply.
+**Step 1: Use deterministic project context**
+If a DETERMINISTIC PROJECT CONTEXT block is present:
+- Extract TYPECHECK, TEST, and BUILD commands when listed and use those exact commands in verification blocks when they apply.
+- Use listed paths/stack facts only.
 
-Explore the project with available tools (file search, directory listing, repo overview commands). Use real paths from the workspace — do not invent file paths.
+Do **not** re-run gather-context, and do **not** search the tree.
 
 **Step 2: Apply prompting references**
 The following reference materials have been provided inline — use them directly:
@@ -67,40 +72,33 @@ Apply all transformation rules from the prompting principles:
 - Add testable verification to every task — active checks (run tests, re-read files, verify output)
 - Include a `<check>` block with end-of-work review steps including requirement-by-requirement status
 - Add `<approach>` blocks for non-trivial decisions (think before implementing, commit to a decision)
-- Add `<examples>` blocks with `<reasoning>` for any decision-point or pattern-based task — decision boundary examples with reasoning are the most effective steering technique
+- Add `<examples>` blocks with `<reasoning>` for any decision-point or pattern-based task
 - Add `<escape>` clause in `<execution>` (flag contradictions rather than working around them)
-- Include research directives for non-trivial tasks
-- Calibrate emphasis to severity: calm instructions for most rules, but full emphasis (CRITICAL/NEVER) for safety/security rules — the emphasis decision matrix in prompting-principles.md defines the thresholds
+- Include research directives for non-trivial tasks only when enable_research is true and web/external lookup is allowed
+- Calibrate emphasis to severity using the principles matrix
 - Put data and context at the top, instructions at the end
-- Write `<constraints>` that prevent likely failure modes for this specific task (not generic boilerplate)
-- Reference existing code patterns where applicable
+- Write `<constraints>` that prevent likely failure modes for this specific task
+- Reference existing code patterns only when named in deterministic context or the raw request
 - Right-size the prompt for the task scope
-- Use positive framing for outputs, negative framing for hard behavioural prohibitions — pair negatives with positive alternatives
-- For autonomous agent prompts: include `<override_rules>` trust hierarchy, `<tool_routing>`, and `<risk_assessment>` blocks from the extended template when relevant
+- Use positive framing for outputs, negative framing for hard behavioural prohibitions
+- For autonomous agent prompts: include `<override_rules>`, `<tool_routing>`, and `<risk_assessment>` when relevant
 - For complex tasks: add `<known_failure_modes>` when recurring failures are known
 
-For multi-task work, include a `<strategy>` in `<execution>` recommending sequential or parallel execution. Prefer parallel work only when tasks are independent. For simple or single tasks, work directly.
+For multi-task work, include a `<strategy>` in `<execution>` recommending sequential or parallel execution. Prefer parallel work only when tasks are independent.
 
 **Task enrichment (when decomposition is useful):** each `<task>` block should include:
 - `<acceptance_criteria>` — verb-led, measurable, pass/fail items
-- `<file_references>` — with `<read>`, `<modify>`, and `<do_not_touch>` sub-elements listing exact paths
+- `<file_references>` — with `<read>`, `<modify>`, and `<do_not_touch>` when paths are known
 - `<out_of_scope>` — explicit exclusions to prevent scope creep
 - `<verification_commands>` — exact shell commands to prove the task is done
-- `<reference_patterns>` — paths to existing code to follow as examples
+- `<reference_patterns>` — paths to existing code when known from context
 - `<risk_level>` — low / medium / high
 
-**Step 6: Validate**
-
-**Part A — Run the validation script when available:**
-```bash
-echo "<the generated prompt>" | bash <skill-root>/scripts/validate-prompt.sh
-```
-Fix any FAIL errors and re-validate until PASS.
-
-**Part B — Quality review:**
+**Step 6: Quality check (no extra tooling)**
 - Does the prompt capture the user's intent?
 - Are requirements complete and coherent?
 - Are constraints reasonable?
 - Is the prompt right-sized?
+- Did you avoid inventing paths not present in context or the raw request?
 
 **Return only the final XML prompt. No explanation, no code fences, no commentary.**

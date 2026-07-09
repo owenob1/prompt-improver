@@ -175,6 +175,21 @@ Beyond scalars (`backend`, `model`, `custom_command`, …), **runtime tables** s
 | `host_env_markers` | Env vars that identify the host CLI |
 | `parent_process_patterns` | Process-name globs for host detection |
 | `cascade_scan_order` | Fallback scan when preferred list empty |
+| `generation` | Prompt materials, output instructions, **deterministic context** (see below) |
+
+### Generation materials & deterministic context (`generation`)
+
+| Field | Default | Purpose |
+|-------|---------|---------|
+| `context_mode` | `deterministic` | Shell runs `gather-context.sh` before headless; injects fixed context. `off` skips gather. |
+| `forbid_agent_codebase_search` | `true` | Generator must not grep/glob/find/search the repo |
+| `include_xml_template` / `include_principles` / `include_chaining` / `include_examples` / `include_system_prompt` | `true` | Toggle which reference blocks are assembled |
+| `*_path` fields | skill-relative paths | Point at your own system prompt, XML template, principles, chaining, examples |
+| `extra_reference_paths` | `[]` | Extra files to append to the generator prompt |
+| `output_instructions` | XML-only string | Final line the generator sees (customise output contract) |
+| `require_xml_output` | `true` | Overlay flag for XML-only responses |
+
+`gather-context.sh` is **deterministic shell only** (manifest probes, top-level listing, git metadata). It does not use AI search.
 
 **Merge rules**
 

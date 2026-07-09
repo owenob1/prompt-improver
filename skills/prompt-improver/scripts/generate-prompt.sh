@@ -83,7 +83,34 @@ fi
 
 # --- Assemble the full prompt for the generator model ---
 TMP_PROMPT=$(mktemp -t prompt-improver-gen.XXXXXX)
-trap 'rm -f "$TMP_PROMPT"' EXIT
+TMP_CTX=""
+trap 'rm -f "$TMP_PROMPT" ${TMP_CTX:+"$TMP_CTX"}' EXIT
+
+# Deterministic context: shell gather-context only (no headless AI search/grep/glob).
+CONTEXT_MODE="${CONTEXT_MODE:-deterministic}"
+if [ "$CONTEXT_MODE" = "deterministic" ] || [ "$CONTEXT_MODE" = "on" ]; then
+  TMP_CTX=$(mktemp -t prompt-improver-ctx.XXXXXX)
+  set +e
+  bash "$SCRIPT_DIR/gather-context.sh" "$CWD" >"$TMP_CTX" 2>/dev/null
+  _ctx_rc=$?
+  set -e
+  if [ "$_ctx_rc" -ne 0 ] || [ ! -s "$TMP_CTX" ]; then
+    echo "WARNING: deterministic gather-context produced little/no output (rc=$_ctx_rc)." >&2
+    echo "(no project context gathered)" >"$TMP_CTX"
+  else
+    echo "Gathered deterministic project context ($(wc -c <"$TMP_CTX" | tr -d ' ') bytes)." >&2
+  fi
+  export PROMPT_IMPROVER_PROJECT_CONTEXT_FILE="$TMP_CTX"
+elif [ "$CONTEXT_MODE" = "off" ] || [ "$CONTEXT_MODE" = "none" ]; then
+  echo "Context gathering disabled (generation.context_mode=off)." >&2
+  unset PROMPT_IMPROVER_PROJECT_CONTEXT_FILE || true
+else
+  # legacy/agent mode: still prefer pre-gather so the model has a fixed block
+  TMP_CTX=$(mktemp -t prompt-improver-ctx.XXXXXX)
+  bash "$SCRIPT_DIR/gather-context.sh" "$CWD" >"$TMP_CTX" 2>/dev/null || true
+  export PROMPT_IMPROVER_PROJECT_CONTEXT_FILE="$TMP_CTX"
+  echo "WARNING: generation.context_mode=$CONTEXT_MODE — still pre-gathering; agent search remains forbidden by default." >&2
+fi
 
 {
   echo "You are running in mode: $MODE"
@@ -100,8 +127,14 @@ trap 'rm -f "$TMP_PROMPT"' EXIT
 
   if [ -n "$REFERENCE_FILE" ] && [ -f "$REFERENCE_FILE" ]; then
     cat "$REFERENCE_FILE"
+    if [ -n "${PROMPT_IMPROVER_PROJECT_CONTEXT_FILE:-}" ] && [ -f "${PROMPT_IMPROVER_PROJECT_CONTEXT_FILE}" ]; then
+      echo ""
+      echo "=== DETERMINISTIC PROJECT CONTEXT ==="
+      cat "$PROMPT_IMPROVER_PROJECT_CONTEXT_FILE"
+      echo "=== END DETERMINISTIC PROJECT CONTEXT ==="
+    fi
   else
-    bash "$SCRIPT_DIR/assemble-generation-prompt.sh" "$RAW_INPUT"
+    bash "$SCRIPT_DIR/assemble-generation-prompt.sh" "$RAW_INPUT" "${PROMPT_IMPROVER_PROJECT_CONTEXT_FILE:-}"
   fi
 } > "$TMP_PROMPT"
 

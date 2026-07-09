@@ -1,14 +1,10 @@
 {
   "version": 1,
-
   "//": "Copy to ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json. Keys starting with // are comments only (ignored). Full guides: docs/CUSTOM-BACKENDS.md, references/models-supported.md. Shipped tables: config/runtime-defaults.json.",
-
-  "//backend": "auto = host CLI (Claude→claude, Grok→grok). Or force: claude | grok | gemini | codex | cline | opencode | kimi | kiro. Env: PROMPT_IMPROVER_BACKEND. Hint host with PROMPT_IMPROVER_HOST.",
+  "//backend": "auto = host CLI (Claude\u2192claude, Grok\u2192grok). Or force: claude | grok | gemini | codex | cline | opencode | kimi | kiro. Env: PROMPT_IMPROVER_BACKEND. Hint host with PROMPT_IMPROVER_HOST.",
   "backend": "auto",
-
   "//model": "Force one model (null = default_models[backend]). Env: PROMPT_IMPROVER_MODEL. Per-prompt model:<id> wins.",
   "model": null,
-
   "//default_models": "Per-backend generator defaults when model is null. null = CLI default.",
   "default_models": {
     "claude": "sonnet",
@@ -20,35 +16,25 @@
     "kimi": null,
     "kiro": null
   },
-
   "//max_tokens": "Soft output cap (best-effort). Env: PROMPT_IMPROVER_MAX_TOKENS",
   "max_tokens": 12000,
-
   "//enable_research": "false = omit <research> in generated prompts",
   "enable_research": true,
-
   "//enable_thinking": "false = omit <approach> blocks unless required",
   "enable_thinking": true,
-
   "//headless_only": "true = host must not in-session rewrite when headless fails",
   "headless_only": true,
-
   "//allow_web_search": "false = no web search in generated executor instructions",
   "allow_web_search": true,
-
   "//allow_code_execution_in_generation": "false = generator cannot run gather-context.sh or shell",
   "allow_code_execution_in_generation": false,
-
   "//skip_validate": "true = skip validate-prompt.sh after generation",
   "skip_validate": false,
-
-  "//backend_invocation": "scripts | commands | auto — how built-in CLIs are invoked",
+  "//backend_invocation": "scripts | commands | auto \u2014 how built-in CLIs are invoked",
   "backend_invocation": "scripts",
-
   "//fallback_strategy": "manual | error",
   "fallback_strategy": "manual",
-
-  "//preferred_backends": "Cascade order after primary hits limits — not default pick",
+  "//preferred_backends": "Cascade order after primary hits limits \u2014 not default pick",
   "preferred_backends": [
     "claude",
     "grok",
@@ -59,25 +45,48 @@
     "kimi",
     "kiro"
   ],
-
   "//custom_command": "Escape hatch: prompt on stdin, improved text on stdout. Bypasses backends. Env: PROMPT_IMPROVER_CUSTOM_COMMAND",
   "custom_command": null,
-
-  "//model_aliases": "Override/extend alias→canonical map (merged with runtime-defaults.json). Example:",
-  "//model_aliases_example": { "my-alias": "sonnet" },
-
+  "//model_aliases": "Override/extend alias\u2192canonical map (merged with runtime-defaults.json). Example:",
+  "//model_aliases_example": {
+    "my-alias": "sonnet"
+  },
   "//model_fallback_chains": "Replace entire chain table when set. Example:",
   "//model_fallback_chains_example": [
-    { "patterns": ["sonnet", "*sonnet*"], "chain": ["$primary", "haiku"] }
+    {
+      "patterns": [
+        "sonnet",
+        "*sonnet*"
+      ],
+      "chain": [
+        "$primary",
+        "haiku"
+      ]
+    }
   ],
-
   "//backend_commands": "Override CLI templates. Placeholders: {prompt_file} {model} {model_args} {max_tokens}",
   "//backend_commands_example": {
     "grok": "grok -p \"$(cat \"{prompt_file}\")\" {model_args} --output-format plain"
   },
-
   "//supported_backends": "Allowlist for host-matched headless generation",
   "//limit_detection": "Regex strings: account_patterns, retry_patterns, xml_markers",
-
-  "notes": "Default pick: host CLI + default_models (not first-on-PATH). Override any runtime-defaults.json key in this file. model: routes by family. No host generator → HOST_BOUNCE:NO_HEADLESS."
+  "notes": "Default pick: host CLI + default_models (not first-on-PATH). Override any runtime-defaults.json key in this file. model: routes by family. No host generator \u2192 HOST_BOUNCE:NO_HEADLESS.\nGeneration materials + context_mode: see generation object / runtime-defaults.json.",
+  "generation": {
+    "context_mode": "deterministic",
+    "include_xml_template": true,
+    "include_principles": true,
+    "include_chaining": true,
+    "include_examples": true,
+    "include_system_prompt": true,
+    "system_prompt_path": "assets/generation-agent-prompt.md",
+    "xml_template_path": "references/xml-template.md",
+    "principles_path": "references/prompting-principles.md",
+    "chaining_path": "references/prompt-chaining.md",
+    "examples_path": "examples/before-after.md",
+    "extra_reference_paths": [],
+    "output_instructions": "Output ONLY the final improved XML prompt. No explanation, no code fences, no commentary, no execution of the request.",
+    "require_xml_output": true,
+    "forbid_agent_codebase_search": true
+  },
+  "//generation": "Customise generation materials and deterministic context. Full defaults: config/runtime-defaults.json \u2192 generation"
 }

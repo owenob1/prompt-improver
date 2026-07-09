@@ -195,6 +195,44 @@ load_settings() {
   SKIP_VALIDATE=$(get_setting "skip_validate" "false")
   BACKEND_INVOCATION=$(get_setting "backend_invocation" "scripts")
 
+  # Generation materials / output (nested generation object, with flat env overrides)
+  if command -v jq >/dev/null 2>&1; then
+    _gen=$(_pi_merged_object_json "generation")
+    # Note: jq `//` treats false as missing — use explicit null checks for booleans
+    CONTEXT_MODE=$(echo "$_gen" | jq -r 'if .context_mode == null then "deterministic" else .context_mode end')
+    GEN_INCLUDE_XML=$(echo "$_gen" | jq -r 'if .include_xml_template == null then true else .include_xml_template end')
+    GEN_INCLUDE_PRINCIPLES=$(echo "$_gen" | jq -r 'if .include_principles == null then true else .include_principles end')
+    GEN_INCLUDE_CHAINING=$(echo "$_gen" | jq -r 'if .include_chaining == null then true else .include_chaining end')
+    GEN_INCLUDE_EXAMPLES=$(echo "$_gen" | jq -r 'if .include_examples == null then true else .include_examples end')
+    GEN_INCLUDE_SYSTEM=$(echo "$_gen" | jq -r 'if .include_system_prompt == null then true else .include_system_prompt end')
+    GEN_SYSTEM_PATH=$(echo "$_gen" | jq -r 'if .system_prompt_path == null then "assets/generation-agent-prompt.md" else .system_prompt_path end')
+    GEN_XML_PATH=$(echo "$_gen" | jq -r 'if .xml_template_path == null then "references/xml-template.md" else .xml_template_path end')
+    GEN_PRINCIPLES_PATH=$(echo "$_gen" | jq -r 'if .principles_path == null then "references/prompting-principles.md" else .principles_path end')
+    GEN_CHAINING_PATH=$(echo "$_gen" | jq -r 'if .chaining_path == null then "references/prompt-chaining.md" else .chaining_path end')
+    GEN_EXAMPLES_PATH=$(echo "$_gen" | jq -r 'if .examples_path == null then "examples/before-after.md" else .examples_path end')
+    GEN_OUTPUT_INSTRUCTIONS=$(echo "$_gen" | jq -r 'if .output_instructions == null then "Output ONLY the final improved XML prompt. No explanation, no code fences, no commentary." else .output_instructions end')
+    GEN_REQUIRE_XML=$(echo "$_gen" | jq -r 'if .require_xml_output == null then true else .require_xml_output end')
+    GEN_FORBID_AGENT_SEARCH=$(echo "$_gen" | jq -r 'if .forbid_agent_codebase_search == null then true else .forbid_agent_codebase_search end')
+    GEN_EXTRA_REFS=$(echo "$_gen" | jq -c 'if .extra_reference_paths == null then [] else .extra_reference_paths end')
+    unset _gen
+  else
+    CONTEXT_MODE="deterministic"
+    GEN_INCLUDE_XML="true"
+    GEN_INCLUDE_PRINCIPLES="true"
+    GEN_INCLUDE_CHAINING="true"
+    GEN_INCLUDE_EXAMPLES="true"
+    GEN_INCLUDE_SYSTEM="true"
+    GEN_SYSTEM_PATH="assets/generation-agent-prompt.md"
+    GEN_XML_PATH="references/xml-template.md"
+    GEN_PRINCIPLES_PATH="references/prompting-principles.md"
+    GEN_CHAINING_PATH="references/prompt-chaining.md"
+    GEN_EXAMPLES_PATH="examples/before-after.md"
+    GEN_OUTPUT_INSTRUCTIONS="Output ONLY the final improved XML prompt. No explanation, no code fences, no commentary."
+    GEN_REQUIRE_XML="true"
+    GEN_FORBID_AGENT_SEARCH="true"
+    GEN_EXTRA_REFS="[]"
+  fi
+
   BACKEND="${PROMPT_IMPROVER_BACKEND:-$BACKEND}"
   MODEL="${PROMPT_IMPROVER_MODEL:-$MODEL}"
   MAX_TOKENS="${PROMPT_IMPROVER_MAX_TOKENS:-$MAX_TOKENS}"
@@ -207,11 +245,30 @@ load_settings() {
   ALLOW_CODE_EXECUTION="${PROMPT_IMPROVER_ALLOW_CODE_EXECUTION:-$ALLOW_CODE_EXECUTION}"
   SKIP_VALIDATE="${PROMPT_IMPROVER_SKIP_VALIDATE:-$SKIP_VALIDATE}"
   BACKEND_INVOCATION="${PROMPT_IMPROVER_BACKEND_INVOCATION:-$BACKEND_INVOCATION}"
+  CONTEXT_MODE="${PROMPT_IMPROVER_CONTEXT_MODE:-$CONTEXT_MODE}"
 
   if [ "$MODEL" = "null" ]; then MODEL=""; fi
   if [ "$CUSTOM_COMMAND" = "null" ]; then CUSTOM_COMMAND=""; fi
 
   export PROMPT_IMPROVER_MAX_TOKENS="$MAX_TOKENS"
+  export CONTEXT_MODE GEN_INCLUDE_XML GEN_INCLUDE_PRINCIPLES GEN_INCLUDE_CHAINING \
+    GEN_INCLUDE_EXAMPLES GEN_INCLUDE_SYSTEM GEN_SYSTEM_PATH GEN_XML_PATH \
+    GEN_PRINCIPLES_PATH GEN_CHAINING_PATH GEN_EXAMPLES_PATH GEN_OUTPUT_INSTRUCTIONS \
+    GEN_REQUIRE_XML GEN_FORBID_AGENT_SEARCH GEN_EXTRA_REFS
+}
+
+# Resolve a path relative to skill root unless absolute.
+_pi_resolve_skill_path() {
+  local p="$1"
+  local root="${2:-$_PI_ROOT_DIR}"
+  if [ -z "$p" ] || [ "$p" = "null" ]; then
+    echo ""
+    return 0
+  fi
+  case "$p" in
+    /*) echo "$p" ;;
+    *) echo "$root/$p" ;;
+  esac
 }
 
 resolve_generator_model() {
@@ -667,12 +724,17 @@ allow_web_search: $ALLOW_WEB_SEARCH
 allow_code_execution_in_generation: $ALLOW_CODE_EXECUTION
 max_tokens: $MAX_TOKENS
 headless_only: $HEADLESS_ONLY
+context_mode: ${CONTEXT_MODE:-deterministic}
+forbid_agent_codebase_search: ${GEN_FORBID_AGENT_SEARCH:-true}
+require_xml_output: ${GEN_REQUIRE_XML:-true}
 
 Apply these settings when building the improved prompt:
 - When enable_research is false, omit or minimize <research> blocks unless the raw request explicitly requires external lookup.
 - When enable_thinking is false, omit <approach> think-then-act blocks unless strictly necessary for safety.
-- When allow_web_search is false, do not instruct the executor to search the web; rely on codebase exploration only.
-- When allow_code_execution_in_generation is false, do not run gather-context.sh or shell during generation; use provided context only.
+- When allow_web_search is false, do not instruct the executor to search the web.
+- Context is pre-gathered by the shell (deterministic). When forbid_agent_codebase_search is true (default), you MUST NOT grep, glob, find, list, or search the repo — use ONLY the DETERMINISTIC PROJECT CONTEXT block.
+- When allow_code_execution_in_generation is false, do not run shell tools during generation.
+- When require_xml_output is true, return only the improved XML prompt body.
 - Respect max_tokens as a soft cap on output length when the backend supports it.
 EOF
 }
@@ -681,4 +743,4 @@ export -f load_settings get_setting detect_backend detect_host_backend is_suppor
   get_backend_command parse_preferred_backends get_generation_settings_overlay should_use_backend_script \
   get_default_model_for_backend resolve_generator_model normalize_model_id infer_backend_for_model \
   prefer_backend_if_available get_model_fallback_chain is_model_retryable_failure \
-  is_account_limit_failure is_rate_limit_message_only
+  is_account_limit_failure is_rate_limit_message_only _pi_resolve_skill_path

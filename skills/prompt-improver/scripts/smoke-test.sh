@@ -314,6 +314,40 @@ fi
 unset PROMPT_IMPROVER_PROJECT_CONFIG_DIR
 rm -rf "$_tmp_settings"
 
+# 14. generation customisation + deterministic context (no agent explore)
+echo ""
+echo "[14] generation materials + deterministic context"
+_ctx14=$(bash scripts/gather-context.sh . 2>/dev/null || true)
+if echo "$_ctx14" | grep -q 'deterministic'; then
+  ok "gather-context labels deterministic"
+else
+  bad "gather-context missing deterministic label"
+fi
+if echo "$_ctx14" | grep -qE 'Most-Referenced|Project Structure \(from index\)|pilot_map|find \.'; then
+  bad "gather-context still uses find/index exploration"
+else
+  ok "gather-context has no recursive find/index explorers"
+fi
+unset _ctx14
+_g14=$(mktemp -d)
+export PROMPT_IMPROVER_PROJECT_CONFIG_DIR="$_g14"
+export PROMPT_IMPROVER_CONFIG_DIR="$_g14/u"
+mkdir -p "$_g14" "$_g14/u"
+printf '%s\n' '{"generation":{"include_examples":false,"output_instructions":"ONLY_LINE_G14"}}' > "$_g14/settings.json"
+_asm=$(bash scripts/assemble-generation-prompt.sh "smoke-raw" 2>/dev/null || true)
+if echo "$_asm" | grep -q 'ONLY_LINE_G14'; then
+  ok "custom generation.output_instructions applied"
+else
+  bad "output_instructions not applied"
+fi
+if echo "$_asm" | grep -q 'BEFORE / AFTER EXAMPLES'; then
+  bad "include_examples=false still included examples"
+else
+  ok "include_examples=false omits examples"
+fi
+unset PROMPT_IMPROVER_PROJECT_CONFIG_DIR PROMPT_IMPROVER_CONFIG_DIR
+rm -rf "$_g14"
+
 # Optional: gather-context should not crash
 echo ""
 echo "[extra] gather-context.sh"

@@ -178,7 +178,8 @@ Layers (env wins):
 | `fallback_strategy` | `manual` (host bounce on limit exhaustion) or `error` (hard fail when non-limit) |
 | `max_tokens`, `enable_research`, `enable_thinking`, `allow_web_search`, `allow_code_execution_in_generation`, `headless_only`, `skip_validate` | Generator behaviour (wired into assembler + backends) |
 | `backend_invocation` | `scripts` (default), `commands` (templates only), or `auto` (template when you override `backend_commands`) |
-| Runtime tables in `config/runtime-defaults.json` | Override in settings: `model_aliases`, `model_fallback_chains`, `backend_commands`, `supported_backends`, `limit_detection`, host detection, cascade order |
+| Runtime tables in `config/runtime-defaults.json` | Override: `model_aliases`, cascades, `backend_commands`, `generation` (materials + deterministic context), host detection, limit regexes |
+| `generation.context_mode` | `deterministic` (default): shell `gather-context.sh` only — headless must not grep/glob/search |
 
 Per-prompt `model:…` always wins for that run (unless `custom_command` is set — then encode the model in your command).
 

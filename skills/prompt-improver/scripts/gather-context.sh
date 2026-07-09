@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # gather-context.sh
-# Collects project context for prompt enrichment.
-# Output is JSON-ish structured text for Claude to parse.
+# Deterministic project context for prompt enrichment.
+# Shell-only: fixed path probes, package manifests, git metadata.
+# Does NOT run AI, grep the tree recursively, or glob-search for source.
 # Usage: bash gather-context.sh [project-root]
 
 set -euo pipefail
@@ -9,13 +10,7 @@ set -euo pipefail
 ROOT="${1:-.}"
 cd "$ROOT"
 
-# Source pilot library (graceful fallback)
-_PILOT_LIB="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}/scripts/lib/pilot-query.sh"
-if [[ -f "$_PILOT_LIB" ]]; then
-  source "$_PILOT_LIB"
-fi
-
-echo "=== PROJECT CONTEXT ==="
+echo "=== PROJECT CONTEXT (deterministic) ==="
 
 # Tech stack detection
 echo ""
@@ -128,9 +123,18 @@ if [ -f "deno.json" ] || [ -f "deno.lock" ]; then
   echo "Runtime: Deno"
 fi
 
-if ls *.csproj &>/dev/null || ls *.sln &>/dev/null; then
-  echo "Platform: .NET"
+# .NET: only probe a few common fixed filenames (no shell globs over the tree)
+_dotnet=false
+for _f in App.csproj Project.csproj src/App.csproj; do
+  if [ -f "$_f" ]; then _dotnet=true; break; fi
+done
+if [ "$_dotnet" = false ] && [ -f "global.json" ]; then
+  _dotnet=true
 fi
+if [ "$_dotnet" = true ]; then
+  echo "Platform: .NET (manifest markers present)"
+fi
+unset _dotnet _f
 
 if [ -f "pom.xml" ]; then
   echo "Platform: Java (Maven)"
@@ -196,28 +200,36 @@ if [ -d ".claude/commands" ]; then
   done
 fi
 
-# Project structure
+# Top-level names only (no recursive find/glob search)
 echo ""
-echo "--- STRUCTURE ---"
-if command -v tree &>/dev/null; then
-  tree -L 2 -I 'node_modules|.git|dist|build|.next|__pycache__|.venv|target' --dirsfirst 2>/dev/null | head -40
-else
-  find . -maxdepth 2 -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/.next/*' | sort | head -40
+echo "--- STRUCTURE (top-level only) ---"
+if [ -d . ]; then
+  # shellcheck disable=SC2012
+  ls -1A 2>/dev/null | head -60 | while IFS= read -r name; do
+    case "$name" in
+      .|..|node_modules|.git|dist|build|.next|__pycache__|.venv|target) continue ;;
+    esac
+    if [ -d "$name" ]; then
+      echo "  dir  $name/"
+    else
+      echo "  file $name"
+    fi
+  done
 fi
 
-# Recent git activity (what areas are active)
+# Recent git activity (deterministic metadata only)
 echo ""
 echo "--- RECENT CHANGES ---"
 if git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
   git log --oneline -5 2>/dev/null || echo "(no git history)"
   echo ""
-  echo "Recently modified files:"
+  echo "Recently modified files (git):"
   git diff --name-only HEAD~5 HEAD 2>/dev/null | head -15 || echo "(insufficient history)"
 else
   echo "(not a git repository)"
 fi
 
-# Test patterns
+# Test runner config files only (no recursive test-file search)
 echo ""
 echo "--- TEST PATTERNS ---"
 if [ -f "vitest.config.ts" ] || [ -f "vitest.config.js" ]; then
@@ -226,11 +238,9 @@ elif [ -f "jest.config.ts" ] || [ -f "jest.config.js" ]; then
   echo "Test runner: Jest"
 elif [ -f "pytest.ini" ] || [ -f "pyproject.toml" ]; then
   echo "Test runner: pytest (likely)"
+else
+  echo "Test runner: (not detected from config files)"
 fi
-
-# Count test files
-TEST_COUNT=$(find . -name "*.test.*" -o -name "*.spec.*" -o -name "test_*" 2>/dev/null | wc -l | tr -d ' ')
-echo "Test files found: $TEST_COUNT"
 
 # Typecheck command detection
 echo ""
@@ -319,16 +329,8 @@ if [ "$BUILD_CMD_FOUND" = false ]; then
   echo "(no build command detected)"
 fi
 
-if [[ -f "$_PILOT_LIB" ]] && declare -f pilot_map &>/dev/null; then
-  if [[ -f "${ROOT}/.srcpilot/db.sqlite" ]]; then
-    echo ""
-    echo "=== Project Structure (from index) ==="
-    pilot_map 2>/dev/null || true
-    echo ""
-    echo "=== Most-Referenced Files ==="
-    pilot_context_budget 2>/dev/null | head -15 || true
-  fi
-fi
+# Intentionally no recursive find/grep/glob and no AI/index explorers.
+# Context stays reproducible across runs for the same tree metadata.
 
 echo ""
 echo "=== END CONTEXT ==="

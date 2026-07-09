@@ -1,14 +1,10 @@
 {
   "version": 1,
-
-  "//": "Shipped defaults. Prefer editing a copy at ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json (see settings.example.json). Keys starting with // are comments only. Tables (aliases, chains, commands) live in config/runtime-defaults.json — override any key here or in your copy.",
-
-  "//backend": "auto | claude | grok | gemini | codex | cline | opencode | kimi | kiro — Env: PROMPT_IMPROVER_BACKEND",
+  "//": "Shipped defaults. Prefer editing a copy at ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json (see settings.example.json). Keys starting with // are comments only. Tables (aliases, chains, commands) live in config/runtime-defaults.json \u2014 override any key here or in your copy.",
+  "//backend": "auto | claude | grok | gemini | codex | cline | opencode | kimi | kiro \u2014 Env: PROMPT_IMPROVER_BACKEND",
   "backend": "auto",
-
   "//model": "null = per-backend defaults below. Env: PROMPT_IMPROVER_MODEL. Per-prompt model: wins.",
   "model": null,
-
   "//default_models": "Generator model per CLI when model is null. null = leave CLI default.",
   "default_models": {
     "claude": "sonnet",
@@ -20,35 +16,25 @@
     "kimi": null,
     "kiro": null
   },
-
   "//max_tokens": "Soft cap passed through where backends support it (best-effort). Env: PROMPT_IMPROVER_MAX_TOKENS",
   "max_tokens": 12000,
-
   "//enable_research": "When false, generator omits/minimizes <research> blocks. Env: PROMPT_IMPROVER_ENABLE_RESEARCH",
   "enable_research": true,
-
   "//enable_thinking": "When false, generator omits <approach> blocks unless safety-critical. Env: PROMPT_IMPROVER_ENABLE_THINKING",
   "enable_thinking": true,
-
   "//headless_only": "When true, host should not rewrite prompts in-session when headless fails. Env: PROMPT_IMPROVER_HEADLESS_ONLY",
   "headless_only": true,
-
   "//allow_web_search": "When false, improved prompts must not instruct web search. Env: PROMPT_IMPROVER_ALLOW_WEB_SEARCH",
   "allow_web_search": true,
-
   "//allow_code_execution_in_generation": "When false, generator must not run gather-context.sh or shell. Env: PROMPT_IMPROVER_ALLOW_CODE_EXECUTION",
   "allow_code_execution_in_generation": false,
-
   "//skip_validate": "When true, skip validate-prompt.sh after headless generation. Env: PROMPT_IMPROVER_SKIP_VALIDATE",
   "skip_validate": false,
-
   "//backend_invocation": "scripts = use scripts/backends/*.sh; commands = use backend_commands templates; auto = templates when you override backend_commands. Env: PROMPT_IMPROVER_BACKEND_INVOCATION",
   "backend_invocation": "scripts",
-
   "//fallback_strategy": "manual = host bounce on limit exhaustion; error = hard fail",
   "fallback_strategy": "manual",
-
-  "//preferred_backends": "Order to try OTHER generators after primary hits limits — not the default pick",
+  "//preferred_backends": "Order to try OTHER generators after primary hits limits \u2014 not the default pick",
   "preferred_backends": [
     "claude",
     "grok",
@@ -59,9 +45,25 @@
     "kimi",
     "kiro"
   ],
-
-  "//custom_command": "Any CLI: prompt on stdin → improved text on stdout. Bypasses built-in backends. Env: PROMPT_IMPROVER_CUSTOM_COMMAND",
+  "//custom_command": "Any CLI: prompt on stdin \u2192 improved text on stdout. Bypasses built-in backends. Env: PROMPT_IMPROVER_CUSTOM_COMMAND",
   "custom_command": null,
-
-  "notes": "Fully customisable runtime tables: model_aliases, model_fallback_chains, model_backend_patterns, backend_commands, backend_model_flags, supported_backends, limit_detection, host_env_markers, parent_process_patterns, cascade_scan_order — see config/runtime-defaults.json; override any in your settings.json.\n\nModel resolution: 1) model:/--model 2) PROMPT_IMPROVER_MODEL 3) default_models[backend] 4) CLI default.\nCustom CLIs: custom_command (docs/CUSTOM-BACKENDS.md)."
+  "notes": "Fully customisable runtime tables: model_aliases, model_fallback_chains, model_backend_patterns, backend_commands, backend_model_flags, supported_backends, limit_detection, host_env_markers, parent_process_patterns, cascade_scan_order \u2014 see config/runtime-defaults.json; override any in your settings.json.\n\nModel resolution: 1) model:/--model 2) PROMPT_IMPROVER_MODEL 3) default_models[backend] 4) CLI default.\nCustom CLIs: custom_command (docs/CUSTOM-BACKENDS.md).\nGeneration materials + context_mode: see generation object / runtime-defaults.json.",
+  "generation": {
+    "context_mode": "deterministic",
+    "include_xml_template": true,
+    "include_principles": true,
+    "include_chaining": true,
+    "include_examples": true,
+    "include_system_prompt": true,
+    "system_prompt_path": "assets/generation-agent-prompt.md",
+    "xml_template_path": "references/xml-template.md",
+    "principles_path": "references/prompting-principles.md",
+    "chaining_path": "references/prompt-chaining.md",
+    "examples_path": "examples/before-after.md",
+    "extra_reference_paths": [],
+    "output_instructions": "Output ONLY the final improved XML prompt. No explanation, no code fences, no commentary, no execution of the request.",
+    "require_xml_output": true,
+    "forbid_agent_codebase_search": true
+  },
+  "//generation": "Customise generation materials and deterministic context. Full defaults: config/runtime-defaults.json \u2192 generation"
 }

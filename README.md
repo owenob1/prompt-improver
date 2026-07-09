@@ -213,8 +213,9 @@ cp skills/prompt-improver/config/settings.example.json \
 | `model_aliases` | Extend/override short names → model IDs |
 | `model_fallback_chains` | Custom rate-limit cascades |
 | `backend_commands` | Custom CLI invoke templates |
+| `generation` | Materials paths, output contract, **deterministic context** (no AI grep/glob) |
 
-Runtime tables (aliases, cascades, host detection, limit regexes, …) ship in `config/runtime-defaults.json` and are fully overridable. Full guide: [docs/CUSTOM-BACKENDS.md](./docs/CUSTOM-BACKENDS.md).
+Runtime tables (aliases, cascades, host detection, generation materials, …) ship in `config/runtime-defaults.json` and are fully overridable. Full guide: [docs/CUSTOM-BACKENDS.md](./docs/CUSTOM-BACKENDS.md).
 
 </details>
 
