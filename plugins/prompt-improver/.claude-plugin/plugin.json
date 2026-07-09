@@ -3,8 +3,7 @@
   "description": "Transform vague prompts into structured, verifiable XML and execute or review them. Use when the user says improve prompt, plan work carefully, or structure a vague coding request.",
   "version": "6.2.0",
   "author": {
-    "name": "Owen Innes",
-    "email": "me@oweninnes.com"
+    "name": "owenob1"
   },
   "homepage": "https://github.com/owenob1/prompt-improver",
   "repository": "https://github.com/owenob1/prompt-improver",
