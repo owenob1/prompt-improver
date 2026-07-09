@@ -254,7 +254,7 @@ is_model_retryable_failure() {
 
   # Non-zero alone is not enough (auth, network) — need model-ish signals when possible
   if echo "$low" | grep -qE \
-    'rate.?limit|usage.?limit|quota|out of (limit|usage|credits)|capacity|overloaded|529|429|403|401|not (available|found|supported|enabled)|unknown model|invalid model|model .* (denied|restricted|not accessible)|access denied|does not have access|invitation|glasswing|unavailable|try again later|too many requests'
+    'rate.?limit|usage.?limit|weekly.?limit|hit your .*limit|you.?ve hit your|quota|out of (limit|usage|credits)|capacity|overloaded|529|429|403|401|not (available|found|supported|enabled)|unknown model|invalid model|model .* (denied|restricted|not accessible)|access denied|does not have access|invitation|glasswing|unavailable|try again later|too many requests'
   then
     return 0
   fi

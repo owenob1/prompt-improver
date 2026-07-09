@@ -289,6 +289,15 @@ if [ $EXIT_CODE -ne 0 ]; then
   exit 2
 fi
 
+# Unwrap CLI envelopes (e.g. grok --output-format json → { "text": "..." })
+if command -v jq >/dev/null 2>&1; then
+  _unwrapped=$(printf '%s' "$GENERATED" | jq -r 'if type=="object" then (.text // .content // .message // empty) else empty end' 2>/dev/null || true)
+  if [ -n "${_unwrapped:-}" ]; then
+    GENERATED="$_unwrapped"
+  fi
+  unset _unwrapped
+fi
+
 # --- Validate ---
 if [ "$SKIP_VALIDATE" = true ]; then
   echo "$GENERATED"

@@ -22,9 +22,5 @@ if [ -n "${PROMPT_IMPROVER_MODEL:-}" ]; then
   MODEL_ARGS=(-m "$PROMPT_IMPROVER_MODEL")
 fi
 
-# Prefer JSON output when available; fall back to plain text
-if grok -p "$(cat "$PROMPT_FILE")" "${MODEL_ARGS[@]}" --output-format json --yolo 2>/dev/null; then
-  exit 0
-fi
-
-exec grok -p "$(cat "$PROMPT_FILE")" "${MODEL_ARGS[@]}"
+# plain = improved prompt text only (json wraps body in .text and breaks validation)
+exec grok -p "$(cat "$PROMPT_FILE")" "${MODEL_ARGS[@]}" --output-format plain --yolo

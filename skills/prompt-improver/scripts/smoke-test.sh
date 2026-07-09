@@ -201,6 +201,12 @@ else
   bad "retryable rate-limit detection failed"
 fi
 
+if is_model_retryable_failure 1 "You've hit your weekly limit · resets Jul 11"; then
+  ok "retryable weekly-limit detection"
+else
+  bad "retryable weekly-limit detection failed"
+fi
+
 # Optional: gather-context should not crash
 echo ""
 echo "[extra] gather-context.sh"
