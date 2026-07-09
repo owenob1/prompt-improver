@@ -151,16 +151,14 @@ Pass full IDs or short aliases. **Unknown future IDs pass through** (e.g. `gpt-5
 
 If a model is unavailable, restricted, or out of usage, headless generation walks a cascade (first success wins):
 
-| You asked for | Tries next |
-|---------------|------------|
-| Claude **Mythos** (`mythos`, `mythos-5`, …) | mythos → **fable** → **opus** → sonnet |
-| Claude **Fable** | fable → **opus** → sonnet |
-| Claude **Opus** | opus → sonnet |
-| GPT-**5.6 Sol** | sol → terra → luna → gpt-5.5 |
-| GPT-**5.6 Terra** | terra → luna → gpt-5.5 |
-| **Grok 4.5** | grok-4.5 → composer-2.5-fast → grok-build |
+| CLI | Fallback |
+|-----|----------|
+| Claude | mythos → fable → opus → sonnet |
+| Codex | sol → terra → luna → gpt-5.5 |
+| Grok | grok-4.5 → composer-2.5-fast → grok-build |
+| Gemini | gemini-2.5-pro → gemini-2.5-flash |
 
-So invite-only Mythos users get Mythos when available; otherwise the improver automatically steps down without you re-running the skill.
+Requests enter the cascade at the tier you asked for (e.g. `model:opus` starts at opus, not mythos).
 
 </details>
 
