@@ -1,14 +1,16 @@
-# prompt-improver TODO
+# prompt-improver roadmap
 
-Tracks work for public release and multi-CLI robustness.
+Tracks work after marketplace packaging. The installable skill lives in `skills/prompt-improver/`.
 
 ## Release Goals
 
-- [x] Prepare prompt-improver for public release (scripts work offline; docs clear; CI green)
-- [x] Core improvements for launch (path fixes, validation, backends, smoke tests)
-- [x] README with install, quickstarts, config, compatibility table, structure
-- [x] Contribution workflow (`CONTRIBUTING.md` + issue/PR templates)
-- [x] Easy to use, extend, and contribute (adapters + smoke-test gate)
+- [x] Marketplace layout (`skills/`, `.claude-plugin/`, `plugins/`)
+- [x] Install-first README for skills.sh + Claude Code marketplace
+- [x] Offline smoke tests + CI
+- [x] Portable skill package under `skills/prompt-improver/`
+- [ ] Make GitHub repository public
+- [ ] Confirm skills.sh listing after public installs
+- [ ] Confirm Claude `/plugin marketplace add` end-to-end
 
 ## Broad CLI Compatibility
 

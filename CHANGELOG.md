@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [6.2.0] — 2026-07-09
+
+### Changed
+- **Marketplace layout**: canonical skill package moved to `skills/prompt-improver/` for [skills.sh](https://skills.sh) / `npx skills add` discovery.
+- Added Claude Code marketplace packaging: `.claude-plugin/marketplace.json` and `plugins/prompt-improver/`.
+- Root `README.md` rewritten install-first (global `-g`, project, Claude marketplace, manual).
+- `SKILL.md` cleaned to portable Agent Skills frontmatter (`name`, `description`, `license`, `metadata`).
+- `LICENSE.txt` → `LICENSE`; roadmap moved to `docs/ROADMAP.md`.
+- Repo smoke tests live in `tests/smoke-test.sh` (still runs skill-internal checks).
+
+### Fixed
+- `npx skills add owenob1/prompt-improver --list` previously returned “No skills found” for root-only layout quirks; skill is now under the standard `skills/` container.
+
 ## [6.1.1] — 2026-07-09
 
 ### Fixed

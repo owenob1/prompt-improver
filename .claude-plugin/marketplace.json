@@ -1,0 +1,36 @@
+{
+  "name": "prompt-improver",
+  "owner": {
+    "name": "Owen Innes",
+    "email": "me@oweninnes.com"
+  },
+  "metadata": {
+    "description": "Transform vague prompts into precise, verifiable structured XML for coding agents",
+    "version": "6.2.0"
+  },
+  "plugins": [
+    {
+      "name": "prompt-improver",
+      "source": "./plugins/prompt-improver",
+      "description": "Improve rough prompts into structured, verifiable XML specs. Modes: execute (default) and plan. Portable across coding CLIs.",
+      "version": "6.2.0",
+      "author": {
+        "name": "Owen Innes",
+        "email": "me@oweninnes.com"
+      },
+      "homepage": "https://github.com/owenob1/prompt-improver",
+      "repository": "https://github.com/owenob1/prompt-improver",
+      "license": "MIT",
+      "keywords": [
+        "prompt",
+        "prompt-engineering",
+        "xml",
+        "agent",
+        "agent-skills",
+        "claude-code"
+      ],
+      "category": "productivity",
+      "tags": ["prompting", "workflow", "portable"]
+    }
+  ]
+}
