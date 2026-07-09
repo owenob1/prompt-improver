@@ -4,5 +4,5 @@ Ideas under consideration. Not commitments.
 
 ## Planned
 
-- [ ] **Model selection flags** — make headless/standalone generation easy to pin to a cheap/fast model (CLI flag / settings / env), and document recommended defaults so users never accidentally nest the same frontier model
-- [ ] **MCP tool** — expose prompt improvement (and optionally validation) as an MCP server so any MCP-capable client can call it without installing the skill (MCP path should default to a configurable non-host model when remote generation is used)
+- [ ] **Model selection flags** — first-class CLI/skill flags and clear defaults so headless generation always pins a cheap/fast generator model (never silently reuse the host frontier model)
+- [ ] **MCP tool** — expose prompt improvement (and optionally validation) as an MCP server; generator model must remain configurable and default to a non-host cheap model when remote generation is used

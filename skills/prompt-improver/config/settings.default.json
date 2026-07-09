@@ -11,5 +11,5 @@
   "custom_command": null,
   "allow_web_search": true,
   "allow_code_execution_in_generation": false,
-  "notes": "Applies to scripts/generate-prompt.sh (standalone/headless only). Skill invocation inside an agent generates in-session and should NOT spawn a nested same-model CLI.\nbackend: auto | grok | claude | gemini | cline | opencode | kimi | kiro | codex | custom\nmodel: set explicitly for headless runs (prefer a cheap/fast model)\nfallback_strategy: manual | error\nEnv: PROMPT_IMPROVER_BACKEND, PROMPT_IMPROVER_MODEL, PROMPT_IMPROVER_MAX_TOKENS, PROMPT_IMPROVER_FALLBACK_STRATEGY, PROMPT_IMPROVER_CUSTOM_COMMAND"
+  "notes": "Headless generation is required. Set model (PROMPT_IMPROVER_MODEL) to a FAST/CHEAP generator model — not your host frontier agent model.\nbackend: auto | grok | claude | gemini | cline | opencode | kimi | kiro | codex | custom\nfallback_strategy: manual | error\nEnv: PROMPT_IMPROVER_BACKEND, PROMPT_IMPROVER_MODEL, PROMPT_IMPROVER_MAX_TOKENS, PROMPT_IMPROVER_FALLBACK_STRATEGY, PROMPT_IMPROVER_CUSTOM_COMMAND"
 }

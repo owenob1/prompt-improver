@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # scripts/backends/claude.sh
-# Invokes Claude Code headless.
+# Invokes Claude Code headless for prompt generation.
+# Honors PROMPT_IMPROVER_MODEL when set (generator model — prefer cheap/fast).
 
 set -euo pipefail
 
@@ -16,4 +17,9 @@ if ! command -v claude >/dev/null 2>&1; then
   exit 127
 fi
 
-exec claude -p "$(cat "$PROMPT_FILE")" --print
+MODEL_ARGS=()
+if [ -n "${PROMPT_IMPROVER_MODEL:-}" ]; then
+  MODEL_ARGS=(--model "$PROMPT_IMPROVER_MODEL")
+fi
+
+exec claude -p "$(cat "$PROMPT_FILE")" --print "${MODEL_ARGS[@]}"

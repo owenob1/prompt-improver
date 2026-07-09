@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # scripts/backends/gemini.sh
 # Adapter for Gemini CLI headless prompt improvement.
+# Honors PROMPT_IMPROVER_MODEL when set.
 
 set -euo pipefail
 
@@ -16,4 +17,9 @@ if ! command -v gemini >/dev/null 2>&1; then
   exit 127
 fi
 
-exec gemini -p "$(cat "$PROMPT_FILE")"
+MODEL_ARGS=()
+if [ -n "${PROMPT_IMPROVER_MODEL:-}" ]; then
+  MODEL_ARGS=(-m "$PROMPT_IMPROVER_MODEL")
+fi
+
+exec gemini -p "$(cat "$PROMPT_FILE")" "${MODEL_ARGS[@]}"

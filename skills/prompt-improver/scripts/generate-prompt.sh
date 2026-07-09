@@ -138,7 +138,17 @@ if [ "$BACKEND_TO_USE" = "unknown" ] || [ -z "$BACKEND_TO_USE" ]; then
   exit 0
 fi
 
-echo "Using backend: $BACKEND_TO_USE${MODEL:+ (model: $MODEL)}" >&2
+if [ -z "$MODEL" ]; then
+  echo "WARNING: no generator model set (PROMPT_IMPROVER_MODEL / settings.model)." >&2
+  echo "  Headless will use the CLI default — which may be a full-cost frontier model." >&2
+  echo "  Pin a fast/cheap model for the improver, e.g. export PROMPT_IMPROVER_MODEL=..." >&2
+  echo "Using backend: $BACKEND_TO_USE (model: CLI default)" >&2
+else
+  echo "Using backend: $BACKEND_TO_USE (model: $MODEL)" >&2
+fi
+
+# Export so backend adapters can attach -m / --model
+export PROMPT_IMPROVER_MODEL="${MODEL}"
 
 # --- Invoke backend ---
 BACKEND_SCRIPT="$SCRIPT_DIR/backends/$BACKEND_TO_USE.sh"

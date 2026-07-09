@@ -87,33 +87,50 @@ bash skills/prompt-improver/scripts/standalone-improve.sh "your request" plan
 
 ## How it works
 
-1. **Triage** — skip generation if the input is already a solid spec  
-2. **Generate** — embed references + improvement-only contract → structured XML  
-3. **Validate** — `scripts/validate-prompt.sh` checks tasks, verification, and check blocks  
-4. **Execute or review** — run the work, or inspect the plan first  
+**Headless generation is the core design.** Improving the prompt is a separate, improvement-only model call — not something the host agent should grind through as a full in-session rewrite.
 
-### Who runs the “improver” model?
-
-**Default (when you invoke `/prompt-improver` inside an agent):** generation runs **in the same session**. The host agent follows the skill instructions and writes the improved XML itself. There is **no** automatic second process and **no** nested “spawn yourself headless” loop.
-
-That matters for cost: if a frontier agent (e.g. a high-end Claude / Fable / Grok session) shelled out to another full copy of itself to improve the prompt, you would pay roughly twice for the same class of model. The skill is written to **avoid that**.
-
-**Optional (standalone scripts / CI):** `scripts/generate-prompt.sh` can call a coding CLI headlessly. Use this when you want improvement **outside** an interactive agent, or when you pin a **cheaper/faster** model for generation only:
-
-```bash
-PROMPT_IMPROVER_MODEL="<fast-or-cheap-model>" \
-  bash skills/prompt-improver/scripts/generate-prompt.sh \
-  --mode plan \
-  --raw-input "your request"
+```text
+Host agent  →  headless generator (cheap/fast model)  →  XML spec  →  host executes
 ```
 
-Set `PROMPT_IMPROVER_BACKEND` / `model` in settings if you use this path often. Leaving model unset uses the CLI’s default — which may still be expensive.
+1. **Triage** — skip generation if the input is already a solid spec  
+2. **Generate (headless)** — `scripts/generate-prompt.sh` embeds references + the improvement-only contract and calls a coding CLI headlessly  
+3. **Validate** — structural checks via `scripts/validate-prompt.sh`  
+4. **Execute or review** — the **host** agent runs the improved plan (or shows it in Plan mode)
+
+### Generator model vs host model
+
+| Role | Who | Model |
+|------|-----|--------|
+| **Generator** | Headless CLI (`generate-prompt.sh`) | Prefer a **fast/cheap** model via `PROMPT_IMPROVER_MODEL` |
+| **Executor** | Your interactive agent (Fable, Claude Code, Grok, …) | Your normal session model |
+
+If you leave `model` unset, the backend CLI’s default is used — which can accidentally be another full-cost frontier run. **Pin a cheap generator model** in settings or env:
+
+```bash
+# Example: generate with an explicit model, then use the result in your agent
+export PROMPT_IMPROVER_MODEL="your-fast-model-id"
+export PROMPT_IMPROVER_BACKEND="claude"   # or grok, gemini, …
+
+bash skills/prompt-improver/scripts/generate-prompt.sh \
+  --mode plan \
+  --raw-input "Add rate limiting to the payment API"
+```
+
+User/project settings (optional):
+
+```bash
+mkdir -p ~/.config/prompt-improver
+cp skills/prompt-improver/config/settings.example.json \
+  ~/.config/prompt-improver/settings.json
+# edit "model" and "backend"
+```
 
 Bundled under the skill:
 
 - Prompting principles & XML template (`references/`)
 - Generator instructions (`assets/`)
-- Multi-CLI backends for optional headless generation (`scripts/backends/`)
+- Multi-CLI headless backends (`scripts/backends/`)
 - Offline smoke tests (`tests/smoke-test.sh`)
 
 ## Structure

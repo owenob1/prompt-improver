@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # scripts/backends/grok.sh
 # Invokes Grok Build headless for prompt generation.
+# Honors PROMPT_IMPROVER_MODEL when set (generator model — prefer cheap/fast).
 
 set -euo pipefail
 
@@ -16,9 +17,14 @@ if ! command -v grok >/dev/null 2>&1; then
   exit 127
 fi
 
+MODEL_ARGS=()
+if [ -n "${PROMPT_IMPROVER_MODEL:-}" ]; then
+  MODEL_ARGS=(-m "$PROMPT_IMPROVER_MODEL")
+fi
+
 # Prefer JSON output when available; fall back to plain text
-if grok -p "$(cat "$PROMPT_FILE")" --output-format json --yolo 2>/dev/null; then
+if grok -p "$(cat "$PROMPT_FILE")" "${MODEL_ARGS[@]}" --output-format json --yolo 2>/dev/null; then
   exit 0
 fi
 
-exec grok -p "$(cat "$PROMPT_FILE")"
+exec grok -p "$(cat "$PROMPT_FILE")" "${MODEL_ARGS[@]}"
