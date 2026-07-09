@@ -127,6 +127,10 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md).
 bash tests/smoke-test.sh
 ```
 
+## Roadmap
+
+See [docs/ROADMAP.md](./docs/ROADMAP.md).
+
 ## License
 
 [MIT](./LICENSE) © owenob1
