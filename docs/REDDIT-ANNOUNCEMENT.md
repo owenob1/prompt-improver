@@ -19,9 +19,10 @@ Introducing /prompt-improver: The antidote to bad prompting
 
 Vague prompts kill agent runs. No verification, no constraints, no task split — so you either burn the frontier session rewriting the request, or you get half-baked code with no "done when."
 
-`/prompt-improver` fixes that:
+**What it does:**
 
 * Rewrites your rough request into a **precise, verifiable XML spec** (tasks, requirements, checks)
+* Is **context aware**
 * Runs that rewrite in a **separate headless model call** — not by grinding your host session
 * Generator is **improvement-only** (never implements the feature)
 * Host agent then **executes**, or use `plan` to review the XML first
