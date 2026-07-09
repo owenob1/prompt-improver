@@ -99,20 +99,6 @@ git clone https://github.com/owenob1/prompt-improver.git && cp -R prompt-improve
 | `plan` | Improve headlessly, **show** XML, wait |
 | `model:<id>` | Override generator model for this run (any family / future ID) |
 
-```bash
-# Plan mode + mid-tier Claude generator
-/prompt-improver plan model:sonnet "Add rate limiting"
-
-# Frontier GPT generator (routes to codex if installed), then plan
-/prompt-improver model:gpt-5.6-sol plan "Refactor payments"
-
-# Grok frontier generator (routes to grok CLI)
-/prompt-improver model:grok-4.5 "Design the migration"
-
-# Restricted Claude model — falls back along the cascade if unavailable
-/prompt-improver model:mythos "Security-sensitive rewrite"
-```
-
 ---
 
 ## 🧠 Default generator models
