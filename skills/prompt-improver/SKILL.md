@@ -9,7 +9,7 @@ description: >
   skip generation and execute directly.
 license: MIT
 metadata:
-  author: Owen Innes
+  author: owenob1
   version: 6.2.0
   category: prompt-engineering
 ---
