@@ -9,7 +9,7 @@
 # Examples:
 #   bash scripts/standalone-improve.sh "Add rate limiting to the API"
 #   bash scripts/standalone-improve.sh "Refactor auth" plan
-#   bash scripts/standalone-improve.sh "Fix flaky tests" plan haiku
+#   bash scripts/standalone-improve.sh "Fix flaky tests" plan sonnet
 #   PROMPT_IMPROVER_BACKEND=claude bash scripts/standalone-improve.sh "Fix flaky tests"
 
 set -euo pipefail

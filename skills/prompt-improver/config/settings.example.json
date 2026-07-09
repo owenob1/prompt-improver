@@ -3,13 +3,13 @@
   "backend": "auto",
   "model": null,
   "default_models": {
-    "claude": "haiku",
+    "claude": "sonnet",
     "grok": "grok-composer-2.5-fast",
-    "gemini": "gemini-2.5-flash",
-    "codex": "o4-mini"
+    "gemini": "gemini-2.5-pro",
+    "codex": "gpt-5.5"
   },
   "max_tokens": 12000,
   "fallback_strategy": "manual",
   "preferred_backends": ["grok", "claude", "gemini"],
-  "notes": "Copy to ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json.\nSet model to force one generator model for all backends.\nOr edit default_models per backend.\nPer-prompt override: /prompt-improver model:haiku \"your request\""
+  "notes": "Copy to ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json.\nSet model to force one generator model for all backends.\nOr edit default_models per backend.\nPer-prompt override: /prompt-improver model:sonnet \"your request\""
 }

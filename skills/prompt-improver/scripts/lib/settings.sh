@@ -47,11 +47,11 @@ get_setting() {
 }
 
 # Built-in defaults if settings file has no default_models
-# Fast/cheap improvers — not host frontier models
-_PI_BUILTIN_DEFAULT_MODELS_claude="haiku"
+# Strong mid-tier generators (not haiku/mini; not host frontier like fable/opus)
+_PI_BUILTIN_DEFAULT_MODELS_claude="sonnet"
 _PI_BUILTIN_DEFAULT_MODELS_grok="grok-composer-2.5-fast"
-_PI_BUILTIN_DEFAULT_MODELS_gemini="gemini-2.5-flash"
-_PI_BUILTIN_DEFAULT_MODELS_codex="o4-mini"
+_PI_BUILTIN_DEFAULT_MODELS_gemini="gemini-2.5-pro"
+_PI_BUILTIN_DEFAULT_MODELS_codex="gpt-5.5"
 
 # Resolve default generator model for a backend (from settings.default_models or builtins)
 get_default_model_for_backend() {

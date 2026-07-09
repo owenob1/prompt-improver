@@ -33,9 +33,9 @@ Examples:
 ```text
 /prompt-improver "Fix the flaky auth tests"
 /prompt-improver plan "Add rate limiting to the payment API"
-/prompt-improver model:haiku "Add rate limiting"
+/prompt-improver model:sonnet "Add rate limiting"
 /prompt-improver plan model:claude-sonnet-5 "Refactor payments"
-/prompt-improver model=grok-composer-2.5-fast plan "Design the migration"
+/prompt-improver model=gpt-5.5 plan "Design the migration"
 ```
 
 If mode is ambiguous and the work is large/risky, ask once: Execute vs Plan.
@@ -152,7 +152,7 @@ Layers (env wins):
 |---------------|---------|
 | `backend` / `PROMPT_IMPROVER_BACKEND` | Which CLI runs headless generation (`auto`, `claude`, `grok`, …) |
 | `model` / `PROMPT_IMPROVER_MODEL` | Force one generator model for all backends (optional) |
-| `default_models` | Per-backend generator defaults (shipped: haiku, grok-composer-2.5-fast, …) |
+| `default_models` | Per-backend generator defaults (shipped: sonnet, grok-composer-2.5-fast, gemini-2.5-pro, gpt-5.5) |
 | `fallback_strategy` | `manual` (print assembled prompt) or `error` |
 
 Per-prompt `model:…` always wins for that run.

@@ -66,8 +66,8 @@ Many agents also load from `~/.agents/skills/` or project `.claude/skills/`.
 ```text
 /prompt-improver "Fix the flaky auth tests"
 /prompt-improver plan "Add rate limiting to the payment API"
-/prompt-improver model:haiku "Add rate limiting"
-/prompt-improver plan model:claude-sonnet-5 "Refactor payments"
+/prompt-improver model:sonnet "Add rate limiting"
+/prompt-improver plan model:gpt-5.5 "Refactor payments"
 ```
 
 | Flag | Meaning |
@@ -83,37 +83,43 @@ Flags are leading tokens (same style as `plan`); they can be combined in any ord
 ```bash
 bash skills/prompt-improver/scripts/assemble-generation-prompt.sh "your request"
 bash skills/prompt-improver/scripts/standalone-improve.sh "your request" plan
-bash skills/prompt-improver/scripts/standalone-improve.sh "your request" plan haiku
+bash skills/prompt-improver/scripts/standalone-improve.sh "your request" plan sonnet
 ```
 
 ## Default generator models
 
-Headless improvement uses a **generator** model (fast/cheap by default). Your interactive host agent (Fable, Opus, full Grok Build session, …) only **executes** the improved plan.
+Headless improvement uses a **capable mid-tier generator** — strong enough for high-quality specs, cheaper than host frontier models (Fable / Opus / max Grok Build session). Your interactive host only **executes** the improved plan.
 
-| Backend CLI | Default generator model | Notes |
-|-------------|-------------------------|--------|
-| **claude** | `haiku` | Claude Code alias → current Haiku (cheap/fast) |
-| **grok** | `grok-composer-2.5-fast` | Fast headless improver in Grok Build |
-| **gemini** | `gemini-2.5-flash` | Flash-class; good cost/speed for rewrite |
-| **codex** | `o4-mini` | Lightweight OpenAI-class default |
-| **opencode / cline / kimi / kiro** | *(CLI default)* | No pinned id yet — set `model:` or settings |
+| Backend CLI | Default generator model | Why |
+|-------------|-------------------------|-----|
+| **claude** | `sonnet` | Claude Code alias → **Sonnet 5** (`claude-sonnet-5`) — daily-driver quality for structured prompts |
+| **grok** | `grok-composer-2.5-fast` | High-quality agentic coding model; strong speed/quality balance in Grok Build |
+| **gemini** | `gemini-2.5-pro` | Pro-class reasoning for specs (not Flash-lite) |
+| **codex** | `gpt-5.5` | Current recommended Codex CLI default (GPT-5 family) |
+| **opencode / cline / kimi / kiro** | *(CLI default)* | No pin yet — set `model:` or settings |
+
+Still **not** the host frontier tier (e.g. `fable` / Opus). Override upward when you want:
+
+```text
+/prompt-improver model:claude-sonnet-5 "…"
+/prompt-improver model:gpt-5.5 plan "…"
+```
 
 **Resolution order** (first wins):
 
 1. Per-prompt `model:…` / `generate-prompt.sh --model …`
 2. `PROMPT_IMPROVER_MODEL` or settings `"model"`
-3. `default_models[backend]` in settings (table above ships in `config/settings.default.json`)
-4. Backend CLI default (avoid for production)
+3. `default_models[backend]` in settings (table above)
+4. Backend CLI default
 
 ```bash
-# Force one model for all headless runs (env)
-export PROMPT_IMPROVER_MODEL=haiku
 export PROMPT_IMPROVER_BACKEND=claude
+export PROMPT_IMPROVER_MODEL=sonnet   # optional global pin
 
 bash skills/prompt-improver/scripts/generate-prompt.sh \
   --mode plan \
   --raw-input "Add rate limiting to the payment API" \
-  --model haiku
+  --model sonnet
 ```
 
 Optional user settings (later roadmap: richer skill-side settings UX):

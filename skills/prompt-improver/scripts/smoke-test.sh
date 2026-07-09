@@ -133,7 +133,7 @@ echo "[9] default generator models"
 # shellcheck disable=SC1091
 source scripts/lib/settings.sh
 load_settings
-for pair in "claude:haiku" "grok:grok-composer-2.5-fast" "gemini:gemini-2.5-flash" "codex:o4-mini"; do
+for pair in "claude:sonnet" "grok:grok-composer-2.5-fast" "gemini:gemini-2.5-pro" "codex:gpt-5.5"; do
   b="${pair%%:*}"
   expect="${pair#*:}"
   got=$(get_default_model_for_backend "$b")

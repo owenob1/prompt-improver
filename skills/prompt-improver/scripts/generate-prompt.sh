@@ -66,7 +66,7 @@ Options:
 Model resolution order:
   1. --model / per-prompt model: token
   2. PROMPT_IMPROVER_MODEL or settings.model
-  3. settings.default_models[backend] (shipped defaults: haiku, grok-composer-2.5-fast, …)
+  3. settings.default_models[backend] (shipped: sonnet, grok-composer-2.5-fast, gemini-2.5-pro, gpt-5.5)
   4. Backend CLI default (discouraged)
 HELP
       exit 0
