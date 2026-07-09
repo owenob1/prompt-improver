@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 # scripts/backends/codex.sh
-# Adapter for Codex / OpenAI style CLI (if using codex or similar).
+# Adapter for OpenAI Codex CLI.
 
 set -euo pipefail
 
-PROMPT_FILE="$1"
+PROMPT_FILE="${1:-}"
 
-if [ ! -f "$PROMPT_FILE" ]; then
-  echo "Error: prompt file required" >&2
+if [ -z "$PROMPT_FILE" ] || [ ! -f "$PROMPT_FILE" ]; then
+  echo "Usage: $0 <prompt-file>" >&2
   exit 1
 fi
 
-# Placeholder for Codex-like: often `codex exec` or openai cli.
-exec codex exec -c "$(cat "$PROMPT_FILE")" 2>/dev/null || \
-  echo "Codex/OpenAI CLI headless. Use 'openai' or custom. Update this adapter with your command."
+if ! command -v codex >/dev/null 2>&1; then
+  echo "codex CLI not found. Install OpenAI Codex CLI, or set custom_command in settings." >&2
+  exit 127
+fi
+
+exec codex exec "$(cat "$PROMPT_FILE")"

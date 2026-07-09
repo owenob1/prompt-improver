@@ -138,14 +138,22 @@ elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
   echo "Platform: Java (Gradle)"
 fi
 
-# CLAUDE.md
+# Agent instruction files (multi-CLI)
 echo ""
-echo "--- CLAUDE.MD ---"
-if [ -f "CLAUDE.md" ]; then
-  head -50 CLAUDE.md
-elif [ -f "../CLAUDE.md" ]; then
-  head -50 ../CLAUDE.md
-else
+echo "--- AGENT INSTRUCTIONS ---"
+FOUND_AGENT_MD=false
+for f in CLAUDE.md AGENTS.md .cursorrules; do
+  if [ -f "$f" ]; then
+    echo "Found: $f"
+    head -40 "$f"
+    FOUND_AGENT_MD=true
+  elif [ -f "../$f" ]; then
+    echo "Found: ../$f"
+    head -40 "../$f"
+    FOUND_AGENT_MD=true
+  fi
+done
+if [ "$FOUND_AGENT_MD" = false ]; then
   echo "(none found)"
 fi
 
@@ -153,6 +161,7 @@ fi
 echo ""
 echo "--- CONFIGURATION ---"
 [ -f ".claude/CLAUDE.md" ] && echo "Claude Code: project CLAUDE.md found"
+[ -f "AGENTS.md" ] && echo "Agents: AGENTS.md found"
 { [ -f ".env.example" ] || [ -f ".env.template" ]; } && echo "Environment: .env template found"
 { [ -f ".eslintrc.js" ] || [ -f ".eslintrc.json" ] || [ -f "eslint.config.js" ] || [ -f "eslint.config.mjs" ]; } && echo "Linter: ESLint"
 { [ -f "biome.json" ] || [ -f "biome.jsonc" ]; } && echo "Linter: Biome"

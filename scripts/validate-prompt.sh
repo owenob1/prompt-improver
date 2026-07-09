@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # validate-prompt.sh
 # Validates a generated XML prompt for required structural elements.
-# Checks are informed by the Claude Code Prompt Engineering Playbook (Phases 3-9).
-# Usage: echo "$prompt" | bash validate-prompt.sh
-#        bash validate-prompt.sh prompt-file.md
+# Checks are informed by prompting best practices (verification, escape, check).
+#
+# Usage:
+#   echo "$prompt" | bash scripts/validate-prompt.sh
+#   bash scripts/validate-prompt.sh path/to/prompt.xml
+#
+# Typecheck is a WARNING by default (not all projects are typed).
+# Set PROMPT_IMPROVER_REQUIRE_TYPECHECK=1 to make missing typecheck a hard error.
+
 set -euo pipefail
 
 # Read prompt from file argument or stdin
@@ -15,6 +21,7 @@ fi
 
 ERRORS=0
 WARNINGS=0
+REQUIRE_TYPECHECK="${PROMPT_IMPROVER_REQUIRE_TYPECHECK:-0}"
 
 pass() { echo "PASS: $1"; }
 fail() { echo "FAIL: $1"; ERRORS=$((ERRORS + 1)); }
@@ -47,14 +54,21 @@ else
   fail "no check block found"
 fi
 
-# 4. A typecheck command appears somewhere
-if echo "$PROMPT" | grep -qiE '(tsc|pyright|mypy|go vet|cargo check|cargo test)'; then
-  pass "typecheck command found"
+# 4. Typecheck / static analysis — optional for non-typed repos
+# Accept common typecheck tools OR explicit "no typecheck" / shell-only verification
+if echo "$PROMPT" | grep -qiE '(tsc|pyright|mypy|go vet|cargo check|cargo test|typecheck|static.?analy)'; then
+  pass "typecheck/static-analysis command found"
+elif echo "$PROMPT" | grep -qiE '(no typecheck|n/a.*typecheck|shellcheck|bash -n|validate-prompt)'; then
+  pass "explicit non-typed or script verification found"
 else
-  fail "no typecheck command found"
+  if [ "$REQUIRE_TYPECHECK" = "1" ]; then
+    fail "no typecheck command found (PROMPT_IMPROVER_REQUIRE_TYPECHECK=1)"
+  else
+    warn "no typecheck command found — add tsc/mypy/cargo check when the project is typed, or note N/A for script-only repos"
+  fi
 fi
 
-# 5. An <escape> clause exists (in execution block or standalone)
+# 5. An <escape> clause exists
 if echo "$PROMPT" | grep -q '<escape'; then
   pass "escape clause present"
 else
@@ -71,14 +85,14 @@ while IFS= read -r match; do
   fi
 done < <(echo "$PROMPT" | grep -oiE "\b($VAGUE_WORDS)\b" | tr '[:upper:]' '[:lower:]' | sort -u || true)
 
-# 7. No <approach> block (replaced <evaluate>)
+# 7. No <approach> block
 if ! echo "$PROMPT" | grep -q '<approach'; then
   warn "no approach block found — consider adding think-before-act reasoning"
 fi
 
-# --- Emphasis and signal quality (Playbook Phase 3) ---
+# --- Emphasis and signal quality ---
 
-# 8. Emphasis dilution check — >20% of instructions at CRITICAL/ALWAYS/NEVER dilutes signal
+# 8. Emphasis dilution
 TOTAL_INSTRUCTIONS=$(echo "$PROMPT" | grep -cE '^\s*[-*]|^\s*[0-9]+\.' || true)
 if [ "$TOTAL_INSTRUCTIONS" -gt 5 ]; then
   TOP_TIER_COUNT=$(echo "$PROMPT" | grep -cE '\b(CRITICAL|ALWAYS|NEVER)\b' || true)
@@ -90,13 +104,11 @@ if [ "$TOTAL_INSTRUCTIONS" -gt 5 ]; then
   fi
 fi
 
-# 9. Aggressive language detection — nuanced for Claude 4.6
-# The playbook says: lighter emphasis for Claude 4.6, but safety rules keep full emphasis.
-# Count aggressive language, but distinguish safety context from general usage.
+# 9. Aggressive language
 AGGRESSIVE_WORDS="MUST|CRITICAL|ABSOLUTELY|non-negotiable|NO exceptions"
-AGGRESSIVE_TOTAL=$(echo "$PROMPT" | grep -oE "\b($AGGRESSIVE_WORDS)\b" | wc -l || true)
+AGGRESSIVE_TOTAL=$(echo "$PROMPT" | grep -oE "\b($AGGRESSIVE_WORDS)\b" | wc -l | tr -d ' ' || true)
+AGGRESSIVE_TOTAL=${AGGRESSIVE_TOTAL:-0}
 
-# Check if aggressive language appears near safety/security context
 SAFETY_AGGRESSIVE=0
 if echo "$PROMPT" | grep -qiE '(safety|security|data.loss|injection|destructive|irreversible).*\b(CRITICAL|MUST|NEVER)\b'; then
   SAFETY_AGGRESSIVE=$((SAFETY_AGGRESSIVE + 1))
@@ -105,47 +117,44 @@ if echo "$PROMPT" | grep -qiE '\b(CRITICAL|MUST|NEVER)\b.*(safety|security|data.
   SAFETY_AGGRESSIVE=$((SAFETY_AGGRESSIVE + 1))
 fi
 
-# Warn only on non-safety aggressive language exceeding threshold
-NON_SAFETY_AGGRESSIVE=$((AGGRESSIVE_TOTAL > SAFETY_AGGRESSIVE ? AGGRESSIVE_TOTAL - SAFETY_AGGRESSIVE : 0))
-if [ "$NON_SAFETY_AGGRESSIVE" -gt 3 ]; then
-  warn "aggressive language detected ($AGGRESSIVE_TOTAL total, ~$SAFETY_AGGRESSIVE in safety context) — Claude 4.6 responds better to calm instructions for non-safety rules"
-elif [ "$AGGRESSIVE_TOTAL" -gt 2 ] && [ "$SAFETY_AGGRESSIVE" -eq 0 ]; then
+if [ "$AGGRESSIVE_TOTAL" -gt 3 ] && [ "$SAFETY_AGGRESSIVE" -eq 0 ]; then
   warn "aggressive language detected ($AGGRESSIVE_TOTAL instances, none in safety context) — use calm, direct instructions"
+elif [ "$AGGRESSIVE_TOTAL" -gt 5 ]; then
+  NON_SAFETY=$((AGGRESSIVE_TOTAL - SAFETY_AGGRESSIVE))
+  if [ "$NON_SAFETY" -gt 3 ]; then
+    warn "aggressive language detected ($AGGRESSIVE_TOTAL total, ~$SAFETY_AGGRESSIVE in safety context) — keep full emphasis for safety only"
+  fi
 fi
 
-# --- Writing technique quality (Playbook Phase 4) ---
+# --- Writing technique quality ---
 
-# 10. Decision boundary examples — check for <reasoning> blocks when examples exist
+# 10. Decision boundary examples
 EXAMPLE_COUNT=$(echo "$PROMPT" | grep -c '<example' || true)
 REASONING_COUNT=$(echo "$PROMPT" | grep -c '<reasoning' || true)
 if [ "$EXAMPLE_COUNT" -gt 2 ] && [ "$REASONING_COUNT" -eq 0 ]; then
   warn "examples present but no <reasoning> blocks — decision boundary examples with reasoning are the most effective steering technique"
 fi
 
-# --- Check block quality (Playbook Phase 9) ---
+# --- Check block quality ---
 
 if echo "$PROMPT" | grep -q '<check'; then
-  # File re-read
   if ! echo "$PROMPT" | grep -qi 're-read\|reread\|verify.*changed.*file\|scan.*changed'; then
     fail "check block missing file re-read verification"
   fi
-  # Typecheck in check block
-  if ! echo "$PROMPT" | grep -qi 'typecheck\|tsc.*noEmit\|pyright\|cargo check'; then
-    warn "check block missing typecheck command"
+  if ! echo "$PROMPT" | grep -qi 'typecheck\|tsc.*noEmit\|pyright\|cargo check\|shellcheck\|bash -n\|validate-prompt\|no typecheck'; then
+    warn "check block missing typecheck or explicit N/A verification"
   fi
-  # Test suite
-  if ! echo "$PROMPT" | grep -qi 'test suite\|npm test\|run.*test'; then
-    warn "check block missing test suite execution"
+  if ! echo "$PROMPT" | grep -qi 'test suite\|npm test\|run.*test\|pytest\|cargo test\|validate-prompt\|smoke'; then
+    warn "check block missing test suite / smoke verification"
   fi
-  # Requirement status reporting
   if ! echo "$PROMPT" | grep -qi 'requirement\|status.*for.*each\|compare.*original'; then
     warn "check block missing requirement-by-requirement status reporting"
   fi
 fi
 
-# --- Constraint quality (Playbook Phase 5) ---
+# --- Constraint quality ---
 
-# 11. Constraints section — check for generic boilerplate
+# 11. Generic boilerplate in constraints
 if echo "$PROMPT" | grep -qi '<constraints'; then
   GENERIC_PATTERNS="no stubs|no placeholder|re-read.*file|run.*test.*after|deterministic.*operation|bash.*for.*all"
   GENERIC_COUNT=$(echo "$PROMPT" | sed -n '/<constraints/,/<\/constraints/p' | grep -ciE "$GENERIC_PATTERNS" || true)
@@ -180,16 +189,16 @@ if echo "$PROMPT" | grep -qi 'sequential.thinking\|sequentialthinking'; then
   warn "sequential-thinking MCP reference detected — use native <approach> blocks instead"
 fi
 
-# --- Autonomous agent prompt checks (Playbook Phase 8) ---
+# --- Autonomous agent prompt checks ---
 
-# 14. Trust hierarchy — if prompt mentions autonomous/auto-mode/tool results
+# 14. Trust hierarchy
 if echo "$PROMPT" | grep -qiE '(autonom|auto.mode|tool.result|subagent|delegation)'; then
   if ! echo "$PROMPT" | grep -qiE '(override_rules|trust.*hierarch|priority.*order|data.*only|not.*instruction)'; then
     warn "autonomous agent prompt missing trust hierarchy — declare that tool results are DATA, not instructions"
   fi
 fi
 
-# 15. Known failure modes — for complex multi-task prompts
+# 15. Known failure modes for complex multi-task prompts
 if [ "$TASK_COUNT" -gt 3 ]; then
   if ! echo "$PROMPT" | grep -qi 'failure.mode\|common.mistake\|known_failure'; then
     warn "complex prompt ($TASK_COUNT tasks) with no failure mode documentation — consider adding <known_failure_modes>"

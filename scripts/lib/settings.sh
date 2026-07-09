@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 # scripts/lib/settings.sh
 # Loads prompt-improver settings with sensible defaults and overrides.
-# Priority: env vars > user settings > project settings > default
+# Priority: env vars > project settings > user settings > default
+#
+# IMPORTANT: This file must not overwrite the caller's SCRIPT_DIR.
+# It uses PI_* names for its own path resolution.
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+_PI_SETTINGS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_PI_ROOT_DIR="$(cd "$_PI_SETTINGS_DIR/../.." && pwd)"
 
 CONFIG_DIR="${PROMPT_IMPROVER_CONFIG_DIR:-$HOME/.config/prompt-improver}"
 PROJECT_CONFIG_DIR="${PROMPT_IMPROVER_PROJECT_CONFIG_DIR:-.prompt-improver}"
 
-DEFAULT_SETTINGS="$ROOT_DIR/config/settings.default.json"
+DEFAULT_SETTINGS="$_PI_ROOT_DIR/config/settings.default.json"
 USER_SETTINGS="$CONFIG_DIR/settings.json"
 PROJECT_SETTINGS="$PROJECT_CONFIG_DIR/settings.json"
 
@@ -19,17 +22,18 @@ PROJECT_SETTINGS="$PROJECT_CONFIG_DIR/settings.json"
 get_setting() {
   local key="$1"
   local default="${2:-}"
+  local file val
 
   for file in "$PROJECT_SETTINGS" "$USER_SETTINGS" "$DEFAULT_SETTINGS"; do
     if [ -f "$file" ]; then
       if command -v jq >/dev/null 2>&1; then
-        val=$(jq -r ".$key // empty" "$file" 2>/dev/null || true)
+        val=$(jq -r --arg k "$key" '.[$k] // empty' "$file" 2>/dev/null || true)
         if [ -n "$val" ] && [ "$val" != "null" ]; then
           echo "$val"
           return 0
         fi
       else
-        # Fallback: very basic parsing
+        # Fallback: very basic parsing for string/number/bool scalars
         val=$(grep -o "\"$key\"[[:space:]]*:[[:space:]]*[^,}]*" "$file" | head -1 | sed -E 's/.*:[[:space:]]*//; s/[",]//g' || true)
         if [ -n "$val" ]; then
           echo "$val"
@@ -51,7 +55,7 @@ load_settings() {
   ENABLE_THINKING=$(get_setting "enable_thinking" "true")
   HEADLESS_ONLY=$(get_setting "headless_only" "true")
   FALLBACK_STRATEGY=$(get_setting "fallback_strategy" "manual")
-  PREFERRED_BACKENDS=$(get_setting "preferred_backends" '["grok","claude","gemini"]')
+  PREFERRED_BACKENDS=$(get_setting "preferred_backends" '["grok","claude","gemini","cline","opencode","kimi","kiro","codex"]')
   CUSTOM_COMMAND=$(get_setting "custom_command" "")
 
   # Env var overrides (highest priority)
@@ -60,41 +64,39 @@ load_settings() {
   MAX_TOKENS="${PROMPT_IMPROVER_MAX_TOKENS:-$MAX_TOKENS}"
   ENABLE_RESEARCH="${PROMPT_IMPROVER_ENABLE_RESEARCH:-$ENABLE_RESEARCH}"
   ENABLE_THINKING="${PROMPT_IMPROVER_ENABLE_THINKING:-$ENABLE_THINKING}"
+  FALLBACK_STRATEGY="${PROMPT_IMPROVER_FALLBACK_STRATEGY:-$FALLBACK_STRATEGY}"
+  CUSTOM_COMMAND="${PROMPT_IMPROVER_CUSTOM_COMMAND:-$CUSTOM_COMMAND}"
+
+  # Null model from JSON becomes empty string
+  if [ "$MODEL" = "null" ]; then
+    MODEL=""
+  fi
+  if [ "$CUSTOM_COMMAND" = "null" ]; then
+    CUSTOM_COMMAND=""
+  fi
 }
 
-# Detect the best backend based on available commands and environment
+# Detect the best backend based on preferred order, then availability
 detect_backend() {
   local preferred=("$@")
+  local b
 
-  # Check for explicit current environment hints
-  if [ -n "${CLAUDE:-}" ] || command -v claude >/dev/null 2>&1; then
-    if [[ " ${preferred[*]} " == *" claude "* ]] || [ "${#preferred[@]}" -eq 0 ]; then
-      echo "claude"
-      return 0
-    fi
+  # Respect preferred order first
+  if [ "${#preferred[@]}" -gt 0 ]; then
+    for b in "${preferred[@]}"; do
+      # Normalize alias
+      if [ "$b" = "openai" ]; then
+        b="codex"
+      fi
+      if command -v "$b" >/dev/null 2>&1; then
+        echo "$b"
+        return 0
+      fi
+    done
   fi
 
-  if [ -n "${GROK:-}" ] || command -v grok >/dev/null 2>&1; then
-    if [[ " ${preferred[*]} " == *" grok "* ]] || [ "${#preferred[@]}" -eq 0 ]; then
-      echo "grok"
-      return 0
-    fi
-  fi
-
-  if command -v gemini >/dev/null 2>&1; then
-    if [[ " ${preferred[*]} " == *" gemini "* ]] || [ "${#preferred[@]}" -eq 0 ]; then
-      echo "gemini"
-      return 0
-    fi
-  fi
-
-  if command -v cline >/dev/null 2>&1; then
-    echo "cline"
-    return 0
-  fi
-
-  # Fallback order
-  for b in "${preferred[@]}"; do
+  # Fallback scan of known CLIs
+  for b in grok claude gemini cline opencode kimi kiro codex; do
     if command -v "$b" >/dev/null 2>&1; then
       echo "$b"
       return 0
@@ -102,6 +104,30 @@ detect_backend() {
   done
 
   echo "unknown"
+}
+
+# Parse preferred_backends JSON into space-separated names on stdout (portable)
+# Usage: PREFS=( $(parse_preferred_backends) )
+parse_preferred_backends() {
+  local items="" line cleaned
+
+  if command -v jq >/dev/null 2>&1 && echo "$PREFERRED_BACKENDS" | jq -e 'type == "array"' >/dev/null 2>&1; then
+    while IFS= read -r line; do
+      [ -n "$line" ] && items="$items $line"
+    done < <(jq -r '.[]' <<<"$PREFERRED_BACKENDS" 2>/dev/null)
+  fi
+
+  if [ -z "${items// /}" ]; then
+    cleaned=$(echo "$PREFERRED_BACKENDS" | tr -d '[]"' | tr ',' ' ')
+    items="$cleaned"
+  fi
+
+  if [ -z "${items// /}" ]; then
+    items="grok claude gemini cline opencode kimi kiro codex"
+  fi
+
+  # shellcheck disable=SC2086
+  echo $items
 }
 
 # Get the actual command template for a backend
@@ -122,10 +148,22 @@ get_backend_command() {
     cline)
       echo "cline --prompt \"\$(cat \"$prompt_file\")\" --headless"
       ;;
+    opencode)
+      echo "opencode -p \"\$(cat \"$prompt_file\")\""
+      ;;
+    kimi)
+      echo "kimi \"\$(cat \"$prompt_file\")\" --headless"
+      ;;
+    kiro)
+      echo "kiro -p \"\$(cat \"$prompt_file\")\""
+      ;;
+    codex|openai)
+      echo "codex exec \"\$(cat \"$prompt_file\")\""
+      ;;
     *)
       echo ""
       ;;
   esac
 }
 
-export -f load_settings get_setting detect_backend get_backend_command
+export -f load_settings get_setting detect_backend get_backend_command parse_preferred_backends

@@ -5,7 +5,7 @@ argument-hint: [plan] [prompt-text or description of what to improve]
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent, AskUserQuestion
 metadata:
   author: Owen Innes
-  version: 6.1.0
+  version: 6.1.1
   category: prompt-engineering
   tags: [prompting, xml, agentic-coding, workflow, portable]
 intelligence_tier: 3

@@ -4,14 +4,20 @@
 
 set -euo pipefail
 
-PROMPT_FILE="$1"
+PROMPT_FILE="${1:-}"
 
-if [ ! -f "$PROMPT_FILE" ]; then
-  echo "Error: prompt file required" >&2
+if [ -z "$PROMPT_FILE" ] || [ ! -f "$PROMPT_FILE" ]; then
+  echo "Usage: $0 <prompt-file>" >&2
   exit 1
 fi
 
-# Kiro CLI supports headless for CI/CD.
-exec kiro --prompt "$(cat "$PROMPT_FILE")" --headless 2>/dev/null || \
-  kiro -p "$(cat "$PROMPT_FILE")" 2>/dev/null || \
-  echo "Kiro CLI headless not available in current setup. Check https://kiro.dev/cli for flags."
+if ! command -v kiro >/dev/null 2>&1; then
+  echo "kiro CLI not found. Check https://kiro.dev/cli for install and flags." >&2
+  exit 127
+fi
+
+if kiro --prompt "$(cat "$PROMPT_FILE")" --headless 2>/dev/null; then
+  exit 0
+fi
+
+exec kiro -p "$(cat "$PROMPT_FILE")"

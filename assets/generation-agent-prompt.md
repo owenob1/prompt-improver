@@ -31,7 +31,7 @@ The decision is yours based on reading the content — a `.md` file could be eit
 {RAW_INPUT}
 
 **Output mode:** {MODE}
-If mode is `task`, you MUST include `<acceptance_criteria>`, `<file_references>`, `<out_of_scope>`, `<verification_commands>`, `<reference_patterns>`, and `<risk_level>` sections in every `<task>` block. These fields are required for autonomous task execution — see the "Task mode enrichment" section above.
+Primary modes are `execute` and `plan`. Task mode is deprecated as a product mode, but if the caller still requests structured task output (or the request clearly benefits from rich task decomposition), include `<acceptance_criteria>`, `<file_references>`, `<out_of_scope>`, `<verification_commands>`, `<reference_patterns>`, and `<risk_level>` sections in every `<task>` block — see the "Task mode enrichment" section below.
 
 **Step 1: Gather codebase context**
 Run silently to detect tech stack and conventions:
