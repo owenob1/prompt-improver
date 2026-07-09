@@ -4,7 +4,13 @@ Copy a **title** + the **body** into Reddit. Reddit’s editor accepts this Mark
 
 ---
 
-## Title (pick one)
+## Title (recommended)
+
+```text
+Introducing /prompt-improver: The antidote to bad prompting
+```
+
+### Alternates
 
 ```text
 I open-sourced a skill that turns vague agent prompts into structured specs (then runs them)
@@ -23,7 +29,9 @@ Headless prompt improver for coding agents (Claude, Grok, Codex, Gemini) — MIT
 ## Body
 
 ```markdown
-**TL;DR:** I shipped **prompt-improver** — an Agent Skill that rewrites rough requests into precise, verifiable XML specs in a **separate headless model call**, then your host agent executes (or you review with `plan`). Portable across major coding CLIs. MIT.
+**Introducing `/prompt-improver`: the antidote to bad prompting.**
+
+**TL;DR:** An Agent Skill that rewrites rough requests into precise, verifiable XML specs in a **separate headless model call**, then your host agent executes (or you review with `plan`). Portable across major coding CLIs. MIT.
 
 **Repo:** https://github.com/owenob1/prompt-improver
 
