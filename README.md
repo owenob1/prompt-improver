@@ -126,7 +126,10 @@ git clone https://github.com/owenob1/prompt-improver.git && cp -R prompt-improve
 
 **Pick order:** `model:` flag → env/settings → table → CLI default.
 
-### Recognized models & aliases
+<details>
+<summary><strong>Recognized models & aliases</strong></summary>
+
+<br>
 
 Pass full IDs or short aliases. **Unknown future IDs pass through** (e.g. `gpt-5.6-sol-ultra`, `grok-4.6`) and still route by family prefix.
 
@@ -138,6 +141,8 @@ Pass full IDs or short aliases. **Unknown future IDs pass through** (e.g. `gpt-5
 | OpenAI / Codex | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `sol`, `terra`, `luna`, `gpt-5.5`, `gpt-5`, `gpt-5.3-codex`, `o4-mini`, `gpt-*` | `codex` |
 
 **Cross-host is fine:** Claude Code + `model:gpt-5.6-sol` uses **codex** if installed; Grok + `model:sonnet` / `model:fable-5` uses **claude** if installed.
+
+</details>
 
 ### Access / rate-limit fallbacks
 
