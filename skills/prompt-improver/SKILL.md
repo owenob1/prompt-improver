@@ -32,11 +32,12 @@ Examples:
 
 ```text
 /prompt-improver "Fix the flaky auth tests"
-/prompt-improver plan "Add rate limiting to the payment API"
-/prompt-improver model:sonnet "Add rate limiting"
-/prompt-improver plan model:claude-sonnet-5 "Refactor payments"
-/prompt-improver model=gpt-5.5 plan "Design the migration"
+/prompt-improver plan "Fix the flaky auth tests"
+/prompt-improver model:fable-5 "Fix the flaky auth tests"
+/prompt-improver plan model:gpt-5.5 "Refactor payments"
 ```
+
+`model:` accepts aliases and full IDs (`fable-5`, `sonnet`, `gpt-5.5`, `claude-sonnet-5`, …). The generator CLI is chosen from the model family when that CLI is on PATH (Claude host + `model:gpt-5.5` → codex; Grok host + `model:sonnet` → claude).
 
 If mode is ambiguous and the work is large/risky, ask once: Execute vs Plan.
 
@@ -101,14 +102,14 @@ bash <skill-root>/scripts/generate-prompt.sh \
   ${MODEL_OVERRIDE:+--model "$MODEL_OVERRIDE"}
 ```
 
-Model resolution (first wins):
+Model + backend resolution:
 
-1. Per-prompt `model:…` / `--model`
-2. `PROMPT_IMPROVER_MODEL` or settings `model`
-3. Shipped **default for the selected backend** (see README table / `config/settings.default.json` → `default_models`)
-4. Backend CLI default (last resort; may be expensive)
+1. Normalize `model:` / `--model` (e.g. `fable-5` → `claude-fable-5`)
+2. Infer generator CLI from model family; prefer it when installed (cross-host OK)
+3. Else `PROMPT_IMPROVER_MODEL` / settings `model`, then `default_models[backend]`
+4. Invoke headless backend with that model
 
-The script loads references, applies the improvement-only contract, invokes the configured backend headlessly, and validates output.
+The script loads references, applies the improvement-only contract, and validates output.
 
 On weak/invalid output, regenerate once with specific feedback. If headless fails and `fallback_strategy` is `manual`, the assembled generator materials are printed — do not silently fall back to a full in-host rewrite unless the user asks.
 

@@ -16,8 +16,8 @@
 [Features](#-features) ·
 [Install](#-install) ·
 [Usage](#-usage) ·
-[How it works](#-how-it-works) ·
 [Models](#-default-generator-models) ·
+[How it works](#-how-it-works) ·
 [Advanced](#-advanced) ·
 [Contributing](#-contributing)
 
@@ -32,8 +32,8 @@
 | **Headless generation** | Improves prompts in a separate model call — not by grinding the host agent session |
 | **Improvement-only** | Generator never implements your feature; it only rewrites the request |
 | **Execute or plan** | Run immediately, or review the XML first |
-| **Per-prompt model override** | `model:sonnet` / `model:gpt-5.5` like the `plan` flag |
-| **Multi-CLI** | Claude Code, Grok Build, Gemini, Codex, and more |
+| **Any model override** | `model:fable-5`, `model:sonnet`, `model:gpt-5.5`, … — routes to the right CLI when installed |
+| **Cross-host / cross-CLI** | Claude host + GPT generator, Grok host + Claude generator — OK if that CLI is on PATH |
 | **Portable skill** | [Agent Skills](https://agentskills.io/) format · [skills.sh](https://skills.sh) · Claude marketplace |
 
 ---
@@ -83,23 +83,46 @@ git clone https://github.com/owenob1/prompt-improver.git && cp -R prompt-improve
 
 ```text
 /prompt-improver "Fix the flaky auth tests"
+/prompt-improver plan "Fix the flaky auth tests"
+/prompt-improver model:fable-5 "Fix the flaky auth tests"
 ```
-
-### Flags
-
-Leading tokens (any order), same idea as slash-command options:
 
 | Flag | Effect |
 |------|--------|
 | *(none)* | Improve headlessly, then **execute** |
 | `plan` | Improve headlessly, **show** XML, wait |
-| `model:<id>` | Override generator model for this run |
+| `model:<id>` | Override generator model for this run (any family) |
+
+Combine flags freely:
 
 ```text
-/prompt-improver plan "Add rate limiting"
-/prompt-improver model:sonnet "Add rate limiting"
-/prompt-improver plan model:gpt-5.5 "Refactor payments"
+/prompt-improver plan model:sonnet "Add rate limiting"
+/prompt-improver model:gpt-5.5 plan "Refactor payments"
 ```
+
+---
+
+## 🧠 Default generator models
+
+| Backend CLI | Default model | Notes |
+|-------------|---------------|--------|
+| `claude` | `sonnet` → Sonnet 5 | Daily-driver structured rewrite |
+| `grok` | `grok-composer-2.5-fast` | Fast high-quality improver |
+| `gemini` | `gemini-2.5-pro` | Pro reasoning for specs |
+| `codex` | `gpt-5.5` | GPT-5 family Codex default |
+
+**Pick order:** `model:` flag → env/settings → table → CLI default.
+
+**Cross-CLI routing:** `model:` chooses the **generator** CLI by model family when that CLI is installed (host agent can stay Claude/Grok/etc.):
+
+| `model:` example | Routes to (if installed) |
+|------------------|---------------------------|
+| `fable-5`, `fable`, `sonnet`, `haiku`, `opus`, `claude-*` | `claude` |
+| `grok-*`, `composer-*` | `grok` |
+| `gemini-*` | `gemini` |
+| `gpt-*`, `o4-*`, `codex-*` | `codex` |
+
+If the matching CLI is missing, the skill keeps the auto-detected backend and warns.
 
 ---
 
@@ -110,26 +133,9 @@ Leading tokens (any order), same idea as slash-command options:
 </p>
 
 1. **Triage** — skip generation if the input is already a solid spec  
-2. **Generate** — headless rewrite via `scripts/generate-prompt.sh`  
+2. **Generate** — headless rewrite via `scripts/generate-prompt.sh` (model/backend resolved as above)  
 3. **Validate** — structural checks  
 4. **Execute or review** — host runs the plan (or shows it with `plan`)
-
-Host frontier models (Fable, Opus, …) stay on **execution**. Generation defaults to a capable mid-tier model.
-
-> GitHub injects pan/zoom controls on Mermaid blocks and can’t hide them from markdown — so this flow is a static SVG instead.
-
----
-
-## 🧠 Default generator models
-
-| Backend | Default | Notes |
-|---------|---------|--------|
-| `claude` | `sonnet` → **Sonnet 5** | Daily-driver quality for structured prompts |
-| `grok` | `grok-composer-2.5-fast` | Strong speed / quality balance |
-| `gemini` | `gemini-2.5-pro` | Pro reasoning for specs |
-| `codex` | `gpt-5.5` | GPT-5 family Codex default |
-
-**Pick order:** `model:` flag → env/settings → table → CLI default.
 
 ---
 
@@ -141,13 +147,13 @@ Host frontier models (Fable, Opus, …) stay on **execution**. Generation defaul
 <br>
 
 ```bash
-bash skills/prompt-improver/scripts/standalone-improve.sh "your request" plan
-bash skills/prompt-improver/scripts/standalone-improve.sh "your request" plan sonnet
+bash skills/prompt-improver/scripts/standalone-improve.sh "Fix the flaky auth tests" plan
+bash skills/prompt-improver/scripts/standalone-improve.sh "Fix the flaky auth tests" plan fable-5
 
 bash skills/prompt-improver/scripts/generate-prompt.sh \
   --mode plan \
-  --raw-input "your request" \
-  --model sonnet
+  --raw-input "Fix the flaky auth tests" \
+  --model fable-5
 ```
 
 </details>

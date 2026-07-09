@@ -121,13 +121,34 @@ if [ -n "$CUSTOM_COMMAND" ]; then
   exit 0
 fi
 
-# --- Determine backend ---
-BACKEND_TO_USE="$BACKEND"
+# --- Model first (so we can route backend cross-CLI) ---
+# Explicit --model / model: token wins; then env/settings.model
+if [ -n "$MODEL_OVERRIDE" ]; then
+  MODEL=$(normalize_model_id "$MODEL_OVERRIDE")
+elif [ -n "$MODEL" ]; then
+  MODEL=$(normalize_model_id "$MODEL")
+fi
 
-if [ "$BACKEND_TO_USE" = "auto" ]; then
-  # shellcheck disable=SC2207
-  PREFS=( $(parse_preferred_backends) )
+# --- Determine backend ---
+# shellcheck disable=SC2207
+PREFS=( $(parse_preferred_backends) )
+INFERRED_BACKEND=""
+if [ -n "$MODEL" ]; then
+  INFERRED_BACKEND=$(infer_backend_for_model "$MODEL")
+fi
+
+if [ "$BACKEND" = "auto" ]; then
   BACKEND_TO_USE=$(detect_backend "${PREFS[@]}")
+  # model:gpt-5.5 → prefer codex if installed; model:sonnet / model:fable-5 → prefer claude
+  if [ -n "$INFERRED_BACKEND" ]; then
+    BACKEND_TO_USE=$(prefer_backend_if_available "$INFERRED_BACKEND" "$BACKEND_TO_USE")
+  fi
+else
+  BACKEND_TO_USE="$BACKEND"
+  # Even with a forced backend, re-route when model clearly belongs to another installed CLI
+  if [ -n "$INFERRED_BACKEND" ] && [ "$INFERRED_BACKEND" != "$BACKEND_TO_USE" ]; then
+    BACKEND_TO_USE=$(prefer_backend_if_available "$INFERRED_BACKEND" "$BACKEND_TO_USE")
+  fi
 fi
 
 # Normalize aliases
@@ -147,19 +168,21 @@ if [ "$BACKEND_TO_USE" = "unknown" ] || [ -z "$BACKEND_TO_USE" ]; then
   exit 0
 fi
 
-# Model resolution: explicit override > env/settings.model > default_models[backend]
-if [ -n "$MODEL_OVERRIDE" ]; then
-  MODEL="$MODEL_OVERRIDE"
-elif [ -z "$MODEL" ]; then
+# Fill model from per-backend defaults if still empty
+if [ -z "$MODEL" ]; then
   MODEL=$(resolve_generator_model "$BACKEND_TO_USE")
 fi
 
 if [ -z "$MODEL" ]; then
   echo "WARNING: no generator model for backend '$BACKEND_TO_USE'." >&2
-  echo "  Using CLI default (may be expensive). Prefer: --model <id> or default_models in settings." >&2
+  echo "  Using CLI default. Prefer: --model <id> or default_models in settings." >&2
   echo "Using backend: $BACKEND_TO_USE (model: CLI default)" >&2
 else
-  echo "Using backend: $BACKEND_TO_USE (model: $MODEL)" >&2
+  if [ -n "$INFERRED_BACKEND" ] && [ "$INFERRED_BACKEND" != "$BACKEND_TO_USE" ]; then
+    echo "Using backend: $BACKEND_TO_USE (model: $MODEL; preferred CLI for model was $INFERRED_BACKEND)" >&2
+  else
+    echo "Using backend: $BACKEND_TO_USE (model: $MODEL)" >&2
+  fi
 fi
 
 # Export so backend adapters can attach -m / --model
@@ -183,6 +206,7 @@ else
       grok)   INVOCATION="$INVOCATION -m $MODEL" ;;
       claude) INVOCATION="$INVOCATION --model $MODEL" ;;
       gemini) INVOCATION="$INVOCATION -m $MODEL" ;;
+      codex|openai) INVOCATION="$INVOCATION -m $MODEL" ;;
     esac
   fi
 

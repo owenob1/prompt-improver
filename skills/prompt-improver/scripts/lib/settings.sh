@@ -123,6 +123,83 @@ resolve_generator_model() {
   get_default_model_for_backend "$backend"
 }
 
+# Normalize user-facing model tokens (model:fable-5, model:sonnet, …)
+# to IDs backends commonly accept.
+normalize_model_id() {
+  local raw="${1:-}"
+  local m
+  m=$(echo "$raw" | tr '[:upper:]' '[:lower:]' | sed 's/^model://; s/^model=//')
+
+  case "$m" in
+    fable-5|fable5|claude-fable-5) echo "claude-fable-5" ;;
+    fable) echo "fable" ;;
+    sonnet-5|claude-sonnet-5) echo "claude-sonnet-5" ;;
+    sonnet) echo "sonnet" ;;
+    haiku-4.5|haiku4.5|claude-haiku-4-5|claude-haiku-4.5) echo "haiku" ;;
+    haiku) echo "haiku" ;;
+    opus-4.8|claude-opus-4-8) echo "claude-opus-4-8" ;;
+    opus) echo "opus" ;;
+    gpt5.5|gpt-5.5) echo "gpt-5.5" ;;
+    gpt5|gpt-5) echo "gpt-5.5" ;;
+    gpt-5.3-codex|gpt5.3-codex) echo "gpt-5.3-codex" ;;
+    o4-mini|o4mini) echo "o4-mini" ;;
+    composer-2.5-fast|composer2.5-fast|grok-composer-2.5-fast)
+      echo "grok-composer-2.5-fast" ;;
+    composer-2.5|composer2.5|grok-composer-2.5) echo "grok-composer-2.5-fast" ;;
+    grok-build|grokbuild) echo "grok-build" ;;
+    gemini-2.5-pro|gemini2.5-pro) echo "gemini-2.5-pro" ;;
+    gemini-2.5-flash|gemini2.5-flash) echo "gemini-2.5-flash" ;;
+    gemini-pro) echo "gemini-2.5-pro" ;;
+    gemini-flash) echo "gemini-2.5-flash" ;;
+    *) echo "$raw" ;;  # pass through unknown / already-full IDs
+  esac
+}
+
+# Infer which coding CLI should run a given model id.
+# Enables: host Claude + model:gpt-5.5 → codex; host Grok + model:sonnet → claude.
+infer_backend_for_model() {
+  local m
+  m=$(echo "${1:-}" | tr '[:upper:]' '[:lower:]')
+
+  case "$m" in
+    fable*|claude-*|sonnet*|haiku*|opus*|claude)
+      echo "claude" ;;
+    grok*|composer*)
+      echo "grok" ;;
+    gemini*)
+      echo "gemini" ;;
+    gpt-*|gpt*|o1*|o3*|o4*|codex*|chatgpt*)
+      echo "codex" ;;
+    *)
+      echo "" ;;
+  esac
+}
+
+# Prefer an inferred backend when its CLI is installed.
+prefer_backend_if_available() {
+  local want="$1"
+  local current="$2"
+
+  if [ -z "$want" ]; then
+    echo "$current"
+    return 0
+  fi
+  if [ "$want" = "openai" ]; then
+    want="codex"
+  fi
+  if command -v "$want" >/dev/null 2>&1; then
+    echo "$want"
+    return 0
+  fi
+  # Keep current if already valid; else try want's name anyway for clearer errors
+  if [ -n "$current" ] && [ "$current" != "unknown" ] && [ "$current" != "auto" ]; then
+    echo "WARNING: model wants backend '$want' but CLI not on PATH; using '$current'." >&2
+    echo "$current"
+    return 0
+  fi
+  echo "$want"
+}
+
 # Detect the best backend based on preferred order, then availability
 detect_backend() {
   local preferred=("$@")
@@ -213,4 +290,5 @@ get_backend_command() {
   esac
 }
 
-export -f load_settings get_setting detect_backend get_backend_command parse_preferred_backends get_default_model_for_backend resolve_generator_model
+export -f load_settings get_setting detect_backend get_backend_command parse_preferred_backends \
+  get_default_model_for_backend resolve_generator_model normalize_model_id infer_backend_for_model prefer_backend_if_available

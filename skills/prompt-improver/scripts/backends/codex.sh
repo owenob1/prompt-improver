@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # scripts/backends/codex.sh
 # Adapter for OpenAI Codex CLI.
+# Honors PROMPT_IMPROVER_MODEL when set.
 
 set -euo pipefail
 
@@ -16,4 +17,9 @@ if ! command -v codex >/dev/null 2>&1; then
   exit 127
 fi
 
-exec codex exec "$(cat "$PROMPT_FILE")"
+MODEL_ARGS=()
+if [ -n "${PROMPT_IMPROVER_MODEL:-}" ]; then
+  MODEL_ARGS=(-m "$PROMPT_IMPROVER_MODEL")
+fi
+
+exec codex exec "${MODEL_ARGS[@]}" "$(cat "$PROMPT_FILE")"

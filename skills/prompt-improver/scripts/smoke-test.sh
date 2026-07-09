@@ -144,6 +144,30 @@ for pair in "claude:sonnet" "grok:grok-composer-2.5-fast" "gemini:gemini-2.5-pro
   fi
 done
 
+# 10. model aliases + cross-CLI inference
+echo ""
+echo "[10] model normalize + backend inference"
+for pair in \
+  "fable-5:claude-fable-5:claude" \
+  "sonnet:sonnet:claude" \
+  "gpt-5.5:gpt-5.5:codex" \
+  "gpt-5:gpt-5.5:codex" \
+  "gemini-2.5-pro:gemini-2.5-pro:gemini" \
+  "grok-composer-2.5-fast:grok-composer-2.5-fast:grok"
+do
+  raw="${pair%%:*}"
+  rest="${pair#*:}"
+  expect_model="${rest%%:*}"
+  expect_be="${rest#*:}"
+  got_m=$(normalize_model_id "$raw")
+  got_b=$(infer_backend_for_model "$got_m")
+  if [ "$got_m" = "$expect_model" ] && [ "$got_b" = "$expect_be" ]; then
+    ok "model $raw → $got_m ($got_b)"
+  else
+    bad "model $raw expected $expect_model/$expect_be got $got_m/$got_b"
+  fi
+done
+
 # Optional: gather-context should not crash
 echo ""
 echo "[extra] gather-context.sh"
