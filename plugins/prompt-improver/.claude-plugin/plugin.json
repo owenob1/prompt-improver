@@ -1,7 +1,7 @@
 {
   "name": "prompt-improver",
   "description": "Transform vague prompts into structured, verifiable XML and execute or review them. Use when the user says improve prompt, plan work carefully, or structure a vague coding request.",
-  "version": "6.2.0",
+  "version": "1.0.0",
   "author": {
     "name": "owenob1"
   },

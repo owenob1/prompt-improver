@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [6.2.0] — 2026-07-09
+## [1.0.0] — 2026-07-09
 
 ### Changed
 - **Marketplace layout**: canonical skill package moved to `skills/prompt-improver/` for [skills.sh](https://skills.sh) / `npx skills add` discovery.

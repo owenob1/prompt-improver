@@ -10,7 +10,7 @@ description: >
 license: MIT
 metadata:
   author: owenob1
-  version: 6.2.0
+  version: 1.0.0
   category: prompt-engineering
 ---
 
