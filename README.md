@@ -14,7 +14,7 @@
 
 ---
 
-## Why
+## What is it?
 
 Coding agents often jump into implementation from fuzzy requests — missing edge cases, verification, and clear scope. **prompt-improver** rewrites the request into structured XML with tasks, checks, and escape clauses *before* work starts.
 
