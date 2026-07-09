@@ -124,7 +124,7 @@ git clone https://github.com/owenob1/prompt-improver.git && cp -R prompt-improve
 | `gemini` | `gemini-2.5-pro` | Pro reasoning for specs |
 | `codex` | `gpt-5.5` | GPT-5 family Codex default |
 
-**Pick order:** `model:` flag → env/settings → table → CLI default.
+**Model override:** `model:` flag → env/settings → table → CLI default.
 
 <details>
 <summary><strong>Recognized models & aliases</strong></summary>
@@ -157,8 +157,6 @@ If a model is unavailable, restricted, or out of usage, headless generation walk
 | Codex | sol → terra → luna → gpt-5.5 |
 | Grok | grok-4.5 → composer-2.5-fast → grok-build |
 | Gemini | gemini-2.5-pro → gemini-2.5-flash |
-
-Requests enter the cascade at the tier you asked for (e.g. `model:opus` starts at opus, not mythos).
 
 </details>
 
