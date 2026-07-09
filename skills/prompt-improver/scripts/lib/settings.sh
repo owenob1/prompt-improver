@@ -153,6 +153,8 @@ normalize_model_id() {
     gpt5|gpt-5) echo "gpt-5.5" ;;
     gpt-5.3-codex|gpt5.3-codex) echo "gpt-5.3-codex" ;;
     gpt-5.2-codex|gpt5.2-codex) echo "gpt-5.2-codex" ;;
+    # model:codex / model:openai → default Codex-class generator model
+    codex|openai) echo "gpt-5.5" ;;
     o4-mini|o4mini) echo "o4-mini" ;;
 
     # Grok / SpaceXAI
@@ -189,7 +191,7 @@ infer_backend_for_model() {
       echo "grok" ;;
     gemini*)
       echo "gemini" ;;
-    gpt-*|gpt*|o1*|o3*|o4*|codex*|chatgpt*|sol|terra|luna)
+    gpt-*|gpt*|o1*|o3*|o4*|codex|codex*|openai|chatgpt*|sol|terra|luna)
       echo "codex" ;;
     *)
       # Future: gpt-5.6-anything, claude-anything already matched above
@@ -225,7 +227,7 @@ get_model_fallback_chain() {
       echo "gpt-5.6-terra gpt-5.6-luna gpt-5.5" ;;
     *luna*)
       echo "gpt-5.6-luna gpt-5.5" ;;
-    gpt-5.5|gpt-5)
+    gpt-5.5|gpt-5|codex|openai)
       echo "gpt-5.5" ;;
 
     # Grok 4.5 → composer fast → grok-build

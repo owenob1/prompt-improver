@@ -71,6 +71,7 @@ Any other `claude-*` ID is passed through unchanged and routed to the `claude` b
 | `gpt-5.6-luna`, `gpt5.6-luna`, `luna` | `gpt-5.6-luna` | GPT-5.6 fast/affordable tier |
 | `gpt-5.6`, `gpt5.6` | `gpt-5.6-sol` | Shorthand → Sol |
 | `gpt-5.5`, `gpt5.5`, `gpt-5`, `gpt5` | `gpt-5.5` | Default Codex-class improver |
+| `codex`, `openai` | `gpt-5.5` | Shorthand → default Codex improver + `codex` CLI |
 | `gpt-5.3-codex`, `gpt5.3-codex` | `gpt-5.3-codex` | Codex-optimized |
 | `gpt-5.2-codex`, `gpt5.2-codex` | `gpt-5.2-codex` | Prior Codex |
 | `o4-mini`, `o4mini` | `o4-mini` | Smaller OpenAI model |

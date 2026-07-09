@@ -153,6 +153,8 @@ for pair in \
   "mythos-5:claude-mythos-5:claude" \
   "sonnet:sonnet:claude" \
   "gpt-5.5:gpt-5.5:codex" \
+  "codex:gpt-5.5:codex" \
+  "openai:gpt-5.5:codex" \
   "gpt-5.6-sol:gpt-5.6-sol:codex" \
   "sol:gpt-5.6-sol:codex" \
   "terra:gpt-5.6-terra:codex" \

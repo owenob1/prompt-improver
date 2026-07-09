@@ -126,7 +126,7 @@ Pass full IDs or short aliases. **Unknown future IDs pass through** (e.g. `gpt-5
 | Claude | `fable-5`, `fable`, `opus`, `sonnet`, `haiku`, `claude-*` | `claude` |
 | Grok | `grok-4.5`, `grok-4.3`, `grok-composer-2.5-fast`, `grok-build`, `composer-*` | `grok` |
 | Gemini | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-3.1-pro`, `gemini-*` | `gemini` |
-| OpenAI / Codex | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `sol`, `terra`, `luna`, `gpt-5.5`, `gpt-5`, `gpt-5.3-codex`, `o4-mini`, `gpt-*` | `codex` |
+| OpenAI / Codex | `codex`, `openai`, `gpt-5.5`, `gpt-5`, `gpt-5.6-sol`, `sol`, `terra`, `luna`, `gpt-5.3-codex`, `o4-mini`, `gpt-*` | `codex` |
 
 **Cross-host is fine:** Claude Code + `model:gpt-5.6-sol` uses **codex** if installed; Grok + `model:sonnet` / `model:fable-5` uses **claude** if installed.
 
