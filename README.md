@@ -8,7 +8,7 @@
 [![CI](https://github.com/owenob1/prompt-improver/actions/workflows/ci.yml/badge.svg)](https://github.com/owenob1/prompt-improver/actions/workflows/ci.yml)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-blue)](https://agentskills.io/)
 
-[Install](#install) · [Usage](#usage) · [How it works](#how-it-works) · [Structure](#structure)
+[Install](#install) · [Usage](#usage) · [Default generator models](#default-generator-models) · [How it works](#how-it-works) · [Structure](#structure)
 
 </div>
 
@@ -63,76 +63,82 @@ Many agents also load from `~/.agents/skills/` or project `.claude/skills/`.
 
 ## Usage
 
-Once installed, invoke the skill:
-
 ```text
-/prompt-improver plan "Add rate limiting to the payment API"
 /prompt-improver "Fix the flaky auth tests"
+/prompt-improver plan "Add rate limiting to the payment API"
+/prompt-improver model:haiku "Add rate limiting"
+/prompt-improver plan model:claude-sonnet-5 "Refactor payments"
 ```
 
-| Mode | Command | Behaviour |
-|------|---------|-----------|
-| **Execute** (default) | `/prompt-improver "…"` | Improve the prompt, then run the work with verification |
-| **Plan** | `/prompt-improver plan "…"` | Improve the prompt, show the XML, wait for your decision |
+| Flag | Meaning |
+|------|---------|
+| *(default)* | **Execute** — improve headlessly, then run the work |
+| `plan` | Improve headlessly, **show** the XML, wait for your decision |
+| `model:<id>` or `model=<id>` | Override the **generator** model for this run only |
+
+Flags are leading tokens (same style as `plan`); they can be combined in any order.
 
 ### Without installing (one-shot)
 
 ```bash
-# Assemble materials → paste into any coding CLI
 bash skills/prompt-improver/scripts/assemble-generation-prompt.sh "your request"
-
-# Headless improve if a supported CLI is on PATH
 bash skills/prompt-improver/scripts/standalone-improve.sh "your request" plan
+bash skills/prompt-improver/scripts/standalone-improve.sh "your request" plan haiku
 ```
 
-## How it works
+## Default generator models
 
-**Headless generation is the core design.** Improving the prompt is a separate, improvement-only model call — not something the host agent should grind through as a full in-session rewrite.
+Headless improvement uses a **generator** model (fast/cheap by default). Your interactive host agent (Fable, Opus, full Grok Build session, …) only **executes** the improved plan.
 
-```text
-Host agent  →  headless generator (cheap/fast model)  →  XML spec  →  host executes
-```
+| Backend CLI | Default generator model | Notes |
+|-------------|-------------------------|--------|
+| **claude** | `haiku` | Claude Code alias → current Haiku (cheap/fast) |
+| **grok** | `grok-composer-2.5-fast` | Fast headless improver in Grok Build |
+| **gemini** | `gemini-2.5-flash` | Flash-class; good cost/speed for rewrite |
+| **codex** | `o4-mini` | Lightweight OpenAI-class default |
+| **opencode / cline / kimi / kiro** | *(CLI default)* | No pinned id yet — set `model:` or settings |
 
-1. **Triage** — skip generation if the input is already a solid spec  
-2. **Generate (headless)** — `scripts/generate-prompt.sh` embeds references + the improvement-only contract and calls a coding CLI headlessly  
-3. **Validate** — structural checks via `scripts/validate-prompt.sh`  
-4. **Execute or review** — the **host** agent runs the improved plan (or shows it in Plan mode)
+**Resolution order** (first wins):
 
-### Generator model vs host model
-
-| Role | Who | Model |
-|------|-----|--------|
-| **Generator** | Headless CLI (`generate-prompt.sh`) | Prefer a **fast/cheap** model via `PROMPT_IMPROVER_MODEL` |
-| **Executor** | Your interactive agent (Fable, Claude Code, Grok, …) | Your normal session model |
-
-If you leave `model` unset, the backend CLI’s default is used — which can accidentally be another full-cost frontier run. **Pin a cheap generator model** in settings or env:
+1. Per-prompt `model:…` / `generate-prompt.sh --model …`
+2. `PROMPT_IMPROVER_MODEL` or settings `"model"`
+3. `default_models[backend]` in settings (table above ships in `config/settings.default.json`)
+4. Backend CLI default (avoid for production)
 
 ```bash
-# Example: generate with an explicit model, then use the result in your agent
-export PROMPT_IMPROVER_MODEL="your-fast-model-id"
-export PROMPT_IMPROVER_BACKEND="claude"   # or grok, gemini, …
+# Force one model for all headless runs (env)
+export PROMPT_IMPROVER_MODEL=haiku
+export PROMPT_IMPROVER_BACKEND=claude
 
 bash skills/prompt-improver/scripts/generate-prompt.sh \
   --mode plan \
-  --raw-input "Add rate limiting to the payment API"
+  --raw-input "Add rate limiting to the payment API" \
+  --model haiku
 ```
 
-User/project settings (optional):
+Optional user settings (later roadmap: richer skill-side settings UX):
 
 ```bash
 mkdir -p ~/.config/prompt-improver
 cp skills/prompt-improver/config/settings.example.json \
   ~/.config/prompt-improver/settings.json
-# edit "model" and "backend"
+# edit "model" or "default_models"
 ```
 
-Bundled under the skill:
+## How it works
 
-- Prompting principles & XML template (`references/`)
-- Generator instructions (`assets/`)
-- Multi-CLI headless backends (`scripts/backends/`)
-- Offline smoke tests (`tests/smoke-test.sh`)
+**Headless generation is the core design.**
 
+```text
+Host agent  →  headless generator (default: cheap/fast model)  →  XML  →  host executes
+```
+
+1. **Triage** — skip generation if the input is already a solid spec  
+2. **Generate (headless)** — `scripts/generate-prompt.sh` + improvement-only contract  
+3. **Validate** — `scripts/validate-prompt.sh`  
+4. **Execute or review** — host agent runs the improved plan (or shows it in Plan mode)
+
+Bundled under the skill: references, generator assets, multi-CLI backends, offline smoke tests.
 ## Structure
 
 ```text

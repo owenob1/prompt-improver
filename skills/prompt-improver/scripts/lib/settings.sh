@@ -46,6 +46,43 @@ get_setting() {
   echo "$default"
 }
 
+# Built-in defaults if settings file has no default_models
+# Fast/cheap improvers — not host frontier models
+_PI_BUILTIN_DEFAULT_MODELS_claude="haiku"
+_PI_BUILTIN_DEFAULT_MODELS_grok="grok-composer-2.5-fast"
+_PI_BUILTIN_DEFAULT_MODELS_gemini="gemini-2.5-flash"
+_PI_BUILTIN_DEFAULT_MODELS_codex="o4-mini"
+
+# Resolve default generator model for a backend (from settings.default_models or builtins)
+get_default_model_for_backend() {
+  local backend="$1"
+  local val=""
+
+  if [ "$backend" = "openai" ]; then
+    backend="codex"
+  fi
+
+  if command -v jq >/dev/null 2>&1; then
+    for file in "$PROJECT_SETTINGS" "$USER_SETTINGS" "$DEFAULT_SETTINGS"; do
+      if [ -f "$file" ]; then
+        val=$(jq -r --arg b "$backend" '.default_models[$b] // empty' "$file" 2>/dev/null || true)
+        if [ -n "$val" ] && [ "$val" != "null" ]; then
+          echo "$val"
+          return 0
+        fi
+      fi
+    done
+  fi
+
+  case "$backend" in
+    claude) echo "$_PI_BUILTIN_DEFAULT_MODELS_claude" ;;
+    grok)   echo "$_PI_BUILTIN_DEFAULT_MODELS_grok" ;;
+    gemini) echo "$_PI_BUILTIN_DEFAULT_MODELS_gemini" ;;
+    codex)  echo "$_PI_BUILTIN_DEFAULT_MODELS_codex" ;;
+    *)      echo "" ;;
+  esac
+}
+
 # Load all common settings into variables
 load_settings() {
   BACKEND=$(get_setting "backend" "auto")
@@ -58,7 +95,7 @@ load_settings() {
   PREFERRED_BACKENDS=$(get_setting "preferred_backends" '["grok","claude","gemini","cline","opencode","kimi","kiro","codex"]')
   CUSTOM_COMMAND=$(get_setting "custom_command" "")
 
-  # Env var overrides (highest priority)
+  # Env var overrides (highest priority over settings file scalars)
   BACKEND="${PROMPT_IMPROVER_BACKEND:-$BACKEND}"
   MODEL="${PROMPT_IMPROVER_MODEL:-$MODEL}"
   MAX_TOKENS="${PROMPT_IMPROVER_MAX_TOKENS:-$MAX_TOKENS}"
@@ -67,13 +104,23 @@ load_settings() {
   FALLBACK_STRATEGY="${PROMPT_IMPROVER_FALLBACK_STRATEGY:-$FALLBACK_STRATEGY}"
   CUSTOM_COMMAND="${PROMPT_IMPROVER_CUSTOM_COMMAND:-$CUSTOM_COMMAND}"
 
-  # Null model from JSON becomes empty string
+  # Null model from JSON becomes empty string (means: use per-backend default later)
   if [ "$MODEL" = "null" ]; then
     MODEL=""
   fi
   if [ "$CUSTOM_COMMAND" = "null" ]; then
     CUSTOM_COMMAND=""
   fi
+}
+
+# After backend is known, fill MODEL from default_models if still empty
+resolve_generator_model() {
+  local backend="$1"
+  if [ -n "$MODEL" ]; then
+    echo "$MODEL"
+    return 0
+  fi
+  get_default_model_for_backend "$backend"
 }
 
 # Detect the best backend based on preferred order, then availability
@@ -166,4 +213,4 @@ get_backend_command() {
   esac
 }
 
-export -f load_settings get_setting detect_backend get_backend_command parse_preferred_backends
+export -f load_settings get_setting detect_backend get_backend_command parse_preferred_backends get_default_model_for_backend resolve_generator_model

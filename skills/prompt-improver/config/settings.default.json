@@ -2,6 +2,16 @@
   "version": 1,
   "backend": "auto",
   "model": null,
+  "default_models": {
+    "claude": "haiku",
+    "grok": "grok-composer-2.5-fast",
+    "gemini": "gemini-2.5-flash",
+    "codex": "o4-mini",
+    "opencode": null,
+    "cline": null,
+    "kimi": null,
+    "kiro": null
+  },
   "max_tokens": 12000,
   "enable_research": true,
   "enable_thinking": true,
@@ -11,5 +21,5 @@
   "custom_command": null,
   "allow_web_search": true,
   "allow_code_execution_in_generation": false,
-  "notes": "Headless generation is required. Set model (PROMPT_IMPROVER_MODEL) to a FAST/CHEAP generator model — not your host frontier agent model.\nbackend: auto | grok | claude | gemini | cline | opencode | kimi | kiro | codex | custom\nfallback_strategy: manual | error\nEnv: PROMPT_IMPROVER_BACKEND, PROMPT_IMPROVER_MODEL, PROMPT_IMPROVER_MAX_TOKENS, PROMPT_IMPROVER_FALLBACK_STRATEGY, PROMPT_IMPROVER_CUSTOM_COMMAND"
+  "notes": "Headless generation always uses a generator model.\nPriority: per-prompt model: override > PROMPT_IMPROVER_MODEL / settings.model > default_models[backend] > CLI default.\nDefaults are fast/cheap improvers — not host frontier models (fable/opus)."
 }

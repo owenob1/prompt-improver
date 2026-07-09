@@ -2,14 +2,14 @@
   "version": 1,
   "backend": "auto",
   "model": null,
+  "default_models": {
+    "claude": "haiku",
+    "grok": "grok-composer-2.5-fast",
+    "gemini": "gemini-2.5-flash",
+    "codex": "o4-mini"
+  },
   "max_tokens": 12000,
-  "enable_research": true,
-  "enable_thinking": true,
-  "headless_only": true,
   "fallback_strategy": "manual",
-  "preferred_backends": ["grok", "claude", "gemini", "cline", "opencode", "kimi", "kiro", "codex"],
-  "custom_command": null,
-  "allow_web_search": true,
-  "allow_code_execution_in_generation": false,
-  "notes": "Copy to ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json.\nSet model to a cheap/fast id for the HEADLESS improver (not your interactive host model).\nEnv overrides: PROMPT_IMPROVER_BACKEND, PROMPT_IMPROVER_MODEL, etc."
+  "preferred_backends": ["grok", "claude", "gemini"],
+  "notes": "Copy to ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json.\nSet model to force one generator model for all backends.\nOr edit default_models per backend.\nPer-prompt override: /prompt-improver model:haiku \"your request\""
 }

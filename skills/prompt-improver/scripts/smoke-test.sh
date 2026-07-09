@@ -127,6 +127,23 @@ else
   ok "generate-prompt requires --raw-input"
 fi
 
+# 9. default model resolution per backend
+echo ""
+echo "[9] default generator models"
+# shellcheck disable=SC1091
+source scripts/lib/settings.sh
+load_settings
+for pair in "claude:haiku" "grok:grok-composer-2.5-fast" "gemini:gemini-2.5-flash" "codex:o4-mini"; do
+  b="${pair%%:*}"
+  expect="${pair#*:}"
+  got=$(get_default_model_for_backend "$b")
+  if [ "$got" = "$expect" ]; then
+    ok "default_models $b → $got"
+  else
+    bad "default_models $b expected $expect got $got"
+  fi
+done
+
 # Optional: gather-context should not crash
 echo ""
 echo "[extra] gather-context.sh"

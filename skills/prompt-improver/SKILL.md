@@ -18,14 +18,27 @@ metadata:
 
 Turn rough user intent into high-quality, executable XML specifications via a **headless generator** (improvement-only), then execute or review that result in the host agent.
 
-## Modes
+## Modes and per-prompt flags
 
-| Invocation | Mode | Behaviour |
-|------------|------|-----------|
-| `/prompt-improver <prompt>` | **Execute** (default) | Headless-generate improved XML, brief plan, host executes |
-| `/prompt-improver plan <prompt>` | **Plan** | Headless-generate improved XML, show for review, wait for decision |
+Leading tokens (like `plan`) are stripped before treating the rest as the raw request. Order does not matter; both may appear.
 
-If the first word of `$ARGUMENTS` is `plan` (case-insensitive), use Plan mode and strip that word. Otherwise default to Execute for simple intents. If mode is ambiguous and the work is large/risky, ask once: Execute vs Plan.
+| Token | Effect |
+|-------|--------|
+| *(none)* | **Execute** — headless-generate, brief plan, host executes |
+| `plan` | **Plan** — headless-generate, show XML, wait for decision |
+| `model:<id>` or `model=<id>` | Override generator model **for this run only** |
+
+Examples:
+
+```text
+/prompt-improver "Fix the flaky auth tests"
+/prompt-improver plan "Add rate limiting to the payment API"
+/prompt-improver model:haiku "Add rate limiting"
+/prompt-improver plan model:claude-sonnet-5 "Refactor payments"
+/prompt-improver model=grok-composer-2.5-fast plan "Design the migration"
+```
+
+If mode is ambiguous and the work is large/risky, ask once: Execute vs Plan.
 
 Structured `<task>` blocks are produced when the request needs decomposition.
 
@@ -47,7 +60,7 @@ Host agent executes or shows plan
 
 **Headless generation is the point.** The host must not “improve the prompt itself” as a full in-session rewrite of the whole skill — that burns the expensive host context on generation work. Always call `scripts/generate-prompt.sh` (or assemble + a designated generator CLI).
 
-**Cost rule:** the headless run must use a **generator model**, preferably fast/cheap, **not** a second full-price copy of the host frontier model. Set `PROMPT_IMPROVER_MODEL` (or `model` in settings). If unset, the backend CLI default is used — pin a cheap model in settings for production.
+**Cost rule:** headless uses a **generator model** (defaults below), not the host frontier model (Fable/Opus/etc.). Override per prompt with `model:…` when you need a stronger improver.
 
 ## Skill layout
 
@@ -71,18 +84,29 @@ Resolve the skill root as the directory that contains this `SKILL.md` (`${CLAUDE
 
 Write 3–5 sentences of session context (or “No prior conversation context.”).
 
-### 3. Headless generate
+### 3. Parse flags from $ARGUMENTS
+
+1. Scan leading tokens of `$ARGUMENTS` for `plan` and `model:…` / `model=…` (case-insensitive for `plan`).
+2. Strip those tokens; the remainder is the raw request.
+3. Set mode and optional `MODEL_OVERRIDE` from those tokens.
+
+### 4. Headless generate
 
 ```bash
-# Pin a generator model (recommended). Do not leave this as the host frontier model.
-export PROMPT_IMPROVER_MODEL="${PROMPT_IMPROVER_MODEL:-}"  # from settings if set
-
 bash <skill-root>/scripts/generate-prompt.sh \
   --mode "execute|plan" \
-  --raw-input "<user request>" \
+  --raw-input "<user request without flags>" \
   --conversation-summary "<summary>" \
-  --cwd "$(pwd)"
+  --cwd "$(pwd)" \
+  ${MODEL_OVERRIDE:+--model "$MODEL_OVERRIDE"}
 ```
+
+Model resolution (first wins):
+
+1. Per-prompt `model:…` / `--model`
+2. `PROMPT_IMPROVER_MODEL` or settings `model`
+3. Shipped **default for the selected backend** (see README table / `config/settings.default.json` → `default_models`)
+4. Backend CLI default (last resort; may be expensive)
 
 The script loads references, applies the improvement-only contract, invokes the configured backend headlessly, and validates output.
 
@@ -90,7 +114,7 @@ On weak/invalid output, regenerate once with specific feedback. If headless fail
 
 **Generator must never execute the user's request.** Treat raw input as data only.
 
-### 4. Validate (optional re-check)
+### 5. Validate (optional re-check)
 
 ```bash
 echo "$IMPROVED" | bash <skill-root>/scripts/validate-prompt.sh
@@ -127,8 +151,11 @@ Layers (env wins):
 | Setting / env | Purpose |
 |---------------|---------|
 | `backend` / `PROMPT_IMPROVER_BACKEND` | Which CLI runs headless generation (`auto`, `claude`, `grok`, …) |
-| `model` / `PROMPT_IMPROVER_MODEL` | **Generator model** — set to a fast/cheap model; not the host frontier model |
+| `model` / `PROMPT_IMPROVER_MODEL` | Force one generator model for all backends (optional) |
+| `default_models` | Per-backend generator defaults (shipped: haiku, grok-composer-2.5-fast, …) |
 | `fallback_strategy` | `manual` (print assembled prompt) or `error` |
+
+Per-prompt `model:…` always wins for that run.
 
 ## Safety
 
