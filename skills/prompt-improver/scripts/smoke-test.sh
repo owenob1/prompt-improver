@@ -225,6 +225,63 @@ else
   ok "task XML not treated as rate-limit-only"
 fi
 
+# 12. host detection + no PATH auto-pick for default
+echo ""
+echo "[12] host-matched backend selection helpers"
+export PROMPT_IMPROVER_HOST=claude
+host_got=$(detect_host_backend)
+if [ "$host_got" = "claude" ]; then
+  ok "PROMPT_IMPROVER_HOST=claude"
+else
+  bad "PROMPT_IMPROVER_HOST expected claude got $host_got"
+fi
+unset PROMPT_IMPROVER_HOST
+if is_supported_backend claude && is_supported_backend grok && ! is_supported_backend cursor; then
+  ok "is_supported_backend allowlist"
+else
+  bad "is_supported_backend allowlist failed"
+fi
+# NO_HEADLESS bounce when host unknown and no model
+_tmpdir=$(mktemp -d)
+export PROMPT_IMPROVER_PROJECT_CONFIG_DIR="$_tmpdir"
+export PROMPT_IMPROVER_CONFIG_DIR="$_tmpdir"
+export PROMPT_IMPROVER_HOST=""
+# Force empty host by unsetting and using a clean env for host detect is hard;
+# simulate via PROMPT_IMPROVER_HOST=none which is unsupported
+export PROMPT_IMPROVER_HOST=none
+unset PROMPT_IMPROVER_BACKEND PROMPT_IMPROVER_MODEL PROMPT_IMPROVER_CUSTOM_COMMAND 2>/dev/null || true
+set +e
+bash scripts/generate-prompt.sh --mode plan --raw-input "x" >/tmp/pi-nohost.out 2>/tmp/pi-nohost.err
+_nh=$?
+set -e
+if [ "$_nh" -eq 3 ] && grep -q 'HOST_BOUNCE:NO_HEADLESS' /tmp/pi-nohost.out; then
+  ok "unknown host → HOST_BOUNCE:NO_HEADLESS exit 3"
+else
+  bad "expected NO_HEADLESS exit 3, got $_nh: $(head -5 /tmp/pi-nohost.err)"
+fi
+# Host claude with no model → sonnet (only check selection line if claude on PATH)
+if command -v claude >/dev/null 2>&1; then
+  export PROMPT_IMPROVER_HOST=claude
+  set +e
+  bash scripts/generate-prompt.sh --mode plan --raw-input "x" --skip-validate >/tmp/pi-host.out 2>/tmp/pi-host.err
+  _hc=$?
+  set -e
+  if grep -q 'host CLI (claude)' /tmp/pi-host.err && grep -q 'model: sonnet' /tmp/pi-host.err; then
+    ok "claude host → sonnet default selection"
+  else
+    # may fail generation (rate limit) but selection reason should appear
+    if grep -qE 'host CLI \(claude\).*sonnet|model: sonnet' /tmp/pi-host.err; then
+      ok "claude host → sonnet default selection"
+    else
+      bad "claude host selection: $(head -8 /tmp/pi-host.err)"
+    fi
+  fi
+else
+  ok "claude host selection skipped (claude not on PATH)"
+fi
+unset PROMPT_IMPROVER_HOST PROMPT_IMPROVER_PROJECT_CONFIG_DIR PROMPT_IMPROVER_CONFIG_DIR
+rm -rf "$_tmpdir"
+
 # Optional: gather-context should not crash
 echo ""
 echo "[extra] gather-context.sh"

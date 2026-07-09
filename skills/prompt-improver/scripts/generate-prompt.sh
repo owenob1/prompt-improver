@@ -145,25 +145,46 @@ elif [ -n "$MODEL" ]; then
   MODEL=$(normalize_model_id "$MODEL")
 fi
 
-# --- Determine backend ---
+# --- Determine backend (host-matched defaults; no PATH auto-pick for the default) ---
+# Priority:
+#   1) model: / settings.model → infer CLI from model family (cross-host OK)
+#   2) settings.backend when not auto
+#   3) host CLI (Claude session → claude + sonnet, Grok → grok + composer, …)
+#   4) else headless blocked → host bounce
 # shellcheck disable=SC2207
 PREFS=( $(parse_preferred_backends) )
+HOST_BACKEND=$(detect_host_backend)
 INFERRED_BACKEND=""
 if [ -n "$MODEL" ]; then
   INFERRED_BACKEND=$(infer_backend_for_model "$MODEL")
 fi
 
-if [ "$BACKEND" = "auto" ]; then
-  BACKEND_TO_USE=$(detect_backend "${PREFS[@]}")
-  # model:gpt-5.5 → prefer codex if installed; model:sonnet / model:fable-5 → prefer claude
-  if [ -n "$INFERRED_BACKEND" ]; then
-    BACKEND_TO_USE=$(prefer_backend_if_available "$INFERRED_BACKEND" "$BACKEND_TO_USE")
+BACKEND_TO_USE=""
+SELECTION_REASON=""
+
+if [ -n "$INFERRED_BACKEND" ]; then
+  # model:gpt-5.5 → codex when installed (even if host is Claude)
+  if command -v "$INFERRED_BACKEND" >/dev/null 2>&1 || \
+     { [ "$INFERRED_BACKEND" = "openai" ] && command -v codex >/dev/null 2>&1; }; then
+    BACKEND_TO_USE=$(prefer_backend_if_available "$INFERRED_BACKEND" "")
+    SELECTION_REASON="model-family ($MODEL → $BACKEND_TO_USE)"
+  else
+    echo "WARNING: model '$MODEL' wants backend '$INFERRED_BACKEND' but that CLI is not on PATH." >&2
+    BACKEND_TO_USE=""
   fi
-else
+fi
+
+if [ -z "$BACKEND_TO_USE" ] && [ "$BACKEND" != "auto" ] && [ -n "$BACKEND" ]; then
   BACKEND_TO_USE="$BACKEND"
-  # Even with a forced backend, re-route when model clearly belongs to another installed CLI
-  if [ -n "$INFERRED_BACKEND" ] && [ "$INFERRED_BACKEND" != "$BACKEND_TO_USE" ]; then
-    BACKEND_TO_USE=$(prefer_backend_if_available "$INFERRED_BACKEND" "$BACKEND_TO_USE")
+  SELECTION_REASON="settings.backend"
+fi
+
+if [ -z "$BACKEND_TO_USE" ] && [ -n "$HOST_BACKEND" ] && is_supported_backend "$HOST_BACKEND"; then
+  if command -v "$HOST_BACKEND" >/dev/null 2>&1; then
+    BACKEND_TO_USE="$HOST_BACKEND"
+    SELECTION_REASON="host CLI ($HOST_BACKEND)"
+  else
+    echo "WARNING: host looks like '$HOST_BACKEND' but that CLI is not on PATH for headless." >&2
   fi
 fi
 
@@ -172,33 +193,34 @@ if [ "$BACKEND_TO_USE" = "openai" ]; then
   BACKEND_TO_USE="codex"
 fi
 
-if [ "$BACKEND_TO_USE" = "unknown" ] || [ -z "$BACKEND_TO_USE" ]; then
-  echo "WARNING: Could not detect a supported coding CLI with headless support." >&2
-  echo "Falling back to manual mode. Printing the assembled generator prompt." >&2
-
-  if [ "$FALLBACK_STRATEGY" = "error" ]; then
-    exit 4
-  fi
-
-  cat "$TMP_PROMPT"
-  exit 0
+if [ -z "$BACKEND_TO_USE" ] || [ "$BACKEND_TO_USE" = "unknown" ]; then
+  echo "Headless generation blocked: no host-matched generator and no model:/backend override." >&2
+  echo "  host=${HOST_BACKEND:-none}  Set model:<id>, PROMPT_IMPROVER_BACKEND, or PROMPT_IMPROVER_HOST." >&2
+  cat >&2 <<EOF
+=== HOST_BOUNCE:NO_HEADLESS ===
+reason: no supported headless generator for this host (not PATH auto-picking)
+host: ${HOST_BACKEND:-unknown}
+instruction: The host agent (this CLI session) MUST complete the user's original request in-session.
+Do NOT invent a random generator CLI. Optionally set model:<id> or settings.backend if a generator is installed.
+=== END_HOST_BOUNCE ===
+EOF
+  cat <<EOF
+HOST_BOUNCE:NO_HEADLESS
+host: ${HOST_BACKEND:-unknown}
+raw_request: ${RAW_INPUT}
+EOF
+  exit 3
 fi
 
-# Fill model from per-backend defaults if still empty
+# Fill model from per-backend defaults if still empty (Claude host → sonnet, Grok → composer, …)
 if [ -z "$MODEL" ]; then
   MODEL=$(resolve_generator_model "$BACKEND_TO_USE")
 fi
 
 if [ -z "$MODEL" ]; then
-  echo "WARNING: no generator model for backend '$BACKEND_TO_USE'." >&2
-  echo "  Using CLI default. Prefer: --model <id> or default_models in settings." >&2
-  echo "Using backend: $BACKEND_TO_USE (model: CLI default)" >&2
+  echo "Using backend: $BACKEND_TO_USE via $SELECTION_REASON (model: CLI default)" >&2
 else
-  if [ -n "$INFERRED_BACKEND" ] && [ "$INFERRED_BACKEND" != "$BACKEND_TO_USE" ]; then
-    echo "Using backend: $BACKEND_TO_USE (model: $MODEL; preferred CLI for model was $INFERRED_BACKEND)" >&2
-  else
-    echo "Using backend: $BACKEND_TO_USE (model: $MODEL)" >&2
-  fi
+  echo "Using backend: $BACKEND_TO_USE via $SELECTION_REASON (model: $MODEL)" >&2
 fi
 
 # --- Invoke backends with model + CLI fallback, then host bounce ---

@@ -3,10 +3,10 @@
 
   "//": "Copy to ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json. Keys starting with // are comments only (ignored). Full guides: docs/CUSTOM-BACKENDS.md, references/models-supported.md (in the skill).",
 
-  "//backend": "Generator CLI: auto | claude | grok | gemini | codex | cline | opencode | kimi | kiro. Env override: PROMPT_IMPROVER_BACKEND",
+  "//backend": "auto = use host CLI (Claude session→claude, Grok→grok, …). Or force: claude | grok | gemini | codex | cline | opencode | kimi | kiro. Env: PROMPT_IMPROVER_BACKEND. Hint host with PROMPT_IMPROVER_HOST.",
   "backend": "auto",
 
-  "//model": "Force one model for every backend (null = use default_models[backend] or CLI default). Env: PROMPT_IMPROVER_MODEL. Per-prompt model:<id> always wins over this.",
+  "//model": "Force one model (null = host backend's default_models entry). Env: PROMPT_IMPROVER_MODEL. Per-prompt model:<id> wins and may cross-route (model:gpt-5.5→codex).",
   "model": null,
 
   "//default_models": "Per-backend generator defaults when model is null. Use null for a backend to leave the CLI default. Unknown future IDs pass through.",
@@ -27,10 +27,10 @@
   "//fallback_strategy": "When headless generation fails: manual = print assembled materials; error = exit non-zero.",
   "fallback_strategy": "manual",
 
-  "//preferred_backends": "When backend is auto, try these CLIs in order (first binary found on PATH wins). Built-in: grok, claude, gemini, codex, cline, opencode, kimi, kiro.",
+  "//preferred_backends": "Order to try OTHER generators only after the primary (host/model) hits rate limits — not used for the default pick.",
   "preferred_backends": [
-    "grok",
     "claude",
+    "grok",
     "gemini",
     "codex",
     "cline",
@@ -43,5 +43,5 @@
   "custom_command": null,
 
   "//notes": "Free-form notes for humans; not used by the runtime.",
-  "notes": "model: resolution → env/settings.model → default_models[backend] → CLI default. Cascades (built-in only): mythos→fable→opus→sonnet; sol→terra→luna→gpt-5.5; grok-4.5→composer→grok-build."
+  "notes": "Default pick: host CLI + that CLI's default_models (not first-on-PATH). model: routes by family. No supported host generator → HOST_BOUNCE:NO_HEADLESS. Limit cascades then other preferred_backends."
 }

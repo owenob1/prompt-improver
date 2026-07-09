@@ -28,7 +28,9 @@ Env overrides (when set) win over the JSON keys of the same name:
 
 ## Built-in backends
 
-These names work with `"backend": "…"` and `preferred_backends`. Auto mode picks the first binary found on `PATH` in that order.
+These names work with `"backend": "…"` and as **host-matched** generators.  
+**Default pick is not “first CLI on PATH.”** Auto mode uses the **host** agent (Claude session → `claude` + `sonnet`, Grok → `grok` + composer, …).  
+`preferred_backends` is only the order to try **other** CLIs after rate limits.
 
 | Name | Typical CLI | Notes |
 |------|-------------|--------|

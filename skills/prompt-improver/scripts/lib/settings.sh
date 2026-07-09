@@ -315,7 +315,78 @@ prefer_backend_if_available() {
   echo "$want"
 }
 
-# Detect the best backend based on preferred order, then availability
+# Detect which host agent CLI is driving this session (not PATH auto-pick).
+# Order: PROMPT_IMPROVER_HOST → known env markers → parent process tree.
+# Empty string = unknown host (headless should be blocked unless model:/backend set).
+detect_host_backend() {
+  local explicit pid comm i
+
+  explicit=$(echo "${PROMPT_IMPROVER_HOST:-}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+  if [ -n "$explicit" ]; then
+    [ "$explicit" = "openai" ] && explicit="codex"
+    echo "$explicit"
+    return 0
+  fi
+
+  # Claude Code / Anthropic
+  if [ -n "${CLAUDE_CODE:-}" ] || [ -n "${CLAUDECODE:-}" ] || \
+     [ -n "${CLAUDE_CODE_ENTRYPOINT:-}" ] || [ -n "${CLAUDE_AGENT:-}" ]; then
+    echo "claude"
+    return 0
+  fi
+
+  # Grok Build / xAI
+  if [ -n "${GROK_BUILD:-}" ] || [ -n "${XAI_GROK:-}" ] || [ -n "${GROK_SESSION:-}" ]; then
+    echo "grok"
+    return 0
+  fi
+
+  # Gemini CLI
+  if [ -n "${GEMINI_CLI:-}" ] || [ -n "${GOOGLE_GEMINI_CLI:-}" ]; then
+    echo "gemini"
+    return 0
+  fi
+
+  # Codex / OpenAI
+  if [ -n "${CODEX_HOME:-}" ] || [ -n "${OPENAI_CODEX:-}" ]; then
+    echo "codex"
+    return 0
+  fi
+
+  # Walk parent processes (skills.sh hosts often leave the real CLI a few levels up)
+  pid="${PPID:-}"
+  i=0
+  while [ "$i" -lt 8 ] && [ -n "$pid" ] && [ "$pid" -gt 1 ] 2>/dev/null; do
+    comm=$(ps -o comm= -p "$pid" 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+    case "$comm" in
+      claude|claude-*|*claude*) echo "claude"; return 0 ;;
+      grok|grok-*|*grok*)       echo "grok"; return 0 ;;
+      gemini|gemini-*|*gemini*) echo "gemini"; return 0 ;;
+      codex|codex-*|*codex*)    echo "codex"; return 0 ;;
+      opencode|opencode-*)      echo "opencode"; return 0 ;;
+      cline|cline-*)            echo "cline"; return 0 ;;
+      kimi|kimi-*)              echo "kimi"; return 0 ;;
+      kiro|kiro-*)              echo "kiro"; return 0 ;;
+    esac
+    pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d '[:space:]')
+    i=$((i + 1))
+  done
+
+  echo ""
+}
+
+# True if name is a generator backend we know how to invoke headlessly
+is_supported_backend() {
+  local b="$1"
+  [ "$b" = "openai" ] && b="codex"
+  case "$b" in
+    claude|grok|gemini|codex|cline|opencode|kimi|kiro) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Detect the best backend based on preferred order, then availability.
+# Used only as a cascade list after the primary host/model choice fails — not for default pick.
 detect_backend() {
   local preferred=("$@")
   local b
@@ -405,7 +476,8 @@ get_backend_command() {
   esac
 }
 
-export -f load_settings get_setting detect_backend get_backend_command parse_preferred_backends \
+export -f load_settings get_setting detect_backend detect_host_backend is_supported_backend \
+  get_backend_command parse_preferred_backends \
   get_default_model_for_backend resolve_generator_model normalize_model_id infer_backend_for_model \
   prefer_backend_if_available get_model_fallback_chain is_model_retryable_failure \
   is_account_limit_failure is_rate_limit_message_only

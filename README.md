@@ -111,7 +111,8 @@ git clone https://github.com/owenob1/prompt-improver.git && cp -R prompt-improve
 | `gemini` | `gemini-2.5-pro` | Pro reasoning for specs |
 | `codex` | `gpt-5.5` | GPT-5 family Codex default |
 
-**Model override:** `model:` flag → env/settings → table → CLI default.
+**Default pick:** host CLI + that CLI’s default (Claude→`sonnet`, Grok→`composer`, …) — not first-on-PATH.  
+**Override:** `model:` → env/settings.model → routes by model family when that CLI is installed.
 
 <details>
 <summary><strong>Recognized models & aliases</strong></summary>

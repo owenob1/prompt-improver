@@ -29,16 +29,16 @@
   "//fallback_strategy": "manual = print assembled materials on failure; error = hard fail",
   "fallback_strategy": "manual",
 
-  "//preferred_backends": "Order for auto backend detection (first on PATH wins)",
+  "//preferred_backends": "Only used after primary host/model generator hits limits — not the default pick",
   "preferred_backends": [
-    "grok",
     "claude",
+    "grok",
     "gemini",
+    "codex",
     "cline",
     "opencode",
     "kimi",
-    "kiro",
-    "codex"
+    "kiro"
   ],
 
   "//custom_command": "Any CLI: prompt on stdin → improved text on stdout. Bypasses built-in backends. Env: PROMPT_IMPROVER_CUSTOM_COMMAND. null = use backend selection. docs/CUSTOM-BACKENDS.md",
