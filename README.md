@@ -4,42 +4,78 @@
 
 **Turn vague agent prompts into precise, verifiable specs — then run them.**
 
+<br />
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![CI](https://github.com/owenob1/prompt-improver/actions/workflows/ci.yml/badge.svg)](https://github.com/owenob1/prompt-improver/actions/workflows/ci.yml)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-blue)](https://agentskills.io/)
+[![GitHub stars](https://img.shields.io/github/stars/owenob1/prompt-improver?style=social)](https://github.com/owenob1/prompt-improver/stargazers)
 
-[Install](#1-install) · [Usage](#2-usage) · [What happens](#3-what-happens) · [Models](#4-default-generator-models) · [Advanced](#5-advanced-optional) · [Contributing](#contributing)
+<br />
+
+[Features](#-features) ·
+[Install](#-install) ·
+[Usage](#-usage) ·
+[How it works](#-how-it-works) ·
+[Models](#-default-generator-models) ·
+[Advanced](#-advanced) ·
+[Contributing](#-contributing)
 
 </div>
 
 ---
 
-## 1. Install
+## ✨ Features
+
+| | |
+|:--|:--|
+| **Headless generation** | Improves prompts in a separate model call — not by grinding the host agent session |
+| **Improvement-only** | Generator never implements your feature; it only rewrites the request |
+| **Execute or plan** | Run immediately, or review the XML first |
+| **Per-prompt model override** | `model:sonnet` / `model:gpt-5.5` like the `plan` flag |
+| **Multi-CLI** | Claude Code, Grok Build, Gemini, Codex, and more |
+| **Portable skill** | [Agent Skills](https://agentskills.io/) format · [skills.sh](https://skills.sh) · Claude marketplace |
+
+---
+
+## 📦 Install
+
+**Recommended**
 
 ```bash
 npx skills add -g owenob1/prompt-improver
 ```
 
-| Also | Command |
-|------|---------|
+<details>
+<summary><strong>Other install options</strong></summary>
+
+<br>
+
+| Method | Command |
+|--------|---------|
 | Project only | `npx skills add owenob1/prompt-improver` |
-| Claude Code | `/plugin marketplace add owenob1/prompt-improver` then `/plugin install prompt-improver@prompt-improver` |
+| Claude Code marketplace | `/plugin marketplace add owenob1/prompt-improver`<br>`/plugin install prompt-improver@prompt-improver` |
 | Manual | Copy `skills/prompt-improver/` → `~/.claude/skills/prompt-improver` |
+
+</details>
 
 ---
 
-## 2. Usage
+## 🚀 Usage
 
 ```text
 /prompt-improver "Fix the flaky auth tests"
 ```
 
-Optional leading flags (any order):
+### Flags
+
+Leading tokens (any order), same idea as slash-command options:
 
 | Flag | Effect |
 |------|--------|
-| `plan` | Improve, **show** the XML, wait before running |
-| `model:<id>` | Override the **generator** model for this run |
+| *(none)* | Improve headlessly, then **execute** |
+| `plan` | Improve headlessly, **show** XML, wait |
+| `model:<id>` | Override generator model for this run |
 
 ```text
 /prompt-improver plan "Add rate limiting"
@@ -49,39 +85,48 @@ Optional leading flags (any order):
 
 ---
 
-## 3. What happens
+## ⚙️ How it works
 
 ```text
-you → host agent → headless generator (mid-tier model) → XML spec → host executes
+  you
+   │
+   ▼
+ host agent  ──starts──►  /prompt-improver
+   │
+   │  headless generator (mid-tier model, improvement-only)
+   ▼
+ structured XML spec
+   │
+   ▼
+ host agent  ──executes──►  your task
 ```
 
-1. Host starts `/prompt-improver`
-2. A **separate headless** call rewrites the request (improvement-only — it does not build your feature)
-3. Host **executes** that spec (or shows it in `plan` mode)
+1. **Triage** — skip generation if the input is already a solid spec  
+2. **Generate** — headless rewrite via `scripts/generate-prompt.sh`  
+3. **Validate** — structural checks  
+4. **Execute or review** — host runs the plan (or shows it with `plan`)
 
-That split is intentional: generation uses a strong but not frontier-host model; your interactive session only runs the plan.
-
----
-
-## 4. Default generator models
-
-| CLI backend | Default model | Role |
-|-------------|---------------|------|
-| `claude` | `sonnet` → Sonnet 5 | Structured rewrite quality |
-| `grok` | `grok-composer-2.5-fast` | Fast agentic improver |
-| `gemini` | `gemini-2.5-pro` | Spec reasoning |
-| `codex` | `gpt-5.5` | GPT-5 family default for Codex |
-
-Not host-frontier (e.g. Fable / Opus). Override with `model:…` when needed.
-
-**Model pick order:** `model:` flag → `PROMPT_IMPROVER_MODEL` / settings → table above → CLI default.
+Host frontier models (Fable, Opus, …) stay on **execution**. Generation defaults to a capable mid-tier model.
 
 ---
 
-## 5. Advanced (optional)
+## 🧠 Default generator models
+
+| Backend | Default | Notes |
+|---------|---------|--------|
+| `claude` | `sonnet` → **Sonnet 5** | Daily-driver quality for structured prompts |
+| `grok` | `grok-composer-2.5-fast` | Strong speed / quality balance |
+| `gemini` | `gemini-2.5-pro` | Pro reasoning for specs |
+| `codex` | `gpt-5.5` | GPT-5 family Codex default |
+
+**Pick order:** `model:` flag → env/settings → table → CLI default.
+
+---
+
+## 🔧 Advanced
 
 <details>
-<summary><strong>Standalone CLI (no agent)</strong></summary>
+<summary><strong>Standalone CLI (no agent skill)</strong></summary>
 
 <br>
 
@@ -98,7 +143,7 @@ bash skills/prompt-improver/scripts/generate-prompt.sh \
 </details>
 
 <details>
-<summary><strong>Settings file</strong></summary>
+<summary><strong>Settings</strong></summary>
 
 <br>
 
@@ -108,18 +153,22 @@ cp skills/prompt-improver/config/settings.example.json \
   ~/.config/prompt-improver/settings.json
 ```
 
-Edit `model`, `default_models`, or `backend`. Env wins: `PROMPT_IMPROVER_MODEL`, `PROMPT_IMPROVER_BACKEND`.
+| Key / env | Purpose |
+|-----------|---------|
+| `model` / `PROMPT_IMPROVER_MODEL` | Force one generator model |
+| `default_models` | Per-backend defaults |
+| `backend` / `PROMPT_IMPROVER_BACKEND` | `auto`, `claude`, `grok`, … |
 
 </details>
 
 <details>
-<summary><strong>Repo layout</strong></summary>
+<summary><strong>Repository layout</strong></summary>
 
 <br>
 
 ```text
-skills/prompt-improver/   # installable skill (SKILL.md, scripts, refs)
-plugins/prompt-improver/  # Claude Code plugin wrapper
+skills/prompt-improver/   # installable skill
+plugins/prompt-improver/  # Claude Code plugin
 .claude-plugin/           # marketplace catalog
 tests/                    # smoke tests
 ```
@@ -131,20 +180,22 @@ tests/                    # smoke tests
 
 <br>
 
-`skills/prompt-improver/scripts/` runs shell and may call coding CLIs. Read them before install.
+Scripts under `skills/prompt-improver/scripts/` run shell and may invoke coding CLIs. Review before install.
 
 </details>
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
 ```bash
 bash tests/smoke-test.sh
 ```
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) · Roadmap: [docs/ROADMAP.md](./docs/ROADMAP.md)
+[CONTRIBUTING.md](./CONTRIBUTING.md) · [Roadmap](./docs/ROADMAP.md)
 
-## License
+---
 
-[MIT](./LICENSE) © owenob1
+## 📄 License
+
+[MIT](./LICENSE) © [owenob1](https://github.com/owenob1)
