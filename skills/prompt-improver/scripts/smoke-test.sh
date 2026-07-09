@@ -149,9 +149,15 @@ echo ""
 echo "[10] model normalize + backend inference"
 for pair in \
   "fable-5:claude-fable-5:claude" \
+  "mythos:claude-mythos-preview:claude" \
+  "mythos-5:claude-mythos-5:claude" \
   "sonnet:sonnet:claude" \
   "gpt-5.5:gpt-5.5:codex" \
-  "gpt-5:gpt-5.5:codex" \
+  "gpt-5.6-sol:gpt-5.6-sol:codex" \
+  "sol:gpt-5.6-sol:codex" \
+  "terra:gpt-5.6-terra:codex" \
+  "luna:gpt-5.6-luna:codex" \
+  "grok-4.5:grok-4.5:grok" \
   "gemini-2.5-pro:gemini-2.5-pro:gemini" \
   "grok-composer-2.5-fast:grok-composer-2.5-fast:grok"
 do
@@ -167,6 +173,33 @@ do
     bad "model $raw expected $expect_model/$expect_be got $got_m/$got_b"
   fi
 done
+
+# 11. fallback chains
+echo ""
+echo "[11] model fallback chains"
+chain_mythos=$(get_model_fallback_chain "mythos")
+chain_sol=$(get_model_fallback_chain "gpt-5.6-sol")
+chain_g45=$(get_model_fallback_chain "grok-4.5")
+if echo "$chain_mythos" | grep -q 'fable' && echo "$chain_mythos" | grep -q 'opus'; then
+  ok "mythos cascade includes fable→opus"
+else
+  bad "mythos cascade: $chain_mythos"
+fi
+if echo "$chain_sol" | grep -q 'terra' && echo "$chain_sol" | grep -q 'luna'; then
+  ok "sol cascade includes terra→luna"
+else
+  bad "sol cascade: $chain_sol"
+fi
+if echo "$chain_g45" | grep -q 'composer'; then
+  ok "grok-4.5 cascade includes composer"
+else
+  bad "grok-4.5 cascade: $chain_g45"
+fi
+if is_model_retryable_failure 1 "Error: rate limit exceeded for model"; then
+  ok "retryable rate-limit detection"
+else
+  bad "retryable rate-limit detection failed"
+fi
 
 # Optional: gather-context should not crash
 echo ""

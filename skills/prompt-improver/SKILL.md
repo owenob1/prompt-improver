@@ -37,7 +37,9 @@ Examples:
 /prompt-improver plan model:gpt-5.5 "Refactor payments"
 ```
 
-`model:` accepts aliases and full IDs (`fable-5`, `sonnet`, `gpt-5.5`, `claude-sonnet-5`, …). The generator CLI is chosen from the model family when that CLI is on PATH (Claude host + `model:gpt-5.5` → codex; Grok host + `model:sonnet` → claude).
+`model:` accepts aliases and full IDs (`fable-5`, `mythos`, `gpt-5.6-sol`, `grok-4.5`, `sonnet`, …). Unknown future IDs pass through. Generator CLI is chosen from the model family when installed (Claude host + `model:gpt-5.6-sol` → codex; Grok host + `model:sonnet` → claude).
+
+**Access / limit cascades** (retry next on unavailable / rate-limit): Mythos → Fable → Opus → Sonnet; GPT-5.6 Sol → Terra → Luna → gpt-5.5; Grok 4.5 → composer-2.5-fast → grok-build.
 
 If mode is ambiguous and the work is large/risky, ask once: Execute vs Plan.
 

@@ -91,13 +91,13 @@ git clone https://github.com/owenob1/prompt-improver.git && cp -R prompt-improve
 |------|--------|
 | *(none)* | Improve headlessly, then **execute** |
 | `plan` | Improve headlessly, **show** XML, wait |
-| `model:<id>` | Override generator model for this run (any family) |
-
-Combine flags freely:
+| `model:<id>` | Override generator model for this run (any family / future ID) |
 
 ```text
 /prompt-improver plan model:sonnet "Add rate limiting"
-/prompt-improver model:gpt-5.5 plan "Refactor payments"
+/prompt-improver model:gpt-5.6-sol plan "Refactor payments"
+/prompt-improver model:grok-4.5 "Design the migration"
+/prompt-improver model:mythos "Security-sensitive rewrite"
 ```
 
 ---
@@ -113,16 +113,33 @@ Combine flags freely:
 
 **Pick order:** `model:` flag → env/settings → table → CLI default.
 
-**Cross-CLI routing:** `model:` chooses the **generator** CLI by model family when that CLI is installed (host agent can stay Claude/Grok/etc.):
+### Recognized models & aliases
 
-| `model:` example | Routes to (if installed) |
-|------------------|---------------------------|
-| `fable-5`, `fable`, `sonnet`, `haiku`, `opus`, `claude-*` | `claude` |
-| `grok-*`, `composer-*` | `grok` |
-| `gemini-*` | `gemini` |
-| `gpt-*`, `o4-*`, `codex-*` | `codex` |
+Pass full IDs or short aliases. **Unknown future IDs pass through** (e.g. `gpt-5.6-sol-ultra`, `grok-4.6`) and still route by family prefix.
 
-If the matching CLI is missing, the skill keeps the auto-detected backend and warns.
+| Family | Examples (`model:…`) | Generator CLI |
+|--------|----------------------|---------------|
+| Claude | `mythos`, `mythos-5`, `claude-mythos-5`, `claude-mythos-preview`, `fable-5`, `fable`, `opus`, `sonnet`, `haiku`, `claude-*` | `claude` |
+| Grok | `grok-4.5`, `grok-4.3`, `grok-composer-2.5-fast`, `grok-build`, `composer-*` | `grok` |
+| Gemini | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-3.1-pro`, `gemini-*` | `gemini` |
+| OpenAI / Codex | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `sol`, `terra`, `luna`, `gpt-5.5`, `gpt-5`, `gpt-5.3-codex`, `o4-mini`, `gpt-*` | `codex` |
+
+**Cross-host is fine:** Claude Code + `model:gpt-5.6-sol` uses **codex** if installed; Grok + `model:sonnet` / `model:fable-5` uses **claude** if installed.
+
+### Access / rate-limit fallbacks
+
+If a model is unavailable, restricted, or out of usage, headless generation walks a cascade (first success wins):
+
+| You asked for | Tries next |
+|---------------|------------|
+| Claude **Mythos** (`mythos`, `mythos-5`, …) | mythos → **fable** → **opus** → sonnet |
+| Claude **Fable** | fable → **opus** → sonnet |
+| Claude **Opus** | opus → sonnet |
+| GPT-**5.6 Sol** | sol → terra → luna → gpt-5.5 |
+| GPT-**5.6 Terra** | terra → luna → gpt-5.5 |
+| **Grok 4.5** | grok-4.5 → composer-2.5-fast → grok-build |
+
+So invite-only Mythos users get Mythos when available; otherwise the improver automatically steps down without you re-running the skill.
 
 ---
 

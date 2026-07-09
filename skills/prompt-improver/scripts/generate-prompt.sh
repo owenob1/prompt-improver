@@ -185,49 +185,101 @@ else
   fi
 fi
 
-# Export so backend adapters can attach -m / --model
-export PROMPT_IMPROVER_MODEL="${MODEL}"
-
-# --- Invoke backend ---
+# --- Invoke backend with model fallback chain ---
+# e.g. mythos → fable → opus; gpt-5.6-sol → terra → luna → gpt-5.5
 BACKEND_SCRIPT="$SCRIPT_DIR/backends/$BACKEND_TO_USE.sh"
 GENERATED=""
-EXIT_CODE=0
+EXIT_CODE=1
+LAST_OUTPUT=""
+TRIED_MODELS=""
 
-if [ -x "$BACKEND_SCRIPT" ]; then
-  set +e
-  GENERATED=$("$BACKEND_SCRIPT" "$TMP_PROMPT")
-  EXIT_CODE=$?
-  set -e
-else
-  INVOCATION=$(get_backend_command "$BACKEND_TO_USE" "$TMP_PROMPT")
+run_headless_once() {
+  local model_try="$1"
+  local out="" code=0 inv=""
 
-  if [ -n "$MODEL" ] && [ -n "$INVOCATION" ]; then
-    case "$BACKEND_TO_USE" in
-      grok)   INVOCATION="$INVOCATION -m $MODEL" ;;
-      claude) INVOCATION="$INVOCATION --model $MODEL" ;;
-      gemini) INVOCATION="$INVOCATION -m $MODEL" ;;
-      codex|openai) INVOCATION="$INVOCATION -m $MODEL" ;;
-    esac
-  fi
+  export PROMPT_IMPROVER_MODEL="$model_try"
 
-  if [ -z "$INVOCATION" ]; then
-    echo "No headless template for backend '$BACKEND_TO_USE'. Falling back to manual." >&2
-    if [ "$FALLBACK_STRATEGY" = "error" ]; then
-      exit 4
+  if [ -x "$BACKEND_SCRIPT" ]; then
+    set +e
+    out=$("$BACKEND_SCRIPT" "$TMP_PROMPT" 2>&1)
+    code=$?
+    set -e
+  else
+    inv=$(get_backend_command "$BACKEND_TO_USE" "$TMP_PROMPT")
+    if [ -n "$model_try" ] && [ -n "$inv" ]; then
+      case "$BACKEND_TO_USE" in
+        grok)   inv="$inv -m $model_try" ;;
+        claude) inv="$inv --model $model_try" ;;
+        gemini) inv="$inv -m $model_try" ;;
+        codex|openai) inv="$inv -m $model_try" ;;
+      esac
     fi
-    cat "$TMP_PROMPT"
-    exit 0
+    if [ -z "$inv" ]; then
+      echo ""
+      return 127
+    fi
+    set +e
+    out=$(eval "$inv" 2>&1)
+    code=$?
+    set -e
   fi
 
-  set +e
-  GENERATED=$(eval "$INVOCATION" 2>&1)
-  EXIT_CODE=$?
-  set -e
+  LAST_OUTPUT="$out"
+  return "$code"
+}
+
+# shellcheck disable=SC2206
+MODEL_CHAIN=( $(get_model_fallback_chain "${MODEL:-}") )
+# De-dupe while preserving order
+_SEEN_MODELS=" "
+MODEL_TRY_LIST=()
+for _m in "${MODEL_CHAIN[@]}"; do
+  [ -z "$_m" ] && continue
+  case "$_SEEN_MODELS" in
+    *" $_m "*) continue ;;
+  esac
+  _SEEN_MODELS="$_SEEN_MODELS$_m "
+  MODEL_TRY_LIST+=("$_m")
+done
+if [ "${#MODEL_TRY_LIST[@]}" -eq 0 ] && [ -n "$MODEL" ]; then
+  MODEL_TRY_LIST=("$MODEL")
+fi
+if [ "${#MODEL_TRY_LIST[@]}" -eq 0 ]; then
+  MODEL_TRY_LIST=("")
 fi
 
+for TRY_MODEL in "${MODEL_TRY_LIST[@]}"; do
+  if [ -n "$TRY_MODEL" ]; then
+    echo "Trying backend: $BACKEND_TO_USE (model: $TRY_MODEL)" >&2
+  else
+    echo "Trying backend: $BACKEND_TO_USE (model: CLI default)" >&2
+  fi
+  TRIED_MODELS="${TRIED_MODELS}${TRY_MODEL:-default} "
+  set +e
+  run_headless_once "$TRY_MODEL"
+  EXIT_CODE=$?
+  set -e
+  GENERATED="$LAST_OUTPUT"
+
+  if [ $EXIT_CODE -eq 0 ]; then
+    MODEL="$TRY_MODEL"
+    export PROMPT_IMPROVER_MODEL="${MODEL}"
+    break
+  fi
+
+  if is_model_retryable_failure "$EXIT_CODE" "$GENERATED"; then
+    echo "Model '$TRY_MODEL' failed (retryable: access/limit/unavailable). Trying next fallback…" >&2
+    continue
+  fi
+
+  # Non-retryable failure — stop chain
+  echo "Headless generation with $BACKEND_TO_USE / $TRY_MODEL failed (exit $EXIT_CODE)." >&2
+  break
+done
+
 if [ $EXIT_CODE -ne 0 ]; then
-  echo "Headless generation with $BACKEND_TO_USE failed (exit $EXIT_CODE)." >&2
-  echo "You may need to authenticate or the CLI may not support headless in this context." >&2
+  echo "Headless generation failed after trying: $TRIED_MODELS" >&2
+  echo "You may need to authenticate, install the target CLI, or pick another model." >&2
 
   if [ "$FALLBACK_STRATEGY" = "manual" ]; then
     echo "=== FALLBACK: Assembled prompt for manual use ===" >&2

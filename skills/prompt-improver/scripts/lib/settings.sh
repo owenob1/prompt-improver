@@ -123,14 +123,17 @@ resolve_generator_model() {
   get_default_model_for_backend "$backend"
 }
 
-# Normalize user-facing model tokens (model:fable-5, model:sonnet, …)
-# to IDs backends commonly accept.
+# Normalize user-facing model tokens to IDs backends commonly accept.
+# Unknown future IDs (gpt-5.6-*, grok-4.6, …) pass through unchanged.
 normalize_model_id() {
   local raw="${1:-}"
   local m
   m=$(echo "$raw" | tr '[:upper:]' '[:lower:]' | sed 's/^model://; s/^model=//')
 
   case "$m" in
+    # Claude — Mythos (invite / Glasswing), Fable, Opus, Sonnet, Haiku
+    mythos-5|mythos5|claude-mythos-5) echo "claude-mythos-5" ;;
+    mythos-preview|claude-mythos-preview|mythos) echo "claude-mythos-preview" ;;
     fable-5|fable5|claude-fable-5) echo "claude-fable-5" ;;
     fable) echo "fable" ;;
     sonnet-5|claude-sonnet-5) echo "claude-sonnet-5" ;;
@@ -138,41 +141,130 @@ normalize_model_id() {
     haiku-4.5|haiku4.5|claude-haiku-4-5|claude-haiku-4.5) echo "haiku" ;;
     haiku) echo "haiku" ;;
     opus-4.8|claude-opus-4-8) echo "claude-opus-4-8" ;;
+    opus-4.6|claude-opus-4-6) echo "claude-opus-4-6" ;;
     opus) echo "opus" ;;
+
+    # OpenAI / Codex — GPT-5.x and 5.6 Sol/Terra/Luna family
+    gpt-5.6-sol|gpt5.6-sol|sol) echo "gpt-5.6-sol" ;;
+    gpt-5.6-terra|gpt5.6-terra|terra) echo "gpt-5.6-terra" ;;
+    gpt-5.6-luna|gpt5.6-luna|luna) echo "gpt-5.6-luna" ;;
+    gpt-5.6|gpt5.6) echo "gpt-5.6-sol" ;;
     gpt5.5|gpt-5.5) echo "gpt-5.5" ;;
     gpt5|gpt-5) echo "gpt-5.5" ;;
     gpt-5.3-codex|gpt5.3-codex) echo "gpt-5.3-codex" ;;
+    gpt-5.2-codex|gpt5.2-codex) echo "gpt-5.2-codex" ;;
     o4-mini|o4mini) echo "o4-mini" ;;
+
+    # Grok / SpaceXAI
+    grok-4.5|grok4.5) echo "grok-4.5" ;;
+    grok-4.3|grok4.3) echo "grok-4.3" ;;
     composer-2.5-fast|composer2.5-fast|grok-composer-2.5-fast)
       echo "grok-composer-2.5-fast" ;;
     composer-2.5|composer2.5|grok-composer-2.5) echo "grok-composer-2.5-fast" ;;
-    grok-build|grokbuild) echo "grok-build" ;;
+    grok-build|grokbuild|grok-build-0.1) echo "grok-build" ;;
+    grok-code-fast-1) echo "grok-code-fast-1" ;;
+
+    # Gemini
     gemini-2.5-pro|gemini2.5-pro) echo "gemini-2.5-pro" ;;
     gemini-2.5-flash|gemini2.5-flash) echo "gemini-2.5-flash" ;;
+    gemini-3.5-flash|gemini3.5-flash) echo "gemini-3.5-flash" ;;
+    gemini-3.1-pro|gemini3.1-pro) echo "gemini-3.1-pro" ;;
     gemini-pro) echo "gemini-2.5-pro" ;;
     gemini-flash) echo "gemini-2.5-flash" ;;
-    *) echo "$raw" ;;  # pass through unknown / already-full IDs
+
+    # Pass through: full IDs, future gpt-5.6-*, grok-4.x, claude-*, etc.
+    *) echo "$raw" ;;
   esac
 }
 
-# Infer which coding CLI should run a given model id.
-# Enables: host Claude + model:gpt-5.5 → codex; host Grok + model:sonnet → claude.
+# Infer which coding CLI should run a given model id (pattern-based for future IDs).
 infer_backend_for_model() {
   local m
   m=$(echo "${1:-}" | tr '[:upper:]' '[:lower:]')
 
   case "$m" in
-    fable*|claude-*|sonnet*|haiku*|opus*|claude)
+    mythos*|fable*|claude-*|sonnet*|haiku*|opus*|claude)
       echo "claude" ;;
-    grok*|composer*)
+    grok*|composer*|spacex*)
       echo "grok" ;;
     gemini*)
       echo "gemini" ;;
-    gpt-*|gpt*|o1*|o3*|o4*|codex*|chatgpt*)
+    gpt-*|gpt*|o1*|o3*|o4*|codex*|chatgpt*|sol|terra|luna)
       echo "codex" ;;
     *)
+      # Future: gpt-5.6-anything, claude-anything already matched above
       echo "" ;;
   esac
+}
+
+# Ordered fallback list when primary model fails (access, rate limit, unknown model).
+# mythos → fable → opus (user request); fable → opus → sonnet; etc.
+get_model_fallback_chain() {
+  local primary
+  primary=$(normalize_model_id "${1:-}")
+  local low
+  low=$(echo "$primary" | tr '[:upper:]' '[:lower:]')
+
+  case "$low" in
+    # Claude frontier cascade
+    *mythos*|mythos)
+      echo "claude-mythos-5 claude-mythos-preview claude-fable-5 fable opus sonnet" ;;
+    *fable*|fable)
+      echo "claude-fable-5 fable opus sonnet" ;;
+    *opus*|opus)
+      echo "opus sonnet" ;;
+    *sonnet*|sonnet)
+      echo "$primary sonnet" ;;
+    *haiku*|haiku)
+      echo "$primary haiku sonnet" ;;
+
+    # OpenAI GPT-5.6 Sol → Terra → Luna → 5.5
+    *sol*|gpt-5.6)
+      echo "gpt-5.6-sol gpt-5.6-terra gpt-5.6-luna gpt-5.5" ;;
+    *terra*)
+      echo "gpt-5.6-terra gpt-5.6-luna gpt-5.5" ;;
+    *luna*)
+      echo "gpt-5.6-luna gpt-5.5" ;;
+    gpt-5.5|gpt-5)
+      echo "gpt-5.5" ;;
+
+    # Grok 4.5 → composer fast → grok-build
+    grok-4.5|grok-4*)
+      echo "grok-4.5 grok-composer-2.5-fast grok-build" ;;
+    *composer*)
+      echo "$primary grok-composer-2.5-fast" ;;
+
+    # Gemini
+    *gemini*pro*|gemini-2.5-pro)
+      echo "gemini-2.5-pro gemini-2.5-flash" ;;
+    *gemini*flash*|gemini-2.5-flash)
+      echo "gemini-2.5-flash" ;;
+
+    *)
+      echo "$primary" ;;
+  esac
+}
+
+# True if headless output/exit looks like "try another model" (limit, no access, unknown model)
+is_model_retryable_failure() {
+  local exit_code="$1"
+  local output="$2"
+  local low
+  low=$(echo "$output" | tr '[:upper:]' '[:lower:]')
+
+  # Non-zero alone is not enough (auth, network) — need model-ish signals when possible
+  if echo "$low" | grep -qE \
+    'rate.?limit|usage.?limit|quota|out of (limit|usage|credits)|capacity|overloaded|529|429|403|401|not (available|found|supported|enabled)|unknown model|invalid model|model .* (denied|restricted|not accessible)|access denied|does not have access|invitation|glasswing|unavailable|try again later|too many requests'
+  then
+    return 0
+  fi
+
+  # Some CLIs exit non-zero with sparse output for missing models
+  if [ "$exit_code" -ne 0 ] && echo "$low" | grep -qE 'model'; then
+    return 0
+  fi
+
+  return 1
 }
 
 # Prefer an inferred backend when its CLI is installed.
@@ -291,4 +383,5 @@ get_backend_command() {
 }
 
 export -f load_settings get_setting detect_backend get_backend_command parse_preferred_backends \
-  get_default_model_for_backend resolve_generator_model normalize_model_id infer_backend_for_model prefer_backend_if_available
+  get_default_model_for_backend resolve_generator_model normalize_model_id infer_backend_for_model \
+  prefer_backend_if_available get_model_fallback_chain is_model_retryable_failure
