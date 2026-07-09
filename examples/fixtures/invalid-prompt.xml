@@ -1,0 +1,3 @@
+<!-- Intentionally incomplete — used by smoke tests to assert validation FAIL -->
+<objective>Do something vague</objective>
+<p>No tasks, no verification, no check block.</p>

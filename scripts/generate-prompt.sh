@@ -14,11 +14,18 @@
 #     --raw-input "your vague request" \
 #     --conversation-summary "..." \
 #     --cwd "."
+#
+# Exit codes:
+#   0  Success — improved XML on stdout
+#   1  Invalid usage / missing args
+#   2  Headless generation failed
+#   3  Reserved
+#   4  Validation failed (or fallback_strategy=error with no backend)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # shellcheck source=lib/settings.sh
 source "$SCRIPT_DIR/lib/settings.sh"
@@ -27,9 +34,10 @@ load_settings
 
 MODE="execute"
 RAW_INPUT=""
-CONVERSATION_SUMMARY=""
+CONVERSATION_SUMMARY="No prior conversation context."
 CWD="$(pwd)"
 REFERENCE_FILE=""
+SKIP_VALIDATE=false
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -38,22 +46,40 @@ while [[ $# -gt 0 ]]; do
     --conversation-summary) CONVERSATION_SUMMARY="$2"; shift 2 ;;
     --cwd) CWD="$2"; shift 2 ;;
     --reference-materials-file) REFERENCE_FILE="$2"; shift 2 ;;
-    *) echo "Unknown option $1"; exit 1 ;;
+    --skip-validate) SKIP_VALIDATE=true; shift ;;
+    -h|--help)
+      cat <<'HELP'
+Usage: bash scripts/generate-prompt.sh --raw-input "..." [options]
+
+Options:
+  --mode <execute|plan>              Mode label for the generator (default: execute)
+  --raw-input <text>                 Required. Vague request to improve.
+  --conversation-summary <text>      Optional session context
+  --cwd <dir>                        Working directory context (default: pwd)
+  --reference-materials-file <path>  Optional pre-built references file
+  --skip-validate                    Print generation output even if validation fails
+  -h, --help                         Show this help
+HELP
+      exit 0
+      ;;
+    *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
 
 if [ -z "$RAW_INPUT" ]; then
   echo "Error: --raw-input is required" >&2
+  echo "Run with --help for usage." >&2
   exit 1
 fi
 
 # --- Assemble the full prompt for the generator model ---
-TMP_PROMPT=$(mktemp)
+TMP_PROMPT=$(mktemp -t prompt-improver-gen.XXXXXX)
 trap 'rm -f "$TMP_PROMPT"' EXIT
 
-# Base generator instructions + references
 {
   echo "You are running in mode: $MODE"
+  echo "Working directory context: $CWD"
+  echo ""
   echo "Conversation context:"
   echo "$CONVERSATION_SUMMARY"
   echo ""
@@ -66,50 +92,68 @@ trap 'rm -f "$TMP_PROMPT"' EXIT
   if [ -n "$REFERENCE_FILE" ] && [ -f "$REFERENCE_FILE" ]; then
     cat "$REFERENCE_FILE"
   else
-    # Fallback to full assemble
     bash "$SCRIPT_DIR/assemble-generation-prompt.sh" "$RAW_INPUT"
   fi
 } > "$TMP_PROMPT"
+
+# --- Custom command override ---
+if [ -n "$CUSTOM_COMMAND" ]; then
+  echo "Using custom_command from settings" >&2
+  set +e
+  # shellcheck disable=SC2086
+  GENERATED=$(eval "$CUSTOM_COMMAND" < "$TMP_PROMPT" 2>&1)
+  EXIT_CODE=$?
+  set -e
+  if [ $EXIT_CODE -ne 0 ]; then
+    echo "custom_command failed (exit $EXIT_CODE)." >&2
+    exit 2
+  fi
+  echo "$GENERATED"
+  exit 0
+fi
 
 # --- Determine backend ---
 BACKEND_TO_USE="$BACKEND"
 
 if [ "$BACKEND_TO_USE" = "auto" ]; then
-  # Parse preferred list (simple)
-  if command -v jq >/dev/null 2>&1; then
-    mapfile -t PREFS < <(jq -r '.[]' <<< "$PREFERRED_BACKENDS" 2>/dev/null || echo "grok claude gemini cline opencode kimi kiro codex")
-  else
-    PREFS=(grok claude gemini cline opencode kimi kiro codex)
-  fi
+  # shellcheck disable=SC2207
+  PREFS=( $(parse_preferred_backends) )
   BACKEND_TO_USE=$(detect_backend "${PREFS[@]}")
+fi
+
+# Normalize aliases
+if [ "$BACKEND_TO_USE" = "openai" ]; then
+  BACKEND_TO_USE="codex"
 fi
 
 if [ "$BACKEND_TO_USE" = "unknown" ] || [ -z "$BACKEND_TO_USE" ]; then
   echo "WARNING: Could not detect a supported coding CLI with headless support." >&2
-  echo "Falling back to manual mode. You will receive the assembled prompt." >&2
+  echo "Falling back to manual mode. Printing the assembled generator prompt." >&2
 
   if [ "$FALLBACK_STRATEGY" = "error" ]; then
     exit 4
   fi
 
-  # Output the prompt for the user to use manually
   cat "$TMP_PROMPT"
   exit 0
 fi
 
-echo "Using backend: $BACKEND_TO_USE (model: ${MODEL:-default})" >&2
+echo "Using backend: $BACKEND_TO_USE${MODEL:+ (model: $MODEL)}" >&2
 
-# --- Build invocation ---
+# --- Invoke backend ---
 BACKEND_SCRIPT="$SCRIPT_DIR/backends/$BACKEND_TO_USE.sh"
+GENERATED=""
+EXIT_CODE=0
 
 if [ -x "$BACKEND_SCRIPT" ]; then
-  # Preferred: explicit backend adapter
+  set +e
   GENERATED=$("$BACKEND_SCRIPT" "$TMP_PROMPT")
   EXIT_CODE=$?
+  set -e
 else
   INVOCATION=$(get_backend_command "$BACKEND_TO_USE" "$TMP_PROMPT")
 
-  if [ -n "$MODEL" ]; then
+  if [ -n "$MODEL" ] && [ -n "$INVOCATION" ]; then
     case "$BACKEND_TO_USE" in
       grok)   INVOCATION="$INVOCATION -m $MODEL" ;;
       claude) INVOCATION="$INVOCATION --model $MODEL" ;;
@@ -119,6 +163,9 @@ else
 
   if [ -z "$INVOCATION" ]; then
     echo "No headless template for backend '$BACKEND_TO_USE'. Falling back to manual." >&2
+    if [ "$FALLBACK_STRATEGY" = "error" ]; then
+      exit 4
+    fi
     cat "$TMP_PROMPT"
     exit 0
   fi
@@ -134,18 +181,26 @@ if [ $EXIT_CODE -ne 0 ]; then
   echo "You may need to authenticate or the CLI may not support headless in this context." >&2
 
   if [ "$FALLBACK_STRATEGY" = "manual" ]; then
-    echo "=== FALLBACK: Here is the assembled prompt you can use manually ===" >&2
+    echo "=== FALLBACK: Assembled prompt for manual use ===" >&2
     cat "$TMP_PROMPT"
+    exit 0
   fi
-  exit $EXIT_CODE
+  exit 2
 fi
 
 # --- Validate ---
-echo "$GENERATED" | bash "$SCRIPT_DIR/validate-prompt.sh" || {
-  echo "Validation failed. Retrying once with feedback..." >&2
-  # Simple retry logic could be added here
+if [ "$SKIP_VALIDATE" = true ]; then
   echo "$GENERATED"
-  exit 4
-}
+  exit 0
+fi
 
+if echo "$GENERATED" | bash "$SCRIPT_DIR/validate-prompt.sh" >&2; then
+  echo "$GENERATED"
+  exit 0
+fi
+
+echo "Validation failed for generated prompt." >&2
+echo "Re-run with --skip-validate to inspect raw output, or revise the request." >&2
+# Still print the body so callers can inspect/retry
 echo "$GENERATED"
+exit 4

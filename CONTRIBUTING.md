@@ -22,9 +22,10 @@ We apply the same standards to changes in this repo that the skill teaches agent
 2. **Fork + branch** from `main` (or the current release branch).
 3. **Make focused changes**.
 4. **Verify**:
+   - Run `bash scripts/smoke-test.sh` (required offline gate; no API keys needed).
    - Run `bash scripts/validate-prompt.sh` on any example prompts or generated output you touch.
    - Re-read changed files.
-   - Update documentation (especially README and SKILL.md) when behavior changes.
+   - Update documentation (especially README, SKILL.md, and CHANGELOG.md) when behavior changes.
 5. **Open a PR** with a clear description of the problem and solution.
 
 ## What We're Looking For
@@ -33,8 +34,10 @@ We apply the same standards to changes in this repo that the skill teaches agent
 - Better portability across coding CLIs (new invocation patterns, better documentation, adapters)
 - High-quality before/after examples that demonstrate specific techniques
 - Fixes to validation logic in `scripts/validate-prompt.sh`
+- New or corrected backend adapters in `scripts/backends/`
 - Documentation and README improvements
 - Making the generator prompt (`assets/generation-agent-prompt.md`) more effective and portable
+- Additional fixtures under `examples/fixtures/` that strengthen the smoke suite
 
 ## Modes & Deprecations
 

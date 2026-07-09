@@ -4,14 +4,20 @@
 
 set -euo pipefail
 
-PROMPT_FILE="$1"
+PROMPT_FILE="${1:-}"
 
-if [ ! -f "$PROMPT_FILE" ]; then
-  echo "Error: prompt file required" >&2
+if [ -z "$PROMPT_FILE" ] || [ ! -f "$PROMPT_FILE" ]; then
+  echo "Usage: $0 <prompt-file>" >&2
   exit 1
 fi
 
-# OpenCode typically supports direct prompts or specific flags for non-interactive.
-exec opencode "$(cat "$PROMPT_FILE")" --non-interactive 2>/dev/null || \
-  opencode -p "$(cat "$PROMPT_FILE")" 2>/dev/null || \
-  echo "OpenCode not available. Install from https://opencode.ai"
+if ! command -v opencode >/dev/null 2>&1; then
+  echo "opencode CLI not found. Install from https://opencode.ai" >&2
+  exit 127
+fi
+
+if opencode -p "$(cat "$PROMPT_FILE")" 2>/dev/null; then
+  exit 0
+fi
+
+exec opencode "$(cat "$PROMPT_FILE")" --non-interactive

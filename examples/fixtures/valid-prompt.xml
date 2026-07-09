@@ -1,0 +1,40 @@
+<context>
+  <project>prompt-improver skill (bash scripts, markdown references)</project>
+  <scope>scripts/ and documentation</scope>
+</context>
+
+<approach>
+  Confirm path resolution for SCRIPT_DIR after sourcing settings, then fix backend discovery.
+</approach>
+
+<escape>
+  If the host environment has no coding CLI installed, fall back to manual prompt assembly and do not invent CLI flags.
+</escape>
+
+<task name="fix-settings-path-leak">
+  <description>
+    Ensure scripts/lib/settings.sh does not overwrite the caller's SCRIPT_DIR so
+    scripts/backends/*.sh remain discoverable.
+  </description>
+  <verification>
+    bash -n scripts/lib/settings.sh
+    bash scripts/smoke-test.sh
+  </verification>
+</task>
+
+<task name="validate-prompt-soft-typecheck">
+  <description>
+    Typecheck should warn for non-typed repos, not hard-fail, unless
+    PROMPT_IMPROVER_REQUIRE_TYPECHECK=1.
+  </description>
+  <verification>
+    bash scripts/validate-prompt.sh examples/fixtures/valid-prompt.xml
+  </verification>
+</task>
+
+<check>
+  Re-read every changed file under scripts/ and config/.
+  Run smoke tests: bash scripts/smoke-test.sh
+  No typecheck applicable (shell/markdown skill repo); use bash -n + validate-prompt.
+  Report status for each requirement from the original request.
+</check>
