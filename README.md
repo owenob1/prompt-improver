@@ -122,7 +122,7 @@ Pass full IDs or short aliases. **Unknown future IDs pass through** (e.g. `gpt-5
 
 | Family | Examples (`model:…`) | Generator CLI |
 |--------|----------------------|---------------|
-| Claude | `mythos`, `mythos-5`, `claude-mythos-5`, `claude-mythos-preview`, `fable-5`, `fable`, `opus`, `sonnet`, `haiku`, `claude-*` | `claude` |
+| Claude | `fable-5`, `fable`, `opus`, `sonnet`, `haiku`, `claude-*` | `claude` |
 | Grok | `grok-4.5`, `grok-4.3`, `grok-composer-2.5-fast`, `grok-build`, `composer-*` | `grok` |
 | Gemini | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-3.1-pro`, `gemini-*` | `gemini` |
 | OpenAI / Codex | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `sol`, `terra`, `luna`, `gpt-5.5`, `gpt-5`, `gpt-5.3-codex`, `o4-mini`, `gpt-*` | `codex` |
@@ -140,7 +140,7 @@ If a model is unavailable, restricted, or out of usage, headless generation walk
 
 | CLI | Fallback |
 |-----|----------|
-| Claude | mythos → fable → opus → sonnet |
+| Claude | fable → opus → sonnet |
 | Codex | sol → terra → luna → gpt-5.5 |
 | Grok | grok-4.5 → composer-2.5-fast → grok-build |
 | Gemini | gemini-2.5-pro → gemini-2.5-flash |
