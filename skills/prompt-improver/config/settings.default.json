@@ -1,7 +1,15 @@
 {
   "version": 1,
+
+  "//": "Shipped defaults. Prefer editing a copy at ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json (see settings.example.json). Keys starting with // are comments only.",
+
+  "//backend": "auto | claude | grok | gemini | codex | cline | opencode | kimi | kiro — Env: PROMPT_IMPROVER_BACKEND",
   "backend": "auto",
+
+  "//model": "null = per-backend defaults below. Env: PROMPT_IMPROVER_MODEL. Per-prompt model: wins.",
   "model": null,
+
+  "//default_models": "Generator model per CLI when model is null. null = leave CLI default.",
   "default_models": {
     "claude": "sonnet",
     "grok": "grok-composer-2.5-fast",
@@ -12,14 +20,32 @@
     "kimi": null,
     "kiro": null
   },
+
   "max_tokens": 12000,
   "enable_research": true,
   "enable_thinking": true,
   "headless_only": true,
+
+  "//fallback_strategy": "manual = print assembled materials on failure; error = hard fail",
   "fallback_strategy": "manual",
-  "preferred_backends": ["grok", "claude", "gemini", "cline", "opencode", "kimi", "kiro", "codex"],
+
+  "//preferred_backends": "Order for auto backend detection (first on PATH wins)",
+  "preferred_backends": [
+    "grok",
+    "claude",
+    "gemini",
+    "cline",
+    "opencode",
+    "kimi",
+    "kiro",
+    "codex"
+  ],
+
+  "//custom_command": "Any CLI: prompt on stdin → improved text on stdout. Bypasses built-in backends. Env: PROMPT_IMPROVER_CUSTOM_COMMAND. null = use backend selection. docs/CUSTOM-BACKENDS.md",
   "custom_command": null,
+
   "allow_web_search": true,
   "allow_code_execution_in_generation": false,
-  "notes": "Headless generation model resolution:\n1) model: / --model (aliases: mythos, fable-5, gpt-5.6-sol, grok-4.5, …)\n2) PROMPT_IMPROVER_MODEL / settings.model\n3) default_models[backend]\n4) CLI default\n\nClaude access/limit cascade: mythos → fable → opus → sonnet.\nOpenAI 5.6 cascade: sol → terra → luna → gpt-5.5.\nGrok: grok-4.5 → composer-2.5-fast → grok-build.\nUnknown future IDs pass through; family patterns still route to the right CLI."
+
+  "notes": "Headless generation model resolution:\n1) model: / --model (aliases: mythos, fable-5, gpt-5.6-sol, grok-4.5, …)\n2) PROMPT_IMPROVER_MODEL / settings.model\n3) default_models[backend]\n4) CLI default\n\nClaude access/limit cascade: mythos → fable → opus → sonnet.\nOpenAI 5.6 cascade: sol → terra → luna → gpt-5.5.\nGrok: grok-4.5 → composer-2.5-fast → grok-build.\nUnknown future IDs pass through; family patterns still route to the right CLI.\n\nCustom CLIs: set custom_command (see docs/CUSTOM-BACKENDS.md)."
 }

@@ -1,16 +1,47 @@
 {
   "version": 1,
+
+  "//": "Copy to ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json. Keys starting with // are comments only (ignored). Full guides: docs/CUSTOM-BACKENDS.md, references/models-supported.md (in the skill).",
+
+  "//backend": "Generator CLI: auto | claude | grok | gemini | codex | cline | opencode | kimi | kiro. Env override: PROMPT_IMPROVER_BACKEND",
   "backend": "auto",
+
+  "//model": "Force one model for every backend (null = use default_models[backend] or CLI default). Env: PROMPT_IMPROVER_MODEL. Per-prompt model:<id> always wins over this.",
   "model": null,
+
+  "//default_models": "Per-backend generator defaults when model is null. Use null for a backend to leave the CLI default. Unknown future IDs pass through.",
   "default_models": {
     "claude": "sonnet",
     "grok": "grok-composer-2.5-fast",
     "gemini": "gemini-2.5-pro",
-    "codex": "gpt-5.5"
+    "codex": "gpt-5.5",
+    "opencode": null,
+    "cline": null,
+    "kimi": null,
+    "kiro": null
   },
+
+  "//max_tokens": "Soft cap passed through where backends support it (best-effort).",
   "max_tokens": 12000,
+
+  "//fallback_strategy": "When headless generation fails: manual = print assembled materials; error = exit non-zero.",
   "fallback_strategy": "manual",
-  "preferred_backends": ["grok", "claude", "gemini", "codex", "cline", "opencode", "kimi", "kiro"],
+
+  "//preferred_backends": "When backend is auto, try these CLIs in order (first binary found on PATH wins). Built-in: grok, claude, gemini, codex, cline, opencode, kimi, kiro.",
+  "preferred_backends": [
+    "grok",
+    "claude",
+    "gemini",
+    "codex",
+    "cline",
+    "opencode",
+    "kimi",
+    "kiro"
+  ],
+
+  "//custom_command": "Escape hatch for any non-built-in CLI (Kilo, wrappers, curl, …). Prompt is fed on stdin; improved text must be printed on stdout. Bypasses backend/model/cascade resolution. Env: PROMPT_IMPROVER_CUSTOM_COMMAND. Set null to use built-in backends. See docs/CUSTOM-BACKENDS.md.",
   "custom_command": null,
-  "notes": "Copy to ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json.\nSet model / default_models for built-in backends.\nPer-prompt: /prompt-improver model:sonnet \"…\".\nFor any other CLI (Kilo, wrappers, …): set custom_command (prompt on stdin, improved text on stdout). See docs/CUSTOM-BACKENDS.md."
+
+  "//notes": "Free-form notes for humans; not used by the runtime.",
+  "notes": "model: resolution → env/settings.model → default_models[backend] → CLI default. Cascades (built-in only): mythos→fable→opus→sonnet; sol→terra→luna→gpt-5.5; grok-4.5→composer→grok-build."
 }

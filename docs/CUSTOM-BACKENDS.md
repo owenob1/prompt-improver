@@ -8,7 +8,7 @@ Config file (first match wins):
 2. `~/.config/prompt-improver/settings.json` (user)
 3. Shipped defaults under the skill `config/`
 
-Copy the example:
+Copy the example (keys starting with `//` are human guidance only — the loader ignores them):
 
 ```bash
 mkdir -p ~/.config/prompt-improver

@@ -196,6 +196,7 @@ bash skills/prompt-improver/scripts/generate-prompt.sh \
 mkdir -p ~/.config/prompt-improver
 cp skills/prompt-improver/config/settings.example.json \
   ~/.config/prompt-improver/settings.json
+# Keys starting with // are comments (safe to leave or delete)
 ```
 
 | Key / env | Purpose |
