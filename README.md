@@ -28,7 +28,7 @@ npx skills add owenob1/prompt-improver --list
 
 ```text
 /plugin marketplace add owenob1/prompt-improver
-/plugin install prompt-improver@prompt-improver-marketplace
+/plugin install prompt-improver@prompt-improver
 ```
 
 Then invoke:
