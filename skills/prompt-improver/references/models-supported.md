@@ -2,8 +2,12 @@
 
 Canonical reference for headless generation models used by `/prompt-improver`.
 
-Implementation: `scripts/lib/settings.sh` (`normalize_model_id`, `infer_backend_for_model`, `get_model_fallback_chain`).  
-**Keep this file in sync when adding aliases or cascades.**
+Implementation: `scripts/lib/settings.sh` + shipped tables in `config/runtime-defaults.json`  
+(`normalize_model_id`, `infer_backend_for_model`, `get_model_fallback_chain`).  
+
+**Customise without code:** override `model_aliases`, `model_fallback_chains`, `model_backend_patterns`,  
+`default_models`, etc. in `~/.config/prompt-improver/settings.json` (see `docs/CUSTOM-BACKENDS.md`).  
+**Keep this file in sync when changing shipped defaults.**
 
 ---
 

@@ -155,8 +155,61 @@ Unset `custom_command` (or set it to `null`) to return to normal backend selecti
 
 ---
 
+## Fully customisable settings
+
+Beyond scalars (`backend`, `model`, `custom_command`, …), **runtime tables** ship in  
+`skills/prompt-improver/config/runtime-defaults.json` and can be **overridden or extended** in your settings file.
+
+| Table / key | Purpose |
+|-------------|---------|
+| `model_aliases` | Map short names → canonical IDs (`"myfast": "haiku"`) — **merged** with shipped map |
+| `model_fallback_chains` | Pattern → ordered model cascade (`$primary` = requested id) — **replaces** table when set |
+| `model_backend_patterns` | Pattern → generator CLI (`codex`, `claude`, …) |
+| `default_models` | Per-backend default when `model` is null |
+| `backend_commands` | CLI templates with `{prompt_file}` `{model}` `{model_args}` `{max_tokens}` |
+| `backend_model_flags` | How to pass model id per backend (`-m {model}`, …) |
+| `backend_invocation` | `scripts` \| `commands` \| `auto` |
+| `supported_backends` | Host-match allowlist |
+| `preferred_backends` | Cascade order after primary fails (not default pick) |
+| `limit_detection` | Regexes for account / retry / “looks like XML” |
+| `host_env_markers` | Env vars that identify the host CLI |
+| `parent_process_patterns` | Process-name globs for host detection |
+| `cascade_scan_order` | Fallback scan when preferred list empty |
+
+**Merge rules**
+
+- Scalar keys: project → user → `settings.default.json` → `runtime-defaults.json`
+- Object maps (`model_aliases`, `default_models`, …): deep-merge, **later layers win per key**
+- Arrays of chain/pattern tables: **first non-empty** layer wins (set the whole table to replace)
+
+**Example** — add an alias and shorten a cascade:
+
+```json
+{
+  "model_aliases": {
+    "cheap": "haiku",
+    "codex": "gpt-5.5"
+  },
+  "model_fallback_chains": [
+    { "patterns": ["*sonnet*", "sonnet"], "chain": ["$primary", "haiku"] }
+  ],
+  "backend_commands": {
+    "mycli": "mycli --prompt-file {prompt_file} --model {model}"
+  },
+  "supported_backends": ["claude", "grok", "gemini", "codex", "mycli"],
+  "default_models": {
+    "mycli": "default"
+  }
+}
+```
+
+Env still wins for scalars (`PROMPT_IMPROVER_MODEL`, `PROMPT_IMPROVER_BACKEND`, `PROMPT_IMPROVER_CUSTOM_COMMAND`, …).
+
+---
+
 ## Related
 
 - [MODELS.md](./MODELS.md) — pointer to full model list  
 - Settings keys in skill `config/settings.example.json`  
-- Implementation: `scripts/generate-prompt.sh` (custom branch), `scripts/lib/settings.sh`
+- Shipped tables: `config/runtime-defaults.json`  
+- Implementation: `scripts/generate-prompt.sh`, `scripts/lib/settings.sh`

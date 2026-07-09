@@ -208,10 +208,13 @@ cp skills/prompt-improver/config/settings.example.json \
 |-----------|---------|
 | `model` / `PROMPT_IMPROVER_MODEL` | Force one generator model |
 | `default_models` | Per-backend defaults |
-| `backend` / `PROMPT_IMPROVER_BACKEND` | `auto`, `claude`, `grok`, `opencode`, … |
+| `backend` / `PROMPT_IMPROVER_BACKEND` | `auto` (host-matched), `claude`, `grok`, `opencode`, … |
 | `custom_command` / `PROMPT_IMPROVER_CUSTOM_COMMAND` | Any CLI: prompt on stdin → improved text on stdout |
+| `model_aliases` | Extend/override short names → model IDs |
+| `model_fallback_chains` | Custom rate-limit cascades |
+| `backend_commands` | Custom CLI invoke templates |
 
-Built-in backends include Claude, Grok, Gemini, Codex, Cline, OpenCode, Kimi, and Kiro. For anything else (Kilo, private wrappers, …), use **custom mode** — full guide: [docs/CUSTOM-BACKENDS.md](./docs/CUSTOM-BACKENDS.md).
+Runtime tables (aliases, cascades, host detection, limit regexes, …) ship in `config/runtime-defaults.json` and are fully overridable. Full guide: [docs/CUSTOM-BACKENDS.md](./docs/CUSTOM-BACKENDS.md).
 
 </details>
 
