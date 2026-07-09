@@ -1,6 +1,6 @@
 {
   "name": "prompt-improver",
-  "description": "Transform vague prompts into structured, verifiable XML and execute or review them. Use when the user says improve prompt, plan work carefully, or structure a vague coding request.",
+  "description": "Turn vague agent prompts into precise, verifiable XML specs — then execute or plan. Headless multi-CLI generator. Use when the user says improve prompt, plan carefully, or structure a vague coding request.",
   "version": "1.0.0",
   "author": {
     "name": "owenob1"
@@ -8,5 +8,18 @@
   "homepage": "https://github.com/owenob1/prompt-improver",
   "repository": "https://github.com/owenob1/prompt-improver",
   "license": "MIT",
-  "keywords": ["prompt-engineering", "xml", "agent-skills"]
+  "keywords": [
+    "prompt-engineering",
+    "prompt-improver",
+    "agent-skills",
+    "ai-agents",
+    "coding-agents",
+    "claude-code",
+    "xml",
+    "structured-prompts",
+    "headless",
+    "skills-sh",
+    "workflow",
+    "llm"
+  ]
 }
