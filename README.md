@@ -19,7 +19,8 @@
 [Models](#-default-generator-models) ·
 [How it works](#-how-it-works) ·
 [Advanced](#-advanced) ·
-[Contributing](#-contributing)
+[Contributing](#-contributing) ·
+[Full model list](./skills/prompt-improver/references/models-supported.md)
 
 </div>
 
@@ -140,6 +141,8 @@ If a model is unavailable, restricted, or out of usage, headless generation walk
 | **Grok 4.5** | grok-4.5 → composer-2.5-fast → grok-build |
 
 So invite-only Mythos users get Mythos when available; otherwise the improver automatically steps down without you re-running the skill.
+
+**Full alias + cascade reference:** [models-supported.md](./skills/prompt-improver/references/models-supported.md) (also under `docs/MODELS.md`).
 
 ---
 

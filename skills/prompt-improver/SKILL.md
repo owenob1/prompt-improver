@@ -41,6 +41,8 @@ Examples:
 
 **Access / limit cascades** (retry next on unavailable / rate-limit): Mythos → Fable → Opus → Sonnet; GPT-5.6 Sol → Terra → Luna → gpt-5.5; Grok 4.5 → composer-2.5-fast → grok-build.
 
+Full list: `references/models-supported.md`.
+
 If mode is ambiguous and the work is large/risky, ask once: Execute vs Plan.
 
 Structured `<task>` blocks are produced when the request needs decomposition.
@@ -68,7 +70,7 @@ Host agent executes or shows plan
 ## Skill layout
 
 - `scripts/` — generator, validator, assembler, backends, smoke tests
-- `references/` — XML template, prompting principles, chaining guidance
+- `references/` — XML template, prompting principles, chaining guidance, **models-supported.md**
 - `assets/generation-agent-prompt.md` — generator system prompt
 - `examples/` — before/after samples and validation fixtures
 - `config/` — settings for headless generation
