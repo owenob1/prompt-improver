@@ -7,9 +7,18 @@
   "enable_thinking": true,
   "headless_only": true,
   "fallback_strategy": "manual",
-  "preferred_backends": ["grok", "claude", "gemini", "cline", "opencode", "kimi", "kiro", "codex"],
+  "preferred_backends": [
+    "grok",
+    "claude",
+    "gemini",
+    "cline",
+    "opencode",
+    "kimi",
+    "kiro",
+    "codex"
+  ],
   "custom_command": null,
   "allow_web_search": true,
   "allow_code_execution_in_generation": false,
-  "notes": "Copy to ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json\nSet backend to force a CLI (e.g. \"claude\").\nfallback_strategy \"manual\" prints the assembled prompt if headless fails.\nEnv overrides win over this file: PROMPT_IMPROVER_BACKEND, PROMPT_IMPROVER_MODEL, etc."
+  "notes": "Copy to ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json. Only affects headless scripts/generate-prompt.sh \u2014 not in-session /prompt-improver. Set model to a cheap/fast id when using headless. Env overrides: PROMPT_IMPROVER_BACKEND, PROMPT_IMPROVER_MODEL, etc."
 }
