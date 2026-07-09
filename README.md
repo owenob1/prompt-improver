@@ -105,14 +105,9 @@ Leading tokens (any order), same idea as slash-command options:
 
 ## ⚙️ How it works
 
-```mermaid
-flowchart LR
-  U[You] --> H[Host agent]
-  H -->|/prompt-improver| G[Headless generator<br/>mid-tier model]
-  G -->|improvement-only| X[Structured XML]
-  X --> H
-  H -->|execute or plan| T[Your task]
-```
+<p align="center">
+  <img src="docs/how-it-works.svg" alt="You → host agent → headless generator → XML spec → execute task" width="780" />
+</p>
 
 1. **Triage** — skip generation if the input is already a solid spec  
 2. **Generate** — headless rewrite via `scripts/generate-prompt.sh`  
@@ -120,6 +115,8 @@ flowchart LR
 4. **Execute or review** — host runs the plan (or shows it with `plan`)
 
 Host frontier models (Fable, Opus, …) stay on **execution**. Generation defaults to a capable mid-tier model.
+
+> GitHub injects pan/zoom controls on Mermaid blocks and can’t hide them from markdown — so this flow is a static SVG instead.
 
 ---
 

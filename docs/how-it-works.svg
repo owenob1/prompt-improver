@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 140" width="780" height="140" role="img" aria-label="How prompt-improver works">
+  <defs>
+    <style>
+      .box { fill: #161b22; stroke: #30363d; stroke-width: 1.5; rx: 8; }
+      .label { fill: #e6edf3; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; text-anchor: middle; }
+      .sub { fill: #8b949e; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif; font-size: 11px; text-anchor: middle; }
+      .arrow { stroke: #58a6ff; stroke-width: 2; fill: none; marker-end: url(#ah); }
+      .gen { fill: #0d419d; stroke: #1f6feb; }
+    </style>
+    <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#58a6ff"/>
+    </marker>
+  </defs>
+
+  <!-- You -->
+  <rect class="box" x="8" y="36" width="100" height="68"/>
+  <text class="label" x="58" y="68">You</text>
+  <text class="sub" x="58" y="86">request</text>
+
+  <path class="arrow" d="M118 70 H148"/>
+
+  <!-- Host -->
+  <rect class="box" x="158" y="36" width="120" height="68"/>
+  <text class="label" x="218" y="68">Host agent</text>
+  <text class="sub" x="218" y="86">/prompt-improver</text>
+
+  <path class="arrow" d="M288 70 H318"/>
+
+  <!-- Generator -->
+  <rect class="box gen" x="328" y="36" width="150" height="68"/>
+  <text class="label" x="403" y="62">Headless gen</text>
+  <text class="sub" x="403" y="80">mid-tier · improve-only</text>
+
+  <path class="arrow" d="M488 70 H518"/>
+
+  <!-- XML -->
+  <rect class="box" x="528" y="36" width="110" height="68"/>
+  <text class="label" x="583" y="68">XML spec</text>
+  <text class="sub" x="583" y="86">verified</text>
+
+  <path class="arrow" d="M648 70 H678"/>
+
+  <!-- Task -->
+  <rect class="box" x="688" y="36" width="84" height="68"/>
+  <text class="label" x="730" y="68">Task</text>
+  <text class="sub" x="730" y="86">execute</text>
+</svg>
