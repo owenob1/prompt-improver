@@ -1,26 +1,48 @@
+<div align="center">
+
 # prompt-improver
 
-Transform vague prompts into precise, verifiable structured XML that coding agents can execute reliably.
+**Turn vague prompts into precise, verifiable specs your coding agent can execute.**
 
-Compatible with the [Agent Skills](https://agentskills.io/) format. Works with Claude Code, Grok Build, Codex, Cursor, Gemini CLI, and other skill-aware agents.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![CI](https://github.com/owenob1/prompt-improver/actions/workflows/ci.yml/badge.svg)](https://github.com/owenob1/prompt-improver/actions/workflows/ci.yml)
+[![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-blue)](https://agentskills.io/)
+[![skills.sh](https://skills.sh/b/owenob1/prompt-improver)](https://skills.sh/owenob1/prompt-improver)
+
+[Install](#install) · [Usage](#usage) · [How it works](#how-it-works) · [Structure](#structure)
+
+</div>
+
+---
+
+## Why
+
+Coding agents often jump into implementation from fuzzy requests — missing edge cases, verification, and clear scope. **prompt-improver** rewrites the request into structured XML with tasks, checks, and escape clauses *before* work starts.
+
+The generator is **improvement-only**: it will not execute your request while improving it.
+
+| You say | You get |
+|---------|---------|
+| “Add rate limiting” | Spec with scope, verification commands, and failure modes |
+| “Fix auth” | Repro-first plan, concrete checks, explicit out-of-scope |
+| “Refactor payments” | Phased tasks with acceptance criteria |
+
+Works with Claude Code, Grok Build, Codex, Cursor, Gemini CLI, and other [Agent Skills](https://agentskills.io/)-compatible agents.
 
 ## Install
 
-### Global (recommended) — skills.sh CLI
+### skills.sh (recommended)
 
 ```bash
+# Global — available in every project
 npx skills add -g owenob1/prompt-improver
-```
 
-### Project-local
-
-```bash
+# Project-local — commit with the repo
 npx skills add owenob1/prompt-improver
 ```
 
-List without installing:
-
 ```bash
+# Preview without installing
 npx skills add owenob1/prompt-improver --list
 ```
 
@@ -31,78 +53,81 @@ npx skills add owenob1/prompt-improver --list
 /plugin install prompt-improver@prompt-improver
 ```
 
-Then invoke:
+### Manual
+
+```bash
+git clone https://github.com/owenob1/prompt-improver.git
+cp -R prompt-improver/skills/prompt-improver ~/.claude/skills/prompt-improver
+```
+
+Many agents also load from `~/.agents/skills/` or project `.claude/skills/`.
+
+## Usage
+
+Once installed, invoke the skill:
 
 ```text
 /prompt-improver plan "Add rate limiting to the payment API"
 /prompt-improver "Fix the flaky auth tests"
 ```
 
-### Manual copy
-
-```bash
-git clone https://github.com/owenob1/prompt-improver.git
-# Symlink or copy the skill package into your agent skills dir:
-#   Claude Code:  ~/.claude/skills/prompt-improver
-#   Many agents:  ~/.agents/skills/prompt-improver
-cp -R prompt-improver/skills/prompt-improver ~/.claude/skills/prompt-improver
-```
-
-## Use
-
-| Mode | Command | What happens |
-|------|---------|--------------|
+| Mode | Command | Behaviour |
+|------|---------|-----------|
 | **Execute** (default) | `/prompt-improver "…"` | Improve the prompt, then run the work with verification |
-| **Plan** | `/prompt-improver plan "…"` | Improve the prompt, show XML for review, wait for your decision |
+| **Plan** | `/prompt-improver plan "…"` | Improve the prompt, show the XML, wait for your decision |
 
-The generator is **improvement-only**: it will not start building what you asked for while it is improving the prompt.
-
-## What you get
-
-- Structured XML with tasks, verification, escape clauses, and a final check block
-- Portable scripts: assemble materials, generate headlessly, validate output
-- Multi-CLI backends (`claude`, `grok`, `gemini`, …) with manual fallback if headless fails
-
-## Optional: run scripts without an agent
-
-From a clone of this repo:
+### Without installing (one-shot)
 
 ```bash
-# Offline smoke tests (no API keys)
-bash tests/smoke-test.sh
-
-# Assemble generator materials for any CLI
+# Assemble materials → paste into any coding CLI
 bash skills/prompt-improver/scripts/assemble-generation-prompt.sh "your request"
 
-# One-shot improve (needs a coding CLI on PATH, or prints manual fallback)
+# Headless improve if a supported CLI is on PATH
 bash skills/prompt-improver/scripts/standalone-improve.sh "your request" plan
 ```
 
-## Repository layout
+## How it works
+
+1. **Triage** — skip generation if the input is already a solid spec  
+2. **Generate** — embed references + improvement-only contract → structured XML  
+3. **Validate** — `scripts/validate-prompt.sh` checks tasks, verification, and check blocks  
+4. **Execute or review** — run the work, or inspect the plan first  
+
+Bundled under the skill:
+
+- Prompting principles & XML template (`references/`)
+- Generator instructions (`assets/`)
+- Multi-CLI backends (`scripts/backends/`)
+- Offline smoke tests (`tests/`, `scripts/smoke-test.sh`)
+
+## Structure
 
 ```text
-.
-├── README.md                 # You are here (humans)
-├── skills/prompt-improver/   # Canonical skill package (install this)
-│   ├── SKILL.md
-│   ├── scripts/
-│   ├── references/
-│   ├── assets/
-│   ├── examples/
-│   └── config/
-├── plugins/prompt-improver/  # Claude Code plugin wrapper
-├── .claude-plugin/           # Marketplace catalog
-└── tests/                    # Repo CI smoke tests
+skills/prompt-improver/     ← install this package
+├── SKILL.md
+├── scripts/                # generate, validate, assemble, backends
+├── references/             # principles, template, chaining
+├── assets/                 # generator prompt
+├── examples/               # before/after + fixtures
+└── config/                 # optional settings defaults
+
+plugins/prompt-improver/    ← Claude Code plugin wrapper
+.claude-plugin/             ← marketplace catalog
+tests/                      ← repo CI smoke tests
 ```
 
 ## Security
 
-This skill includes shell scripts under `skills/prompt-improver/scripts/`. Treat installs like code: review `SKILL.md` and scripts before use, especially backends that invoke external CLIs.
+Shell scripts live in `skills/prompt-improver/scripts/`. Review `SKILL.md` and scripts before install — same caution as any code you run on your machine.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Run `bash tests/smoke-test.sh` before opening a PR.
+See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+```bash
+bash tests/smoke-test.sh
+```
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](./LICENSE) © owenob1
