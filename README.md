@@ -83,8 +83,13 @@ git clone https://github.com/owenob1/prompt-improver.git && cp -R prompt-improve
 ## 🚀 Usage
 
 ```text
+# Improve + execute (default)
 /prompt-improver "Fix the flaky auth tests"
+
+# Improve only — review the XML before running
 /prompt-improver plan "Fix the flaky auth tests"
+
+# Use a specific generator model for this run
 /prompt-improver model:fable-5 "Fix the flaky auth tests"
 ```
 
@@ -95,9 +100,16 @@ git clone https://github.com/owenob1/prompt-improver.git && cp -R prompt-improve
 | `model:<id>` | Override generator model for this run (any family / future ID) |
 
 ```text
+# Plan mode + mid-tier Claude generator
 /prompt-improver plan model:sonnet "Add rate limiting"
+
+# Frontier GPT generator (routes to codex if installed), then plan
 /prompt-improver model:gpt-5.6-sol plan "Refactor payments"
+
+# Grok frontier generator (routes to grok CLI)
 /prompt-improver model:grok-4.5 "Design the migration"
+
+# Restricted Claude model — falls back along the cascade if unavailable
 /prompt-improver model:mythos "Security-sensitive rewrite"
 ```
 
@@ -167,9 +179,13 @@ So invite-only Mythos users get Mythos when available; otherwise the improver au
 <br>
 
 ```bash
+# Standalone: improve only (plan mode), default generator model
 bash skills/prompt-improver/scripts/standalone-improve.sh "Fix the flaky auth tests" plan
+
+# Same, but force Fable as the generator
 bash skills/prompt-improver/scripts/standalone-improve.sh "Fix the flaky auth tests" plan fable-5
 
+# Lower-level generate script (same flags the skill uses headlessly)
 bash skills/prompt-improver/scripts/generate-prompt.sh \
   --mode plan \
   --raw-input "Fix the flaky auth tests" \
