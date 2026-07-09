@@ -22,7 +22,7 @@ Vague prompts kill agent runs. No verification, no constraints, no task split â€
 **What it does:**
 
 * Rewrites your rough request into a **precise, verifiable XML spec** (tasks, requirements, checks)
-* Is **context aware**
+* Is **context aware**: the host passes session summary + working directory; the generator gathers stack/test/build commands from the repo and uses real paths so the spec fits *this* project, not a generic template
 * Runs that rewrite in a **separate headless model call** â€” not by grinding your host session
 * Generator is **improvement-only** (never implements the feature)
 * Host agent then **executes**, or use `plan` to review the XML first
