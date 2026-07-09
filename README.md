@@ -105,18 +105,13 @@ Leading tokens (any order), same idea as slash-command options:
 
 ## ⚙️ How it works
 
-```text
-  you
-   │
-   ▼
- host agent  ──starts──►  /prompt-improver
-   │
-   │  headless generator (mid-tier model, improvement-only)
-   ▼
- structured XML spec
-   │
-   ▼
- host agent  ──executes──►  your task
+```mermaid
+flowchart LR
+  U[You] --> H[Host agent]
+  H -->|/prompt-improver| G[Headless generator<br/>mid-tier model]
+  G -->|improvement-only| X[Structured XML]
+  X --> H
+  H -->|execute or plan| T[Your task]
 ```
 
 1. **Triage** — skip generation if the input is already a solid spec  
