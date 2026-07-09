@@ -20,7 +20,8 @@
 [How it works](#-how-it-works) ·
 [Advanced](#-advanced) ·
 [Contributing](#-contributing) ·
-[Full model list](./skills/prompt-improver/references/models-supported.md)
+[Full model list](./skills/prompt-improver/references/models-supported.md) ·
+[Custom backends](./docs/CUSTOM-BACKENDS.md)
 
 </div>
 
@@ -201,7 +202,10 @@ cp skills/prompt-improver/config/settings.example.json \
 |-----------|---------|
 | `model` / `PROMPT_IMPROVER_MODEL` | Force one generator model |
 | `default_models` | Per-backend defaults |
-| `backend` / `PROMPT_IMPROVER_BACKEND` | `auto`, `claude`, `grok`, … |
+| `backend` / `PROMPT_IMPROVER_BACKEND` | `auto`, `claude`, `grok`, `opencode`, … |
+| `custom_command` / `PROMPT_IMPROVER_CUSTOM_COMMAND` | Any CLI: prompt on stdin → improved text on stdout |
+
+Built-in backends include Claude, Grok, Gemini, Codex, Cline, OpenCode, Kimi, and Kiro. For anything else (Kilo, private wrappers, …), use **custom mode** — full guide: [docs/CUSTOM-BACKENDS.md](./docs/CUSTOM-BACKENDS.md).
 
 </details>
 

@@ -10,6 +10,7 @@
   },
   "max_tokens": 12000,
   "fallback_strategy": "manual",
-  "preferred_backends": ["grok", "claude", "gemini"],
-  "notes": "Copy to ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json.\nSet model to force one generator model for all backends.\nOr edit default_models per backend.\nPer-prompt override: /prompt-improver model:sonnet \"your request\""
+  "preferred_backends": ["grok", "claude", "gemini", "codex", "cline", "opencode", "kimi", "kiro"],
+  "custom_command": null,
+  "notes": "Copy to ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json.\nSet model / default_models for built-in backends.\nPer-prompt: /prompt-improver model:sonnet \"…\".\nFor any other CLI (Kilo, wrappers, …): set custom_command (prompt on stdin, improved text on stdout). See docs/CUSTOM-BACKENDS.md."
 }

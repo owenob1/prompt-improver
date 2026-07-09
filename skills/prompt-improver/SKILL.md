@@ -155,12 +155,15 @@ Layers (env wins):
 
 | Setting / env | Purpose |
 |---------------|---------|
-| `backend` / `PROMPT_IMPROVER_BACKEND` | Which CLI runs headless generation (`auto`, `claude`, `grok`, …) |
+| `backend` / `PROMPT_IMPROVER_BACKEND` | Which CLI runs headless generation (`auto`, `claude`, `grok`, `opencode`, …) |
 | `model` / `PROMPT_IMPROVER_MODEL` | Force one generator model for all backends (optional) |
 | `default_models` | Per-backend generator defaults (shipped: sonnet, grok-composer-2.5-fast, gemini-2.5-pro, gpt-5.5) |
+| `custom_command` / `PROMPT_IMPROVER_CUSTOM_COMMAND` | Any CLI: full improver prompt on **stdin**, improved text on **stdout** (bypasses built-in backends) |
 | `fallback_strategy` | `manual` (print assembled prompt) or `error` |
 
-Per-prompt `model:…` always wins for that run.
+Per-prompt `model:…` always wins for that run (unless `custom_command` is set — then encode the model in your command).
+
+Built-in: claude, grok, gemini, codex, cline, opencode, kimi, kiro. Anything else → `custom_command` (repo: `docs/CUSTOM-BACKENDS.md`).
 
 ## Safety
 
