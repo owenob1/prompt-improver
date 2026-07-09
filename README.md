@@ -8,7 +8,7 @@
 [![CI](https://github.com/owenob1/prompt-improver/actions/workflows/ci.yml/badge.svg)](https://github.com/owenob1/prompt-improver/actions/workflows/ci.yml)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-blue)](https://agentskills.io/)
 
-[Install](#1-install) · [Use](#2-use) · [What happens](#3-what-happens) · [Models](#4-default-generator-models) · [Advanced](#5-advanced-optional) · [Contributing](#contributing)
+[Install](#1-install) · [Usage](#2-usage) · [What happens](#3-what-happens) · [Models](#4-default-generator-models) · [Advanced](#5-advanced-optional) · [Contributing](#contributing)
 
 </div>
 
@@ -28,7 +28,7 @@ npx skills add -g owenob1/prompt-improver
 
 ---
 
-## 2. Use
+## 2. Usage
 
 ```text
 /prompt-improver "Fix the flaky auth tests"
