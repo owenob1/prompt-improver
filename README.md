@@ -144,7 +144,10 @@ Pass full IDs or short aliases. **Unknown future IDs pass through** (e.g. `gpt-5
 
 </details>
 
-### Access / rate-limit fallbacks
+<details>
+<summary><strong>Access / rate-limit fallbacks</strong></summary>
+
+<br>
 
 If a model is unavailable, restricted, or out of usage, headless generation walks a cascade (first success wins):
 
@@ -158,6 +161,8 @@ If a model is unavailable, restricted, or out of usage, headless generation walk
 | **Grok 4.5** | grok-4.5 → composer-2.5-fast → grok-build |
 
 So invite-only Mythos users get Mythos when available; otherwise the improver automatically steps down without you re-running the skill.
+
+</details>
 
 **Full alias + cascade reference:** [models-supported.md](./skills/prompt-improver/references/models-supported.md) (also under `docs/MODELS.md`).
 
