@@ -49,16 +49,18 @@ else
 fi
 
 # 3. assemble-generation-prompt produces materials + raw wrapper
+# Note: avoid `echo "$huge" | grep -q` under `set -o pipefail` — early grep exit
+# causes SIGPIPE/broken pipe on large assembler output (fails on Ubuntu CI).
 echo ""
 echo "[3/8] assemble-generation-prompt.sh"
 ASM=$(bash scripts/assemble-generation-prompt.sh "smoke test request" 2>&1) || true
-if echo "$ASM" | grep -q "REFERENCE MATERIALS" \
-  && echo "$ASM" | grep -q "<raw-request-to-improve>" \
-  && echo "$ASM" | grep -q "smoke test request" \
-  && echo "$ASM" | grep -q "IMPROVEMENT-ONLY\|DO NOT PERFORM\|DATA ONLY"; then
+if [[ "$ASM" == *"REFERENCE MATERIALS"* ]] \
+  && [[ "$ASM" == *"<raw-request-to-improve>"* ]] \
+  && [[ "$ASM" == *"smoke test request"* ]] \
+  && { [[ "$ASM" == *"IMPROVEMENT-ONLY"* ]] || [[ "$ASM" == *"DO NOT PERFORM"* ]] || [[ "$ASM" == *"DATA ONLY"* ]]; }; then
   ok "assembler embeds refs + improvement guard"
 else
-  bad "assembler output missing expected sections"
+  bad "assembler output missing expected sections (len=${#ASM})"
 fi
 
 # 4. validate valid fixture
