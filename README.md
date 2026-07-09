@@ -97,7 +97,7 @@ Bundled under the skill:
 - Prompting principles & XML template (`references/`)
 - Generator instructions (`assets/`)
 - Multi-CLI backends (`scripts/backends/`)
-- Offline smoke tests (`tests/`, `scripts/smoke-test.sh`)
+- Offline smoke tests (`tests/smoke-test.sh`)
 
 ## Structure
 

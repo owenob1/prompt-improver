@@ -27,7 +27,7 @@ Turn rough user intent into high-quality, executable XML specifications. A stric
 
 If the first word of `$ARGUMENTS` is `plan` (case-insensitive), use Plan mode and strip that word. Otherwise default to Execute for simple intents. If mode is ambiguous and the work is large/risky, ask once: Execute vs Plan.
 
-**Task mode is deprecated.** Structured `<task>` blocks inside the XML are still produced when decomposition helps.
+Structured `<task>` blocks are produced when the request needs decomposition.
 
 ## Skill layout
 

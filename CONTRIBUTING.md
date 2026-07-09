@@ -10,7 +10,7 @@ Installable skill content lives only under:
 skills/prompt-improver/
 ```
 
-Root `README.md` is for humans. Claude marketplace packaging is under `.claude-plugin/` and `plugins/`. Do not reintroduce a root-level `SKILL.md`.
+Root `README.md` is for humans. Claude marketplace packaging is under `.claude-plugin/` and `plugins/`.
 
 ## Principles
 
