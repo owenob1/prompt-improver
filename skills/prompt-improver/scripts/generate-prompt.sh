@@ -18,8 +18,8 @@
 # Exit codes:
 #   0  Success — improved XML on stdout
 #   1  Invalid usage / missing args
-#   2  Headless generation failed
-#   3  Reserved
+#   2  Headless generation failed (non-limit / hard error when fallback_strategy=error)
+#   3  Rate-limit / access exhausted — HOST must complete the user request in-session
 #   4  Validation failed (or fallback_strategy=error with no backend)
 
 set -euo pipefail
@@ -113,7 +113,23 @@ if [ -n "$CUSTOM_COMMAND" ]; then
   GENERATED=$(eval "$CUSTOM_COMMAND" < "$TMP_PROMPT" 2>&1)
   EXIT_CODE=$?
   set -e
-  if [ $EXIT_CODE -ne 0 ]; then
+  if [ $EXIT_CODE -ne 0 ] || is_rate_limit_message_only "$GENERATED"; then
+    if is_model_retryable_failure "$EXIT_CODE" "$GENERATED" || is_rate_limit_message_only "$GENERATED"; then
+      cat >&2 <<EOF
+=== HOST_BOUNCE:RATE_LIMITED ===
+reason: custom_command rate-limited or unavailable
+tried: custom_command
+instruction: The host agent (this CLI session) MUST complete the user's original request in-session.
+Do NOT re-run headless generation in a loop.
+=== END_HOST_BOUNCE ===
+EOF
+      cat <<EOF
+HOST_BOUNCE:RATE_LIMITED
+tried: custom_command
+raw_request: ${RAW_INPUT}
+EOF
+      exit 3
+    fi
     echo "custom_command failed (exit $EXIT_CODE)." >&2
     exit 2
   fi
@@ -185,29 +201,32 @@ else
   fi
 fi
 
-# --- Invoke backend with model fallback chain ---
-# e.g. mythos → fable → opus; gpt-5.6-sol → terra → luna → gpt-5.5
-BACKEND_SCRIPT="$SCRIPT_DIR/backends/$BACKEND_TO_USE.sh"
+# --- Invoke backends with model + CLI fallback, then host bounce ---
+# Model chain e.g. fable → opus → sonnet; sol → terra → luna → gpt-5.5
+# Account-wide limits skip remaining models on that CLI and try another backend.
 GENERATED=""
 EXIT_CODE=1
 LAST_OUTPUT=""
-TRIED_MODELS=""
+TRIED_ATTEMPTS=""
+LAST_FAILURE_KIND="error"   # rate_limit | error
 
 run_headless_once() {
-  local model_try="$1"
+  local backend_try="$1"
+  local model_try="$2"
+  local backend_script="$SCRIPT_DIR/backends/${backend_try}.sh"
   local out="" code=0 inv=""
 
   export PROMPT_IMPROVER_MODEL="$model_try"
 
-  if [ -x "$BACKEND_SCRIPT" ]; then
+  if [ -x "$backend_script" ]; then
     set +e
-    out=$("$BACKEND_SCRIPT" "$TMP_PROMPT" 2>&1)
+    out=$("$backend_script" "$TMP_PROMPT" 2>&1)
     code=$?
     set -e
   else
-    inv=$(get_backend_command "$BACKEND_TO_USE" "$TMP_PROMPT")
+    inv=$(get_backend_command "$backend_try" "$TMP_PROMPT")
     if [ -n "$model_try" ] && [ -n "$inv" ]; then
-      case "$BACKEND_TO_USE" in
+      case "$backend_try" in
         grok)   inv="$inv -m $model_try" ;;
         claude) inv="$inv --model $model_try" ;;
         gemini) inv="$inv -m $model_try" ;;
@@ -215,7 +234,7 @@ run_headless_once() {
       esac
     fi
     if [ -z "$inv" ]; then
-      echo ""
+      LAST_OUTPUT=""
       return 127
     fi
     set +e
@@ -225,67 +244,140 @@ run_headless_once() {
   fi
 
   LAST_OUTPUT="$out"
+  # Limit messages sometimes arrive with exit 0
+  if [ "$code" -eq 0 ] && is_rate_limit_message_only "$out"; then
+    return 1
+  fi
   return "$code"
 }
 
-# shellcheck disable=SC2206
-MODEL_CHAIN=( $(get_model_fallback_chain "${MODEL:-}") )
-# De-dupe while preserving order
-_SEEN_MODELS=" "
-MODEL_TRY_LIST=()
-for _m in "${MODEL_CHAIN[@]}"; do
-  [ -z "$_m" ] && continue
-  case "$_SEEN_MODELS" in
-    *" $_m "*) continue ;;
+# Build ordered backend try list: primary first, then preferred_backends on PATH
+_backend_try_list=("$BACKEND_TO_USE")
+for _b in "${PREFS[@]}"; do
+  [ -z "$_b" ] && continue
+  [ "$_b" = "openai" ] && _b="codex"
+  [ "$_b" = "$BACKEND_TO_USE" ] && continue
+  case " ${_backend_try_list[*]} " in
+    *" $_b "*) continue ;;
   esac
-  _SEEN_MODELS="$_SEEN_MODELS$_m "
-  MODEL_TRY_LIST+=("$_m")
-done
-if [ "${#MODEL_TRY_LIST[@]}" -eq 0 ] && [ -n "$MODEL" ]; then
-  MODEL_TRY_LIST=("$MODEL")
-fi
-if [ "${#MODEL_TRY_LIST[@]}" -eq 0 ]; then
-  MODEL_TRY_LIST=("")
-fi
-
-for TRY_MODEL in "${MODEL_TRY_LIST[@]}"; do
-  if [ -n "$TRY_MODEL" ]; then
-    echo "Trying backend: $BACKEND_TO_USE (model: $TRY_MODEL)" >&2
-  else
-    echo "Trying backend: $BACKEND_TO_USE (model: CLI default)" >&2
+  if command -v "$_b" >/dev/null 2>&1; then
+    _backend_try_list+=("$_b")
   fi
-  TRIED_MODELS="${TRIED_MODELS}${TRY_MODEL:-default} "
-  set +e
-  run_headless_once "$TRY_MODEL"
-  EXIT_CODE=$?
-  set -e
-  GENERATED="$LAST_OUTPUT"
+done
 
-  if [ $EXIT_CODE -eq 0 ]; then
-    MODEL="$TRY_MODEL"
-    export PROMPT_IMPROVER_MODEL="${MODEL}"
+_generation_ok=false
+for BACKEND_TRY in "${_backend_try_list[@]}"; do
+  # Model chain for this backend: keep requested chain when backend matches inference;
+  # otherwise use that backend's default model cascade.
+  _model_for_chain="$MODEL"
+  if [ -n "$INFERRED_BACKEND" ] && [ "$BACKEND_TRY" != "$INFERRED_BACKEND" ] && [ "$BACKEND_TRY" != "$BACKEND_TO_USE" ]; then
+    _model_for_chain=$(get_default_model_for_backend "$BACKEND_TRY")
+  elif [ -z "$_model_for_chain" ]; then
+    _model_for_chain=$(get_default_model_for_backend "$BACKEND_TRY")
+  fi
+
+  # shellcheck disable=SC2206
+  MODEL_CHAIN=( $(get_model_fallback_chain "${_model_for_chain:-}") )
+  _SEEN_MODELS=" "
+  MODEL_TRY_LIST=()
+  for _m in "${MODEL_CHAIN[@]}"; do
+    [ -z "$_m" ] && continue
+    case "$_SEEN_MODELS" in
+      *" $_m "*) continue ;;
+    esac
+    _SEEN_MODELS="$_SEEN_MODELS$_m "
+    MODEL_TRY_LIST+=("$_m")
+  done
+  if [ "${#MODEL_TRY_LIST[@]}" -eq 0 ] && [ -n "${_model_for_chain:-}" ]; then
+    MODEL_TRY_LIST=("$_model_for_chain")
+  fi
+  if [ "${#MODEL_TRY_LIST[@]}" -eq 0 ]; then
+    MODEL_TRY_LIST=("")
+  fi
+
+  _skip_rest_of_backend=false
+  for TRY_MODEL in "${MODEL_TRY_LIST[@]}"; do
+    if [ "$_skip_rest_of_backend" = true ]; then
+      break
+    fi
+    if [ -n "$TRY_MODEL" ]; then
+      echo "Trying backend: $BACKEND_TRY (model: $TRY_MODEL)" >&2
+    else
+      echo "Trying backend: $BACKEND_TRY (model: CLI default)" >&2
+    fi
+    TRIED_ATTEMPTS="${TRIED_ATTEMPTS}${BACKEND_TRY}/${TRY_MODEL:-default} "
+    set +e
+    run_headless_once "$BACKEND_TRY" "$TRY_MODEL"
+    EXIT_CODE=$?
+    set -e
+    GENERATED="$LAST_OUTPUT"
+
+    if [ $EXIT_CODE -eq 0 ] && [ -n "$GENERATED" ] && ! is_rate_limit_message_only "$GENERATED"; then
+      BACKEND_TO_USE="$BACKEND_TRY"
+      MODEL="$TRY_MODEL"
+      export PROMPT_IMPROVER_MODEL="${MODEL}"
+      _generation_ok=true
+      break
+    fi
+
+    if is_account_limit_failure "$GENERATED" || is_rate_limit_message_only "$GENERATED"; then
+      LAST_FAILURE_KIND="rate_limit"
+      echo "Backend '$BACKEND_TRY' model '${TRY_MODEL:-default}' hit rate/usage limit." >&2
+      if is_account_limit_failure "$GENERATED"; then
+        echo "Account/org limit on '$BACKEND_TRY' — skipping remaining models on this CLI." >&2
+        _skip_rest_of_backend=true
+      else
+        echo "Retryable limit — trying next model fallback…" >&2
+      fi
+      continue
+    fi
+
+    if is_model_retryable_failure "$EXIT_CODE" "$GENERATED"; then
+      LAST_FAILURE_KIND="rate_limit"
+      echo "Model '${TRY_MODEL:-default}' failed (retryable: access/limit/unavailable). Trying next fallback…" >&2
+      continue
+    fi
+
+    # Non-retryable failure on this attempt — try next backend if any
+    LAST_FAILURE_KIND="error"
+    echo "Headless generation with $BACKEND_TRY / ${TRY_MODEL:-default} failed (exit $EXIT_CODE)." >&2
+    _skip_rest_of_backend=true
+  done
+
+  if [ "$_generation_ok" = true ]; then
     break
   fi
-
-  if is_model_retryable_failure "$EXIT_CODE" "$GENERATED"; then
-    echo "Model '$TRY_MODEL' failed (retryable: access/limit/unavailable). Trying next fallback…" >&2
-    continue
+  # After exhausting a backend on limits, continue to next backend
+  if [ "$LAST_FAILURE_KIND" = "rate_limit" ]; then
+    echo "Trying next available generator CLI…" >&2
   fi
-
-  # Non-retryable failure — stop chain
-  echo "Headless generation with $BACKEND_TO_USE / $TRY_MODEL failed (exit $EXIT_CODE)." >&2
-  break
 done
 
-if [ $EXIT_CODE -ne 0 ]; then
-  echo "Headless generation failed after trying: $TRIED_MODELS" >&2
-  echo "You may need to authenticate, install the target CLI, or pick another model." >&2
+if [ "$_generation_ok" != true ]; then
+  echo "Headless generation failed after trying: $TRIED_ATTEMPTS" >&2
 
-  if [ "$FALLBACK_STRATEGY" = "manual" ]; then
-    echo "=== FALLBACK: Assembled prompt for manual use ===" >&2
-    cat "$TMP_PROMPT"
-    exit 0
+  if [ "$LAST_FAILURE_KIND" = "rate_limit" ] || [ "$FALLBACK_STRATEGY" = "manual" ]; then
+    # Bounce to the host CLI/agent that invoked this skill so *it* completes the user work.
+    cat >&2 <<EOF
+=== HOST_BOUNCE:RATE_LIMITED ===
+reason: headless generator rate-limited or unavailable after fallbacks
+tried: ${TRIED_ATTEMPTS}
+failure_kind: ${LAST_FAILURE_KIND}
+instruction: The host agent (this CLI session) MUST complete the user's original request in-session.
+Do NOT re-run headless generation in a loop. Do NOT treat the block below as the improved prompt.
+Optionally do a brief light improve yourself, then execute (or plan) the raw request.
+=== END_HOST_BOUNCE ===
+EOF
+    # Machine-readable marker on stdout for skill/host parsers (not an improved prompt)
+    cat <<EOF
+HOST_BOUNCE:RATE_LIMITED
+tried: ${TRIED_ATTEMPTS}
+raw_request: ${RAW_INPUT}
+EOF
+    exit 3
   fi
+
+  echo "You may need to authenticate, install the target CLI, or pick another model." >&2
   exit 2
 fi
 

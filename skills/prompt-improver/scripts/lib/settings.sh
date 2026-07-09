@@ -245,6 +245,15 @@ get_model_fallback_chain() {
   esac
 }
 
+# Account / org-wide limit (skip remaining models on same CLI; try another backend or host bounce)
+is_account_limit_failure() {
+  local output="$1"
+  local low
+  low=$(echo "$output" | tr '[:upper:]' '[:lower:]')
+  echo "$low" | grep -qE \
+    'weekly.?limit|monthly.?limit|hit your .*limit|you.?ve hit your|you have hit your|organization.?limit|org.?limit|account.?limit|out of (usage|credits)|usage.?limit.?reached|limit · resets|limit · reset'
+}
+
 # True if headless output/exit looks like "try another model" (limit, no access, unknown model)
 is_model_retryable_failure() {
   local exit_code="$1"
@@ -252,9 +261,13 @@ is_model_retryable_failure() {
   local low
   low=$(echo "$output" | tr '[:upper:]' '[:lower:]')
 
+  if is_account_limit_failure "$output"; then
+    return 0
+  fi
+
   # Non-zero alone is not enough (auth, network) — need model-ish signals when possible
   if echo "$low" | grep -qE \
-    'rate.?limit|usage.?limit|weekly.?limit|hit your .*limit|you.?ve hit your|quota|out of (limit|usage|credits)|capacity|overloaded|529|429|403|401|not (available|found|supported|enabled)|unknown model|invalid model|model .* (denied|restricted|not accessible)|access denied|does not have access|invitation|glasswing|unavailable|try again later|too many requests'
+    'rate.?limit|usage.?limit|quota|out of (limit|usage|credits)|capacity|overloaded|529|429|403|401|not (available|found|supported|enabled)|unknown model|invalid model|model .* (denied|restricted|not accessible)|access denied|does not have access|invitation|glasswing|unavailable|try again later|too many requests|resource.?exhausted|throttl'
   then
     return 0
   fi
@@ -265,6 +278,16 @@ is_model_retryable_failure() {
   fi
 
   return 1
+}
+
+# True when stdout looks like a rate/limit error rather than an improved prompt
+is_rate_limit_message_only() {
+  local output="$1"
+  [ -z "$output" ] && return 1
+  if echo "$output" | grep -qiE '<task[[:space:]>]|<prompt[[:space:]>]|<verification[[:space:]>]'; then
+    return 1
+  fi
+  is_model_retryable_failure 1 "$output"
 }
 
 # Prefer an inferred backend when its CLI is installed.
@@ -384,4 +407,5 @@ get_backend_command() {
 
 export -f load_settings get_setting detect_backend get_backend_command parse_preferred_backends \
   get_default_model_for_backend resolve_generator_model normalize_model_id infer_backend_for_model \
-  prefer_backend_if_available get_model_fallback_chain is_model_retryable_failure
+  prefer_backend_if_available get_model_fallback_chain is_model_retryable_failure \
+  is_account_limit_failure is_rate_limit_message_only

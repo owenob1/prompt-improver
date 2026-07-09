@@ -136,7 +136,11 @@ Pass full IDs or short aliases. **Unknown future IDs pass through** (e.g. `gpt-5
 
 <br>
 
-If a model is unavailable, restricted, or out of usage, headless generation walks a cascade (first success wins):
+If a model is unavailable, restricted, or out of usage, headless generation:
+
+1. Walks the **model** cascade on the current CLI (first success wins)
+2. On **account/org** limits, skips the rest of that CLI and tries the **next installed** generator
+3. If every generator is limited → **host bounce**: the calling agent CLI finishes the user request in-session
 
 | CLI | Fallback |
 |-----|----------|

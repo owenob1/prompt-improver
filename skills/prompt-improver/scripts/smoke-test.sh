@@ -207,6 +207,24 @@ else
   bad "retryable weekly-limit detection failed"
 fi
 
+if is_account_limit_failure "You've hit your weekly limit · resets Jul 11"; then
+  ok "account-limit detection"
+else
+  bad "account-limit detection failed"
+fi
+
+if is_rate_limit_message_only "You've hit your weekly limit · resets Jul 11"; then
+  ok "rate-limit-message-only detection"
+else
+  bad "rate-limit-message-only detection failed"
+fi
+
+if is_rate_limit_message_only "<task id=\"1\"><verification>x</verification></task>"; then
+  bad "false positive rate-limit on real task XML"
+else
+  ok "task XML not treated as rate-limit-only"
+fi
+
 # Optional: gather-context should not crash
 echo ""
 echo "[extra] gather-context.sh"
