@@ -1,6 +1,6 @@
 <div align="center">
 
-# prompt-improver
+# /prompt-improver
 
 **Turn vague prompts into precise, verifiable specs your coding agent can execute.**
 
@@ -16,7 +16,7 @@
 
 ## What is it?
 
-Coding agents often jump into implementation from fuzzy requests — missing edge cases, verification, and clear scope. **prompt-improver** rewrites the request into structured XML with tasks, checks, and escape clauses *before* work starts.
+Coding agents often jump into implementation from fuzzy requests — missing edge cases, verification, and clear scope. **/prompt-improver** rewrites the request into structured XML with tasks, checks, and escape clauses *before* work starts.
 
 The generator is **improvement-only**: it will not execute your request while improving it.
 
