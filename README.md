@@ -7,7 +7,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![CI](https://github.com/owenob1/prompt-improver/actions/workflows/ci.yml/badge.svg)](https://github.com/owenob1/prompt-improver/actions/workflows/ci.yml)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-blue)](https://agentskills.io/)
-[![skills.sh](https://skills.sh/b/owenob1/prompt-improver)](https://skills.sh/owenob1/prompt-improver)
 
 [Install](#install) · [Usage](#usage) · [How it works](#how-it-works) · [Structure](#structure)
 
