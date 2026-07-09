@@ -15,7 +15,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Make scripts executable
-        run: chmod +x scripts/*.sh scripts/backends/*.sh scripts/lib/*.sh 2>/dev/null || chmod +x scripts/*.sh scripts/backends/*.sh
+        run: |
+          chmod +x tests/smoke-test.sh
+          chmod +x skills/prompt-improver/scripts/*.sh
+          chmod +x skills/prompt-improver/scripts/backends/*.sh
+          chmod +x skills/prompt-improver/scripts/lib/*.sh 2>/dev/null || true
 
-      - name: Run offline smoke tests
-        run: bash scripts/smoke-test.sh
+      - name: Run repo smoke tests
+        run: bash tests/smoke-test.sh
