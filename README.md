@@ -51,11 +51,29 @@ npx skills add -g owenob1/prompt-improver
 
 <br>
 
-| Method | Command |
-|--------|---------|
-| Project only | `npx skills add owenob1/prompt-improver` |
-| Claude Code marketplace | `/plugin marketplace add owenob1/prompt-improver`<br>`/plugin install prompt-improver@prompt-improver` |
-| Manual | Copy `skills/prompt-improver/` → `~/.claude/skills/prompt-improver` |
+**Project only**
+
+```bash
+npx skills add owenob1/prompt-improver
+```
+
+**Claude Code — add marketplace**
+
+```text
+/plugin marketplace add owenob1/prompt-improver
+```
+
+**Claude Code — install plugin**
+
+```text
+/plugin install prompt-improver@prompt-improver
+```
+
+**Manual (clone + copy)**
+
+```bash
+git clone https://github.com/owenob1/prompt-improver.git && cp -R prompt-improver/skills/prompt-improver ~/.claude/skills/prompt-improver
+```
 
 </details>
 
