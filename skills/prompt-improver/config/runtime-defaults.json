@@ -1,0 +1,151 @@
+{
+  "version": 1,
+
+  "model_aliases": {
+    "mythos-5": "claude-mythos-5",
+    "mythos5": "claude-mythos-5",
+    "claude-mythos-5": "claude-mythos-5",
+    "mythos-preview": "claude-mythos-preview",
+    "claude-mythos-preview": "claude-mythos-preview",
+    "mythos": "claude-mythos-preview",
+    "fable-5": "claude-fable-5",
+    "fable5": "claude-fable-5",
+    "claude-fable-5": "claude-fable-5",
+    "fable": "fable",
+    "sonnet-5": "claude-sonnet-5",
+    "claude-sonnet-5": "claude-sonnet-5",
+    "sonnet": "sonnet",
+    "haiku-4.5": "haiku",
+    "haiku4.5": "haiku",
+    "claude-haiku-4-5": "haiku",
+    "claude-haiku-4.5": "haiku",
+    "haiku": "haiku",
+    "opus-4.8": "claude-opus-4-8",
+    "claude-opus-4-8": "claude-opus-4-8",
+    "opus-4.6": "claude-opus-4-6",
+    "claude-opus-4-6": "claude-opus-4-6",
+    "opus": "opus",
+    "gpt-5.6-sol": "gpt-5.6-sol",
+    "gpt5.6-sol": "gpt-5.6-sol",
+    "sol": "gpt-5.6-sol",
+    "gpt-5.6-terra": "gpt-5.6-terra",
+    "gpt5.6-terra": "gpt-5.6-terra",
+    "terra": "gpt-5.6-terra",
+    "gpt-5.6-luna": "gpt-5.6-luna",
+    "gpt5.6-luna": "gpt-5.6-luna",
+    "luna": "gpt-5.6-luna",
+    "gpt-5.6": "gpt-5.6-sol",
+    "gpt5.6": "gpt-5.6-sol",
+    "gpt5.5": "gpt-5.5",
+    "gpt-5.5": "gpt-5.5",
+    "gpt5": "gpt-5.5",
+    "gpt-5": "gpt-5.5",
+    "gpt-5.3-codex": "gpt-5.3-codex",
+    "gpt5.3-codex": "gpt-5.3-codex",
+    "gpt-5.2-codex": "gpt-5.2-codex",
+    "gpt5.2-codex": "gpt-5.2-codex",
+    "codex": "gpt-5.5",
+    "openai": "gpt-5.5",
+    "o4-mini": "o4-mini",
+    "o4mini": "o4-mini",
+    "grok-4.5": "grok-4.5",
+    "grok4.5": "grok-4.5",
+    "grok-4.3": "grok-4.3",
+    "grok4.3": "grok-4.3",
+    "composer-2.5-fast": "grok-composer-2.5-fast",
+    "composer2.5-fast": "grok-composer-2.5-fast",
+    "grok-composer-2.5-fast": "grok-composer-2.5-fast",
+    "composer-2.5": "grok-composer-2.5-fast",
+    "composer2.5": "grok-composer-2.5-fast",
+    "grok-composer-2.5": "grok-composer-2.5-fast",
+    "grok-build": "grok-build",
+    "grokbuild": "grok-build",
+    "grok-build-0.1": "grok-build",
+    "grok-code-fast-1": "grok-code-fast-1",
+    "gemini-2.5-pro": "gemini-2.5-pro",
+    "gemini2.5-pro": "gemini-2.5-pro",
+    "gemini-2.5-flash": "gemini-2.5-flash",
+    "gemini2.5-flash": "gemini-2.5-flash",
+    "gemini-3.5-flash": "gemini-3.5-flash",
+    "gemini3.5-flash": "gemini-3.5-flash",
+    "gemini-3.1-pro": "gemini-3.1-pro",
+    "gemini3.1-pro": "gemini-3.1-pro",
+    "gemini-pro": "gemini-2.5-pro",
+    "gemini-flash": "gemini-2.5-flash"
+  },
+
+  "model_backend_patterns": [
+    { "patterns": ["mythos*", "fable*", "claude-*", "sonnet*", "haiku*", "opus*", "claude"], "backend": "claude" },
+    { "patterns": ["grok*", "composer*", "spacex*"], "backend": "grok" },
+    { "patterns": ["gemini*"], "backend": "gemini" },
+    { "patterns": ["gpt-*", "gpt*", "o1*", "o3*", "o4*", "codex", "codex*", "openai", "chatgpt*", "sol", "terra", "luna"], "backend": "codex" }
+  ],
+
+  "model_fallback_chains": [
+    { "patterns": ["*mythos*", "mythos"], "chain": ["claude-mythos-5", "claude-mythos-preview", "claude-fable-5", "fable", "opus", "sonnet"] },
+    { "patterns": ["*fable*", "fable"], "chain": ["claude-fable-5", "fable", "opus", "sonnet"] },
+    { "patterns": ["*opus*", "opus"], "chain": ["opus", "sonnet"] },
+    { "patterns": ["*sonnet*", "sonnet"], "chain": ["$primary", "sonnet"] },
+    { "patterns": ["*haiku*", "haiku"], "chain": ["$primary", "haiku", "sonnet"] },
+    { "patterns": ["*sol*", "gpt-5.6"], "chain": ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5"] },
+    { "patterns": ["*terra*"], "chain": ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5"] },
+    { "patterns": ["*luna*"], "chain": ["gpt-5.6-luna", "gpt-5.5"] },
+    { "patterns": ["gpt-5.5", "gpt-5", "codex", "openai"], "chain": ["gpt-5.5"] },
+    { "patterns": ["grok-4.5", "grok-4*"], "chain": ["grok-4.5", "grok-composer-2.5-fast", "grok-build"] },
+    { "patterns": ["*composer*"], "chain": ["$primary", "grok-composer-2.5-fast"] },
+    { "patterns": ["*gemini*pro*", "gemini-2.5-pro"], "chain": ["gemini-2.5-pro", "gemini-2.5-flash"] },
+    { "patterns": ["*gemini*flash*", "gemini-2.5-flash"], "chain": ["gemini-2.5-flash"] }
+  ],
+
+  "supported_backends": ["claude", "grok", "gemini", "codex", "cline", "opencode", "kimi", "kiro"],
+
+  "backend_commands": {
+    "grok": "grok -p \"$(cat \"{prompt_file}\")\" {model_args} --output-format plain --yolo",
+    "claude": "claude -p \"$(cat \"{prompt_file}\")\" --print {model_args}",
+    "gemini": "gemini -p \"$(cat \"{prompt_file}\")\" {model_args}",
+    "cline": "cline --prompt \"$(cat \"{prompt_file}\")\" --headless {model_args}",
+    "opencode": "opencode -p \"$(cat \"{prompt_file}\")\" {model_args}",
+    "kimi": "kimi \"$(cat \"{prompt_file}\")\" --headless {model_args}",
+    "kiro": "kiro -p \"$(cat \"{prompt_file}\")\" {model_args}",
+    "codex": "codex exec \"$(cat \"{prompt_file}\")\" {model_args}",
+    "openai": "codex exec \"$(cat \"{prompt_file}\")\" {model_args}"
+  },
+
+  "backend_model_flags": {
+    "grok": "-m {model}",
+    "claude": "--model {model}",
+    "gemini": "-m {model}",
+    "codex": "-m {model}",
+    "openai": "-m {model}",
+    "cline": "",
+    "opencode": "",
+    "kimi": "",
+    "kiro": ""
+  },
+
+  "limit_detection": {
+    "account_patterns": "weekly.?limit|monthly.?limit|hit your .*limit|you.?ve hit your|you have hit your|organization.?limit|org.?limit|account.?limit|out of (usage|credits)|usage.?limit.?reached|limit · resets|limit · reset",
+    "retry_patterns": "rate.?limit|usage.?limit|quota|out of (limit|usage|credits)|capacity|overloaded|529|429|403|401|not (available|found|supported|enabled)|unknown model|invalid model|model .* (denied|restricted|not accessible)|access denied|does not have access|invitation|glasswing|unavailable|try again later|too many requests|resource.?exhausted|throttl",
+    "xml_markers": "<task[[:space:]]>|<prompt[[:space:]]>|<verification[[:space:]>]>"
+  },
+
+  "host_env_markers": {
+    "claude": ["CLAUDE_CODE", "CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_AGENT"],
+    "grok": ["GROK_BUILD", "XAI_GROK", "GROK_SESSION"],
+    "gemini": ["GEMINI_CLI", "GOOGLE_GEMINI_CLI"],
+    "codex": ["CODEX_HOME", "OPENAI_CODEX"]
+  },
+
+  "parent_process_patterns": {
+    "claude": ["claude", "claude-*", "*claude*"],
+    "grok": ["grok", "grok-*", "*grok*"],
+    "gemini": ["gemini", "gemini-*", "*gemini*"],
+    "codex": ["codex", "codex-*", "*codex*"],
+    "opencode": ["opencode", "opencode-*"],
+    "cline": ["cline", "cline-*"],
+    "kimi": ["kimi", "kimi-*"],
+    "kiro": ["kiro", "kiro-*"]
+  },
+
+  "cascade_scan_order": ["grok", "claude", "gemini", "cline", "opencode", "kimi", "kiro", "codex"]
+}

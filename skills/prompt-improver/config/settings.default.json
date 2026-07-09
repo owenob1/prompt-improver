@@ -1,7 +1,7 @@
 {
   "version": 1,
 
-  "//": "Shipped defaults. Prefer editing a copy at ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json (see settings.example.json). Keys starting with // are comments only.",
+  "//": "Shipped defaults. Prefer editing a copy at ~/.config/prompt-improver/settings.json or .prompt-improver/settings.json (see settings.example.json). Keys starting with // are comments only. Tables (aliases, chains, commands) live in config/runtime-defaults.json — override any key here or in your copy.",
 
   "//backend": "auto | claude | grok | gemini | codex | cline | opencode | kimi | kiro — Env: PROMPT_IMPROVER_BACKEND",
   "backend": "auto",
@@ -21,15 +21,34 @@
     "kiro": null
   },
 
+  "//max_tokens": "Soft cap passed through where backends support it (best-effort). Env: PROMPT_IMPROVER_MAX_TOKENS",
   "max_tokens": 12000,
+
+  "//enable_research": "When false, generator omits/minimizes <research> blocks. Env: PROMPT_IMPROVER_ENABLE_RESEARCH",
   "enable_research": true,
+
+  "//enable_thinking": "When false, generator omits <approach> blocks unless safety-critical. Env: PROMPT_IMPROVER_ENABLE_THINKING",
   "enable_thinking": true,
+
+  "//headless_only": "When true, host should not rewrite prompts in-session when headless fails. Env: PROMPT_IMPROVER_HEADLESS_ONLY",
   "headless_only": true,
 
-  "//fallback_strategy": "manual = print assembled materials on failure; error = hard fail",
+  "//allow_web_search": "When false, improved prompts must not instruct web search. Env: PROMPT_IMPROVER_ALLOW_WEB_SEARCH",
+  "allow_web_search": true,
+
+  "//allow_code_execution_in_generation": "When false, generator must not run gather-context.sh or shell. Env: PROMPT_IMPROVER_ALLOW_CODE_EXECUTION",
+  "allow_code_execution_in_generation": false,
+
+  "//skip_validate": "When true, skip validate-prompt.sh after headless generation. Env: PROMPT_IMPROVER_SKIP_VALIDATE",
+  "skip_validate": false,
+
+  "//backend_invocation": "scripts = use scripts/backends/*.sh; commands = use backend_commands templates; auto = templates when you override backend_commands. Env: PROMPT_IMPROVER_BACKEND_INVOCATION",
+  "backend_invocation": "scripts",
+
+  "//fallback_strategy": "manual = host bounce on limit exhaustion; error = hard fail",
   "fallback_strategy": "manual",
 
-  "//preferred_backends": "Only used after primary host/model generator hits limits — not the default pick",
+  "//preferred_backends": "Order to try OTHER generators after primary hits limits — not the default pick",
   "preferred_backends": [
     "claude",
     "grok",
@@ -41,11 +60,8 @@
     "kiro"
   ],
 
-  "//custom_command": "Any CLI: prompt on stdin → improved text on stdout. Bypasses built-in backends. Env: PROMPT_IMPROVER_CUSTOM_COMMAND. null = use backend selection. docs/CUSTOM-BACKENDS.md",
+  "//custom_command": "Any CLI: prompt on stdin → improved text on stdout. Bypasses built-in backends. Env: PROMPT_IMPROVER_CUSTOM_COMMAND",
   "custom_command": null,
 
-  "allow_web_search": true,
-  "allow_code_execution_in_generation": false,
-
-  "notes": "Headless generation model resolution:\n1) model: / --model (aliases: mythos, fable-5, gpt-5.6-sol, grok-4.5, …)\n2) PROMPT_IMPROVER_MODEL / settings.model\n3) default_models[backend]\n4) CLI default\n\nClaude access/limit cascade: mythos → fable → opus → sonnet.\nOpenAI 5.6 cascade: sol → terra → luna → gpt-5.5.\nGrok: grok-4.5 → composer-2.5-fast → grok-build.\nUnknown future IDs pass through; family patterns still route to the right CLI.\n\nCustom CLIs: set custom_command (see docs/CUSTOM-BACKENDS.md)."
+  "notes": "Fully customisable runtime tables: model_aliases, model_fallback_chains, model_backend_patterns, backend_commands, backend_model_flags, supported_backends, limit_detection, host_env_markers, parent_process_patterns, cascade_scan_order — see config/runtime-defaults.json; override any in your settings.json.\n\nModel resolution: 1) model:/--model 2) PROMPT_IMPROVER_MODEL 3) default_models[backend] 4) CLI default.\nCustom CLIs: custom_command (docs/CUSTOM-BACKENDS.md)."
 }

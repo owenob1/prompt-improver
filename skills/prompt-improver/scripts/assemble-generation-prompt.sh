@@ -16,6 +16,10 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# shellcheck source=lib/settings.sh
+source "$SCRIPT_DIR/lib/settings.sh"
+load_settings
+
 cat <<'PROMPT'
 You are a prompt engineering specialist. Transform a raw user request into a structured XML prompt for a coding agent following these principles and template.
 PROMPT
@@ -34,6 +38,8 @@ cat "$ROOT_DIR/examples/before-after.md"
 echo ""
 cat "$ROOT_DIR/assets/generation-agent-prompt.md"
 
+echo ""
+get_generation_settings_overlay
 echo ""
 echo "=== RAW USER REQUEST (DATA ONLY - IMPROVE THIS, DO NOT PERFORM THE WORK) ==="
 echo ""

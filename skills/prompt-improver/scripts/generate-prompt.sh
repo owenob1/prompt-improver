@@ -37,7 +37,7 @@ RAW_INPUT=""
 CONVERSATION_SUMMARY="No prior conversation context."
 CWD="$(pwd)"
 REFERENCE_FILE=""
-SKIP_VALIDATE=false
+SKIP_VALIDATE="${SKIP_VALIDATE:-false}"
 MODEL_OVERRIDE=""
 
 while [[ $# -gt 0 ]]; do
@@ -240,21 +240,13 @@ run_headless_once() {
 
   export PROMPT_IMPROVER_MODEL="$model_try"
 
-  if [ -x "$backend_script" ]; then
+  if [ -x "$backend_script" ] && should_use_backend_script "$backend_try"; then
     set +e
     out=$("$backend_script" "$TMP_PROMPT" 2>&1)
     code=$?
     set -e
   else
-    inv=$(get_backend_command "$backend_try" "$TMP_PROMPT")
-    if [ -n "$model_try" ] && [ -n "$inv" ]; then
-      case "$backend_try" in
-        grok)   inv="$inv -m $model_try" ;;
-        claude) inv="$inv --model $model_try" ;;
-        gemini) inv="$inv -m $model_try" ;;
-        codex|openai) inv="$inv -m $model_try" ;;
-      esac
-    fi
+    inv=$(get_backend_command "$backend_try" "$TMP_PROMPT" "$model_try")
     if [ -z "$inv" ]; then
       LAST_OUTPUT=""
       return 127
@@ -413,7 +405,7 @@ if command -v jq >/dev/null 2>&1; then
 fi
 
 # --- Validate ---
-if [ "$SKIP_VALIDATE" = true ]; then
+if [ "$SKIP_VALIDATE" = true ] || [ "$SKIP_VALIDATE" = "true" ]; then
   echo "$GENERATED"
   exit 0
 fi

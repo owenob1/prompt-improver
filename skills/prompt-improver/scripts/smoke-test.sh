@@ -284,6 +284,36 @@ fi
 unset PROMPT_IMPROVER_HOST PROMPT_IMPROVER_PROJECT_CONFIG_DIR PROMPT_IMPROVER_CONFIG_DIR
 rm -rf "$_tmpdir"
 
+# 13. settings overlay + custom alias override
+echo ""
+echo "[13] settings-driven runtime tables"
+ASM_SETTINGS=$(bash scripts/assemble-generation-prompt.sh "settings smoke" 2>&1) || true
+if [[ "$ASM_SETTINGS" == *"RUNTIME SETTINGS"* ]] && [[ "$ASM_SETTINGS" == *"enable_research:"* ]]; then
+  ok "assembler injects settings overlay"
+else
+  bad "assembler missing settings overlay"
+fi
+
+_tmp_settings=$(mktemp -d)
+export PROMPT_IMPROVER_PROJECT_CONFIG_DIR="$_tmp_settings"
+cat > "$_tmp_settings/settings.json" <<'EOF'
+{
+  "model_aliases": {
+    "smoke-alias": "sonnet"
+  }
+}
+EOF
+# shellcheck disable=SC1091
+source scripts/lib/settings.sh
+got_alias=$(normalize_model_id "smoke-alias")
+if [ "$got_alias" = "sonnet" ]; then
+  ok "project model_aliases override"
+else
+  bad "model_aliases override expected sonnet got $got_alias"
+fi
+unset PROMPT_IMPROVER_PROJECT_CONFIG_DIR
+rm -rf "$_tmp_settings"
+
 # Optional: gather-context should not crash
 echo ""
 echo "[extra] gather-context.sh"
