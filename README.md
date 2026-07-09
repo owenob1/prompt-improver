@@ -82,7 +82,7 @@ git clone https://github.com/owenob1/prompt-improver.git && cp -R prompt-improve
 
 ## 🚀 Usage
 
-```text
+```bash
 # Improve + execute (default)
 /prompt-improver "Fix the flaky auth tests"
 
@@ -99,7 +99,7 @@ git clone https://github.com/owenob1/prompt-improver.git && cp -R prompt-improve
 | `plan` | Improve headlessly, **show** XML, wait |
 | `model:<id>` | Override generator model for this run (any family / future ID) |
 
-```text
+```bash
 # Plan mode + mid-tier Claude generator
 /prompt-improver plan model:sonnet "Add rate limiting"
 
