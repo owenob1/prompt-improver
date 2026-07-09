@@ -1,10 +1,16 @@
+<div align="center">
+
 # /prompt-improver
 
-Turn vague agent prompts into precise, verifiable specs — then run them.
+**Turn vague agent prompts into precise, verifiable specs — then run them.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![CI](https://github.com/owenob1/prompt-improver/actions/workflows/ci.yml/badge.svg)](https://github.com/owenob1/prompt-improver/actions/workflows/ci.yml)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-blue)](https://agentskills.io/)
+
+[Install](#1-install) · [Use](#2-use) · [What happens](#3-what-happens) · [Models](#4-default-generator-models) · [Advanced](#5-advanced-optional) · [Contributing](#contributing)
+
+</div>
 
 ---
 
@@ -77,6 +83,8 @@ Not host-frontier (e.g. Fable / Opus). Override with `model:…` when needed.
 <details>
 <summary><strong>Standalone CLI (no agent)</strong></summary>
 
+<br>
+
 ```bash
 bash skills/prompt-improver/scripts/standalone-improve.sh "your request" plan
 bash skills/prompt-improver/scripts/standalone-improve.sh "your request" plan sonnet
@@ -92,6 +100,8 @@ bash skills/prompt-improver/scripts/generate-prompt.sh \
 <details>
 <summary><strong>Settings file</strong></summary>
 
+<br>
+
 ```bash
 mkdir -p ~/.config/prompt-improver
 cp skills/prompt-improver/config/settings.example.json \
@@ -105,6 +115,8 @@ Edit `model`, `default_models`, or `backend`. Env wins: `PROMPT_IMPROVER_MODEL`,
 <details>
 <summary><strong>Repo layout</strong></summary>
 
+<br>
+
 ```text
 skills/prompt-improver/   # installable skill (SKILL.md, scripts, refs)
 plugins/prompt-improver/  # Claude Code plugin wrapper
@@ -116,6 +128,8 @@ tests/                    # smoke tests
 
 <details>
 <summary><strong>Security</strong></summary>
+
+<br>
 
 `skills/prompt-improver/scripts/` runs shell and may call coding CLIs. Read them before install.
 
@@ -129,7 +143,7 @@ tests/                    # smoke tests
 bash tests/smoke-test.sh
 ```
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md). Ideas: [docs/ROADMAP.md](./docs/ROADMAP.md).
+See [CONTRIBUTING.md](./CONTRIBUTING.md) · Roadmap: [docs/ROADMAP.md](./docs/ROADMAP.md)
 
 ## License
 
