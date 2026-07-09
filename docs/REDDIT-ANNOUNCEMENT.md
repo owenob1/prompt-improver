@@ -22,15 +22,13 @@ Vague prompts kill agent runs. No verification, no constraints, no task split �
 **What it does:**
 
 * Rewrites your rough request into a **precise, verifiable XML spec** (tasks, requirements, checks)
-* Is **context aware**: the host passes session summary + working directory; the generator gathers stack/test/build commands from the repo and uses real paths so the spec fits *this* project, not a generic template
-* Runs that rewrite in a **separate headless model call** — not by grinding your host session
-* Generator is **improvement-only** (never implements the feature)
-* Host agent then **executes**, or use `plan` to review the XML first
-* Works across major coding CLIs (Claude, Grok, Codex, Gemini, …)
-* Defaults follow the **host** (Claude → sonnet, Grok → composer, …); override with `model:…`
-* Rate limits cascade, then bounce back so the calling session can still finish
+* **Context aware** — uses your session summary and working directory
+* Pulls stack / test / build commands and real repo paths so the spec fits *this* project
+* Rewrites in a **separate headless call** — doesn't grind your host session
+* **Improvement-only** — never implements the feature
+* Host then **executes**, or `plan` to review the XML first
 
-MIT.
+Works across Claude, Grok, Codex, Gemini, and friends. MIT.
 
 **Repo:** https://github.com/owenob1/prompt-improver
 
