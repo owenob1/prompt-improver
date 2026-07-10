@@ -268,7 +268,7 @@
     "kiro"
   ],
   "backend_commands": {
-    "grok": "grok -p \"$(cat \"{prompt_file}\")\" {model_args} --output-format plain --yolo",
+    "grok": "grok --prompt-file \"{prompt_file}\" {model_args} --output-format plain --always-approve --no-subagents --max-turns 3",
     "claude": "claude -p \"$(cat \"{prompt_file}\")\" --print {model_args}",
     "gemini": "gemini -p \"$(cat \"{prompt_file}\")\" {model_args}",
     "cline": "cline --prompt \"$(cat \"{prompt_file}\")\" --headless {model_args}",
@@ -292,7 +292,7 @@
   "limit_detection": {
     "account_patterns": "weekly.?limit|monthly.?limit|hit your .*limit|you.?ve hit your|you have hit your|organization.?limit|org.?limit|account.?limit|out of (usage|credits)|usage.?limit.?reached|limit \u00b7 resets|limit \u00b7 reset",
     "retry_patterns": "rate.?limit|usage.?limit|quota|out of (limit|usage|credits)|capacity|overloaded|529|429|403|401|not (available|found|supported|enabled)|unknown model|invalid model|model .* (denied|restricted|not accessible)|access denied|does not have access|invitation|glasswing|unavailable|try again later|too many requests|resource.?exhausted|throttl",
-    "xml_markers": "<task[[:space:]]>|<prompt[[:space:]]>|<verification[[:space:]>]>"
+    "xml_markers": "<task[[:space:]>]|<prompt[[:space:]>]|<verification[[:space:]>]"
   },
   "host_env_markers": {
     "claude": [
@@ -378,6 +378,8 @@
     "extra_reference_paths": [],
     "output_instructions": "Output ONLY the final improved XML prompt. No explanation, no code fences, no commentary, no execution of the request.",
     "require_xml_output": true,
-    "forbid_agent_codebase_search": true
+    "forbid_agent_codebase_search": true,
+    "grok_timeout_secs": 180,
+    "grok_max_turns": 3
   }
 }

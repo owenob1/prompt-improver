@@ -138,7 +138,15 @@ fi
 # --- Check block quality ---
 
 if echo "$PROMPT" | grep -q '<check'; then
-  if ! echo "$PROMPT" | grep -qi 're-read\|reread\|verify.*changed.*file\|scan.*changed'; then
+  # Research/analysis prompts change no files, so they have nothing to re-read.
+  # Accept an explicit read-only declaration in place of the re-read requirement,
+  # mirroring how a missing typecheck may be waived with an explicit N/A.
+  CHECK_BLOCK=$(echo "$PROMPT" | sed -n '/<check/,/<\/check>/p')
+  if echo "$CHECK_BLOCK" | grep -qiE 're-read|reread|verify.*changed.*file|scan.*changed'; then
+    pass "check block re-reads changed files"
+  elif echo "$CHECK_BLOCK" | grep -qiE 'no edits|no code changes|no files (changed|modified)|read-only|research only|report only'; then
+    pass "check block declares read-only work (nothing to re-read)"
+  else
     fail "check block missing file re-read verification"
   fi
   if ! echo "$PROMPT" | grep -qi 'typecheck\|tsc.*noEmit\|pyright\|cargo check\|shellcheck\|bash -n\|validate-prompt\|no typecheck'; then

@@ -227,6 +227,24 @@ else
   ok "task XML not treated as rate-limit-only"
 fi
 
+# The XML guard must win even when the prompt's own text contains retry_patterns
+# words. Regression: xml_markers was `<task[[:space:]]>` (matches only `<task >`),
+# so real prompts about 429s/quotas were discarded as rate-limit messages.
+while IFS='|' read -r label body; do
+  [ -z "$label" ] && continue
+  if is_rate_limit_message_only "$body"; then
+    bad "XML guard: $label misread as a rate-limit message"
+  else
+    ok "XML guard: $label"
+  fi
+done <<'EOF'
+prompt about rate limiting|<task id="1"><description>Add rate limiting, return 429 with retry-after</description><verification>curl</verification></task>
+prompt mentioning not found|<task id="1"><description>Handle when the file is not found</description></task>
+prompt mentioning capacity|<task id="1"><description>Increase queue capacity</description></task>
+prompt mentioning 401/403|<task id="1"><description>Log 401 and 403 responses</description></task>
+bare task tag, no attributes|<task><verification>quota unavailable throttle</verification></task>
+EOF
+
 # 12. host detection + no PATH auto-pick for default
 echo ""
 echo "[12] host-matched backend selection helpers"
@@ -347,6 +365,107 @@ else
 fi
 unset PROMPT_IMPROVER_PROJECT_CONFIG_DIR PROMPT_IMPROVER_CONFIG_DIR
 rm -rf "$_g14"
+
+# 15. a failing backend must fall through to host bounce, not kill the script
+# Regression: run_headless_once used `set +e; cmd; code=$?; set -e`, and because
+# errexit is a global option that clobbered the caller's `set +e`, a non-zero
+# `return` exited the script at the call site — no diagnostics, no fallback,
+# exit 1 instead of exit 3.
+echo ""
+echo "[15] backend failure falls through to HOST_BOUNCE (errexit leak)"
+_e15=$(mktemp -d)
+mkdir -p "$_e15/u"
+cat > "$_e15/settings.json" <<'EOF'
+{
+  "backend": "claude",
+  "backend_invocation": "commands",
+  "preferred_backends": ["claude"],
+  "backend_commands": { "claude": "sh -c 'exit 9'" }
+}
+EOF
+export PROMPT_IMPROVER_PROJECT_CONFIG_DIR="$_e15"
+export PROMPT_IMPROVER_CONFIG_DIR="$_e15/u"
+export PROMPT_IMPROVER_HOST=claude
+unset PROMPT_IMPROVER_BACKEND PROMPT_IMPROVER_MODEL PROMPT_IMPROVER_CUSTOM_COMMAND 2>/dev/null || true
+set +e
+bash scripts/generate-prompt.sh --mode plan --raw-input "x" >/tmp/pi-e15.out 2>/tmp/pi-e15.err
+_e15_rc=$?
+set -e
+if [ "$_e15_rc" -eq 3 ]; then
+  ok "failing backend → exit 3 (not the backend's own exit code)"
+else
+  bad "expected exit 3 from failing backend, got $_e15_rc"
+fi
+if grep -q 'HOST_BOUNCE' /tmp/pi-e15.out; then
+  ok "failing backend emits HOST_BOUNCE marker"
+else
+  bad "no HOST_BOUNCE marker on stdout"
+fi
+if grep -q 'failed (exit 9)' /tmp/pi-e15.err; then
+  ok "backend exit code surfaced in diagnostics"
+else
+  bad "backend failure diagnostics swallowed: $(head -3 /tmp/pi-e15.err)"
+fi
+unset PROMPT_IMPROVER_PROJECT_CONFIG_DIR PROMPT_IMPROVER_CONFIG_DIR PROMPT_IMPROVER_HOST
+rm -rf "$_e15"
+
+# 16. research prompts may waive the re-read requirement
+echo ""
+echo "[16] validate-prompt.sh read-only check blocks"
+_ro=$(mktemp)
+cat > "$_ro" <<'EOF'
+<task name="research"><verification>bash -n scripts/foo.sh</verification></task>
+<check>
+  - Report the comparison summary for each candidate
+  - Confirm no edits were made to any file in the working directory
+  - List each original request against actual output
+</check>
+EOF
+if bash scripts/validate-prompt.sh "$_ro" >/tmp/pi-ro.out 2>&1; then
+  ok "read-only check block PASSes without a re-read line"
+else
+  bad "read-only check block should PASS: $(grep '^FAIL' /tmp/pi-ro.out)"
+fi
+rm -f "$_ro"
+
+# A code-changing prompt with no re-read line must still hard-fail.
+_rw=$(mktemp)
+cat > "$_rw" <<'EOF'
+<task name="impl"><verification>npx tsc --noEmit</verification></task>
+<check>
+  - Run the test suite
+  - Report status for each requirement
+</check>
+EOF
+if bash scripts/validate-prompt.sh "$_rw" >/tmp/pi-rw.out 2>&1; then
+  bad "code-changing check block without re-read should FAIL"
+else
+  ok "code-changing check block without re-read still FAILs"
+fi
+rm -f "$_rw"
+
+# 17. 'model' in prose must not be read as a retryable limit failure
+echo ""
+echo "[17] bad-model heuristic is not triggered by prose"
+if is_model_retryable_failure 1 "Traceback: could not open the model file at src/model.py"; then
+  bad "prose containing 'model' misread as a retryable limit failure"
+else
+  ok "prose containing 'model' is not a limit failure"
+fi
+if is_model_retryable_failure 1 "Error: unknown model 'sonnet-9'"; then
+  ok "unknown model still detected as retryable"
+else
+  bad "unknown model should be retryable"
+fi
+
+# 18. claude backend switches to stdin above ARG_MAX/2
+echo ""
+echo "[18] claude.sh ARG_MAX guard"
+if grep -q 'ARG_MAX' scripts/backends/claude.sh && grep -q 'claude --print .* <"\$PROMPT_FILE"' scripts/backends/claude.sh; then
+  ok "claude.sh has an ARG_MAX guard with a stdin fallback"
+else
+  bad "claude.sh missing ARG_MAX guard / stdin fallback"
+fi
 
 # Optional: gather-context should not crash
 echo ""

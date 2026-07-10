@@ -22,4 +22,16 @@ if [ -n "${PROMPT_IMPROVER_MODEL:-}" ]; then
   MODEL_ARGS=(--model "$PROMPT_IMPROVER_MODEL")
 fi
 
-exec claude -p "$(cat "$PROMPT_FILE")" --print "${MODEL_ARGS[@]}"
+# Assembled prompts embed every reference file and can grow past ARG_MAX. Above the
+# limit, pass the prompt on stdin (`claude --print` reads it there) instead of argv,
+# which would otherwise fail with an opaque E2BIG.
+ARG_MAX=$(getconf ARG_MAX 2>/dev/null || echo 262144)
+SIZE_LIMIT=$(( ARG_MAX / 2 ))
+FILE_SIZE=$(wc -c <"$PROMPT_FILE" | tr -d ' ')
+
+if [ "$FILE_SIZE" -lt "$SIZE_LIMIT" ]; then
+  exec claude -p "$(cat "$PROMPT_FILE")" --print "${MODEL_ARGS[@]}"
+fi
+
+echo "Prompt is ${FILE_SIZE} bytes (limit ${SIZE_LIMIT}); passing via stdin." >&2
+exec claude --print "${MODEL_ARGS[@]}" <"$PROMPT_FILE"

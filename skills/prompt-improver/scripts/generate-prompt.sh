@@ -273,22 +273,33 @@ run_headless_once() {
 
   export PROMPT_IMPROVER_MODEL="$model_try"
 
+  # Capture stdout separately from stderr so CLI status lines don't pollute the improved prompt.
+  local _outf _errf
+  _outf=$(mktemp -t pi-be-out.XXXXXX)
+  _errf=$(mktemp -t pi-be-err.XXXXXX)
+
+  # NOTE: `set -e` is a global shell option, not function-local. Toggling it here
+  # would clobber the caller's `set +e` and make a non-zero `return` below kill the
+  # script at the call site (silent exit, no fallback). Use `|| code=$?` instead:
+  # errexit never fires on the left side of `||`.
   if [ -x "$backend_script" ] && should_use_backend_script "$backend_try"; then
-    set +e
-    out=$("$backend_script" "$TMP_PROMPT" 2>&1)
-    code=$?
-    set -e
+    "$backend_script" "$TMP_PROMPT" >"$_outf" 2>"$_errf" || code=$?
   else
     inv=$(get_backend_command "$backend_try" "$TMP_PROMPT" "$model_try")
     if [ -z "$inv" ]; then
+      rm -f "$_outf" "$_errf"
       LAST_OUTPUT=""
       return 127
     fi
-    set +e
-    out=$(eval "$inv" 2>&1)
-    code=$?
-    set -e
+    eval "$inv" >"$_outf" 2>"$_errf" || code=$?
   fi
+
+  if [ -s "$_errf" ]; then
+    # Log backend diagnostics without mixing into GENERATED body
+    sed "s/^/[${backend_try}] /" "$_errf" >&2 || true
+  fi
+  out=$(cat "$_outf" 2>/dev/null || true)
+  rm -f "$_outf" "$_errf"
 
   LAST_OUTPUT="$out"
   # Limit messages sometimes arrive with exit 0

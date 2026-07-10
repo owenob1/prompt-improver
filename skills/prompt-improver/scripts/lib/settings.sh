@@ -255,6 +255,16 @@ load_settings() {
     GEN_INCLUDE_EXAMPLES GEN_INCLUDE_SYSTEM GEN_SYSTEM_PATH GEN_XML_PATH \
     GEN_PRINCIPLES_PATH GEN_CHAINING_PATH GEN_EXAMPLES_PATH GEN_OUTPUT_INSTRUCTIONS \
     GEN_REQUIRE_XML GEN_FORBID_AGENT_SEARCH GEN_EXTRA_REFS
+
+  # Grok CLI hang workaround (see backends/grok.sh)
+  if command -v jq >/dev/null 2>&1; then
+    _gen=$(_pi_merged_object_json "generation")
+    _gt=$(echo "$_gen" | jq -r 'if .grok_timeout_secs == null then empty else .grok_timeout_secs end')
+    _gm=$(echo "$_gen" | jq -r 'if .grok_max_turns == null then empty else .grok_max_turns end')
+    [ -n "$_gt" ] && export PROMPT_IMPROVER_GROK_TIMEOUT="${PROMPT_IMPROVER_GROK_TIMEOUT:-$_gt}"
+    [ -n "$_gm" ] && export PROMPT_IMPROVER_GROK_MAX_TURNS="${PROMPT_IMPROVER_GROK_MAX_TURNS:-$_gm}"
+    unset _gen _gt _gm
+  fi
 }
 
 # Resolve a path relative to skill root unless absolute.
@@ -419,7 +429,10 @@ is_model_retryable_failure() {
     return 0
   fi
 
-  if [ "$exit_code" -ne 0 ] && echo "$low" | grep -qE 'model'; then
+  # A non-zero exit whose output merely contains the word "model" is not evidence of
+  # a limit — "model" appears in ordinary prose and in generated prompts. Require an
+  # explicit bad-model signal, or genuine backend errors get retried as limit failures.
+  if [ "$exit_code" -ne 0 ] && echo "$low" | grep -qE '(unknown|invalid|unsupported|unrecognized|no such|nonexistent) model|model [^[:space:]]* ?(not found|does not exist|not exist|unsupported|unavailable|denied|restricted)'; then
     return 0
   fi
 
@@ -430,7 +443,9 @@ is_rate_limit_message_only() {
   local output="$1"
   local xml_pat
   [ -z "$output" ] && return 1
-  xml_pat=$(_pi_limit_pattern "xml_markers" '<task[[:space:]]>|<prompt[[:space:]]>|<verification[[:space:]]>')
+  # Bracket must be [[:space:]>] — whitespace OR '>' — so it matches `<task id="1">`
+  # and `<task>`. A trailing literal '>' here would only ever match `<task >`.
+  xml_pat=$(_pi_limit_pattern "xml_markers" '<task[[:space:]>]|<prompt[[:space:]>]|<verification[[:space:]>]')
   if echo "$output" | grep -qiE "$xml_pat"; then
     return 1
   fi
