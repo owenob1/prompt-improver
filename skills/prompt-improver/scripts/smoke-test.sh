@@ -133,7 +133,7 @@ echo "[9] default generator models"
 # shellcheck disable=SC1091
 source scripts/lib/settings.sh
 load_settings
-for pair in "claude:sonnet" "grok:grok-composer-2.5-fast" "gemini:gemini-2.5-pro" "codex:gpt-5.5"; do
+for pair in "claude:claude-opus-5" "grok:grok-4.5" "gemini:gemini-2.5-pro" "codex:gpt-5.6-terra"; do
   b="${pair%%:*}"
   expect="${pair#*:}"
   got=$(get_default_model_for_backend "$b")
@@ -153,8 +153,9 @@ for pair in \
   "mythos-5:claude-mythos-5:claude" \
   "sonnet:sonnet:claude" \
   "gpt-5.5:gpt-5.5:codex" \
-  "codex:gpt-5.5:codex" \
-  "openai:gpt-5.5:codex" \
+  "codex:gpt-5.6-terra:codex" \
+  "openai:gpt-5.6-terra:codex" \
+  "opus-5:claude-opus-5:claude" \
   "gpt-5.6-sol:gpt-5.6-sol:codex" \
   "sol:gpt-5.6-sol:codex" \
   "terra:gpt-5.6-terra:codex" \
@@ -192,10 +193,18 @@ if echo "$chain_sol" | grep -q 'terra' && echo "$chain_sol" | grep -q 'luna'; th
 else
   bad "sol cascade: $chain_sol"
 fi
-if echo "$chain_g45" | grep -q 'composer'; then
-  ok "grok-4.5 cascade includes composer"
+# `grok models` lists only grok-4.5 — composer/grok-build are retired, so the
+# chain must not offer them; an explicit composer request still cascades to 4.5.
+if [ "$(echo "$chain_g45" | tr -s ' ')" = "grok-4.5" ]; then
+  ok "grok-4.5 cascade is grok-4.5 only"
 else
   bad "grok-4.5 cascade: $chain_g45"
+fi
+chain_comp=$(get_model_fallback_chain "grok-composer-2.5-fast")
+if echo "$chain_comp" | grep -q 'grok-4.5'; then
+  ok "composer cascade falls back to grok-4.5"
+else
+  bad "composer cascade: $chain_comp"
 fi
 if is_model_retryable_failure 1 "Error: rate limit exceeded for model"; then
   ok "retryable rate-limit detection"
@@ -279,19 +288,19 @@ if [ "$_nh" -eq 3 ] && grep -q 'HOST_BOUNCE:NO_HEADLESS' /tmp/pi-nohost.out; the
 else
   bad "expected NO_HEADLESS exit 3, got $_nh: $(head -5 /tmp/pi-nohost.err)"
 fi
-# Host claude with no model → sonnet (only check selection line if claude on PATH)
+# Host claude with no model → claude-opus-5 (only check selection line if claude on PATH)
 if command -v claude >/dev/null 2>&1; then
   export PROMPT_IMPROVER_HOST=claude
   set +e
   bash scripts/generate-prompt.sh --mode plan --raw-input "x" --skip-validate >/tmp/pi-host.out 2>/tmp/pi-host.err
   _hc=$?
   set -e
-  if grep -q 'host CLI (claude)' /tmp/pi-host.err && grep -q 'model: sonnet' /tmp/pi-host.err; then
-    ok "claude host → sonnet default selection"
+  if grep -q 'host CLI (claude)' /tmp/pi-host.err && grep -q 'model: claude-opus-5' /tmp/pi-host.err; then
+    ok "claude host → claude-opus-5 default selection"
   else
     # may fail generation (rate limit) but selection reason should appear
-    if grep -qE 'host CLI \(claude\).*sonnet|model: sonnet' /tmp/pi-host.err; then
-      ok "claude host → sonnet default selection"
+    if grep -qE 'host CLI \(claude\).*claude-opus-5|model: claude-opus-5' /tmp/pi-host.err; then
+      ok "claude host → claude-opus-5 default selection"
     else
       bad "claude host selection: $(head -8 /tmp/pi-host.err)"
     fi

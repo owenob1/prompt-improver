@@ -7,10 +7,10 @@
   "model": null,
   "//default_models": "Per-backend generator defaults when model is null. null = CLI default.",
   "default_models": {
-    "claude": "sonnet",
-    "grok": "grok-composer-2.5-fast",
+    "claude": "claude-opus-5",
+    "grok": "grok-4.5",
     "gemini": "gemini-2.5-pro",
-    "codex": "gpt-5.5",
+    "codex": "gpt-5.6-terra",
     "opencode": null,
     "cline": null,
     "kimi": null,
