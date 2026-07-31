@@ -28,10 +28,10 @@ Implementation: `scripts/lib/settings.sh` + shipped tables in `config/runtime-de
 
 | Generator CLI | Default model ID | Notes |
 |---------------|------------------|--------|
-| `claude` | `sonnet` | Resolves to current Sonnet (Sonnet 5 / `claude-sonnet-5`) |
-| `grok` | `grok-composer-2.5-fast` | Fast high-quality improver |
+| `claude` | `claude-opus-5` | Opus 5. The bare `opus-5` string is rejected by the CLI; use the full ID |
+| `grok` | `grok-4.5` | The only model `grok models` lists |
 | `gemini` | `gemini-2.5-pro` | Pro-class specs |
-| `codex` | `gpt-5.5` | GPT-5 family Codex default |
+| `codex` | `gpt-5.6-terra` | GPT-5.6 Terra |
 
 ---
 
@@ -45,9 +45,10 @@ Implementation: `scripts/lib/settings.sh` + shipped tables in `config/runtime-de
 | `mythos`, `mythos-preview`, `claude-mythos-preview` | `claude-mythos-preview` | Mythos Preview (restricted) |
 | `fable-5`, `fable5`, `claude-fable-5` | `claude-fable-5` | Frontier widely released |
 | `fable` | `fable` | Claude Code alias |
+| `opus-5`, `opus5`, `claude-opus-5` | `claude-opus-5` | Default improver for Claude |
 | `opus`, `opus-4.8`, `claude-opus-4-8` | `opus` / `claude-opus-4-8` | High capability |
 | `opus-4.6`, `claude-opus-4-6` | `claude-opus-4-6` | Prior Opus |
-| `sonnet`, `sonnet-5`, `claude-sonnet-5` | `sonnet` / `claude-sonnet-5` | Default improver for Claude |
+| `sonnet`, `sonnet-5`, `claude-sonnet-5` | `sonnet` / `claude-sonnet-5` | Cheap improver |
 | `haiku`, `haiku-4.5`, `claude-haiku-4-5` | `haiku` | Fast / cheap |
 
 Any other `claude-*` ID is passed through unchanged and routed to the `claude` backend.
@@ -58,6 +59,7 @@ Any other `claude-*` ID is passed through unchanged and routed to the `claude` b
 |-----------------|-----------|
 | Mythos family | `claude-mythos-5` → `claude-mythos-preview` → `claude-fable-5` → `fable` → `opus` → `sonnet` |
 | Fable family | `claude-fable-5` → `fable` → `opus` → `sonnet` |
+| Opus 5 | `claude-opus-5` → `opus` → `sonnet` |
 | Opus family | `opus` → `sonnet` |
 | Sonnet family | requested ID → `sonnet` |
 | Haiku family | requested ID → `haiku` → `sonnet` |
@@ -75,7 +77,7 @@ Any other `claude-*` ID is passed through unchanged and routed to the `claude` b
 | `gpt-5.6-luna`, `gpt5.6-luna`, `luna` | `gpt-5.6-luna` | GPT-5.6 fast/affordable tier |
 | `gpt-5.6`, `gpt5.6` | `gpt-5.6-sol` | Shorthand → Sol |
 | `gpt-5.5`, `gpt5.5`, `gpt-5`, `gpt5` | `gpt-5.5` | Default Codex-class improver |
-| `codex`, `openai` | `gpt-5.5` | Shorthand → default Codex improver + `codex` CLI |
+| `codex`, `openai` | `gpt-5.6-terra` | Shorthand → default Codex improver + `codex` CLI |
 | `gpt-5.3-codex`, `gpt5.3-codex` | `gpt-5.3-codex` | Codex-optimized |
 | `gpt-5.2-codex`, `gpt5.2-codex` | `gpt-5.2-codex` | Prior Codex |
 | `o4-mini`, `o4mini` | `o4-mini` | Smaller OpenAI model |
@@ -90,6 +92,7 @@ Any other `gpt-*`, `o1*`, `o3*`, `o4*`, `codex-*` ID is passed through and route
 | Terra | `gpt-5.6-terra` → `gpt-5.6-luna` → `gpt-5.5` |
 | Luna | `gpt-5.6-luna` → `gpt-5.5` |
 | gpt-5.5 | `gpt-5.5` |
+| `codex` / `openai` shorthand | `gpt-5.6-terra` → `gpt-5.6-luna` → `gpt-5.5` |
 
 ---
 
@@ -101,8 +104,8 @@ Any other `gpt-*`, `o1*`, `o3*`, `o4*`, `codex-*` ID is passed through and route
 |----------------------|---------------|--------|
 | `grok-4.5`, `grok4.5` | `grok-4.5` | Flagship coding/agent model (2026-07) |
 | `grok-4.3`, `grok4.3` | `grok-4.3` | Prior public API model |
-| `grok-composer-2.5-fast`, `composer-2.5-fast`, `composer-2.5` | `grok-composer-2.5-fast` | Default Grok improver |
-| `grok-build`, `grokbuild`, `grok-build-0.1` | `grok-build` | Grok Build agent model |
+| `grok-composer-2.5-fast`, `composer-2.5-fast`, `composer-2.5` | `grok-composer-2.5-fast` | Retired by xAI — accepted, but cascades to `grok-4.5` |
+| `grok-build`, `grokbuild`, `grok-build-0.1` | `grok-build` | Retired by xAI — accepted, but cascades to `grok-4.5` |
 | `grok-code-fast-1` | `grok-code-fast-1` | Early Grok Build coding model |
 
 Any other `grok-*` / `composer-*` ID is passed through and routed to `grok`.
@@ -111,8 +114,8 @@ Any other `grok-*` / `composer-*` ID is passed through and routed to `grok`.
 
 | Primary request | Try order |
 |-----------------|-----------|
-| Grok 4.x | `grok-4.5` (or requested) → `grok-composer-2.5-fast` → `grok-build` |
-| Composer family | requested → `grok-composer-2.5-fast` |
+| Grok 4.x | `grok-4.5` (only live Grok model) |
+| Composer family | requested → `grok-4.5` |
 
 ---
 

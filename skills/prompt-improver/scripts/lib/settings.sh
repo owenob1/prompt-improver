@@ -103,10 +103,10 @@ _pi_matches_any_pattern() {
 }
 
 # Built-in fallbacks when jq/settings tables unavailable
-_PI_BUILTIN_DEFAULT_MODELS_claude="sonnet"
-_PI_BUILTIN_DEFAULT_MODELS_grok="grok-composer-2.5-fast"
+_PI_BUILTIN_DEFAULT_MODELS_claude="claude-opus-5"
+_PI_BUILTIN_DEFAULT_MODELS_grok="grok-4.5"
 _PI_BUILTIN_DEFAULT_MODELS_gemini="gemini-2.5-pro"
-_PI_BUILTIN_DEFAULT_MODELS_codex="gpt-5.5"
+_PI_BUILTIN_DEFAULT_MODELS_codex="gpt-5.6-terra"
 
 _builtin_normalize_model_id() {
   local raw="${1:-}"
@@ -122,6 +122,7 @@ _builtin_normalize_model_id() {
     sonnet) echo "sonnet" ;;
     haiku-4.5|haiku4.5|claude-haiku-4-5|claude-haiku-4.5) echo "haiku" ;;
     haiku) echo "haiku" ;;
+    opus-5|opus5|claude-opus-5) echo "claude-opus-5" ;;
     opus-4.8|claude-opus-4-8) echo "claude-opus-4-8" ;;
     opus-4.6|claude-opus-4-6) echo "claude-opus-4-6" ;;
     opus) echo "opus" ;;
@@ -133,7 +134,7 @@ _builtin_normalize_model_id() {
     gpt5|gpt-5) echo "gpt-5.5" ;;
     gpt-5.3-codex|gpt5.3-codex) echo "gpt-5.3-codex" ;;
     gpt-5.2-codex|gpt5.2-codex) echo "gpt-5.2-codex" ;;
-    codex|openai) echo "gpt-5.5" ;;
+    codex|openai) echo "gpt-5.6-terra" ;;
     o4-mini|o4mini) echo "o4-mini" ;;
     grok-4.5|grok4.5) echo "grok-4.5" ;;
     grok-4.3|grok4.3) echo "grok-4.3" ;;
@@ -374,15 +375,18 @@ get_model_fallback_chain() {
   case "$low" in
     *mythos*|mythos) echo "claude-mythos-5 claude-mythos-preview claude-fable-5 fable opus sonnet" ;;
     *fable*|fable) echo "claude-fable-5 fable opus sonnet" ;;
+    claude-opus-5|opus-5|opus5) echo "claude-opus-5 opus sonnet" ;;
     *opus*|opus) echo "opus sonnet" ;;
     *sonnet*|sonnet) echo "$primary sonnet" ;;
     *haiku*|haiku) echo "$primary haiku sonnet" ;;
     *sol*|gpt-5.6) echo "gpt-5.6-sol gpt-5.6-terra gpt-5.6-luna gpt-5.5" ;;
     *terra*) echo "gpt-5.6-terra gpt-5.6-luna gpt-5.5" ;;
     *luna*) echo "gpt-5.6-luna gpt-5.5" ;;
-    gpt-5.5|gpt-5|codex|openai) echo "gpt-5.5" ;;
-    grok-4.5|grok-4*) echo "grok-4.5 grok-composer-2.5-fast grok-build" ;;
-    *composer*) echo "$primary grok-composer-2.5-fast" ;;
+    gpt-5.5|gpt-5) echo "gpt-5.5" ;;
+    codex|openai) echo "gpt-5.6-terra gpt-5.6-luna gpt-5.5" ;;
+    # grok models: `grok models` lists only grok-4.5 — composer/grok-build are retired
+    grok-4.5|grok-4*) echo "grok-4.5" ;;
+    *composer*) echo "$primary grok-4.5" ;;
     *gemini*pro*|gemini-2.5-pro) echo "gemini-2.5-pro gemini-2.5-flash" ;;
     *gemini*flash*|gemini-2.5-flash) echo "gemini-2.5-flash" ;;
     *) echo "$primary" ;;

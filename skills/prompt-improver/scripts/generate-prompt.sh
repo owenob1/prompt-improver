@@ -66,7 +66,7 @@ Options:
 Model resolution order:
   1. --model / per-prompt model: token
   2. PROMPT_IMPROVER_MODEL or settings.model
-  3. settings.default_models[backend] (shipped: sonnet, grok-composer-2.5-fast, gemini-2.5-pro, gpt-5.5)
+  3. settings.default_models[backend] (shipped: claude-opus-5, grok-4.5, gemini-2.5-pro, gpt-5.6-terra)
   4. Backend CLI default (discouraged)
 HELP
       exit 0
@@ -182,7 +182,7 @@ fi
 # Priority:
 #   1) model: / settings.model → infer CLI from model family (cross-host OK)
 #   2) settings.backend when not auto
-#   3) host CLI (Claude session → claude + sonnet, Grok → grok + composer, …)
+#   3) host CLI (Claude session → claude + claude-opus-5, Grok → grok + grok-4.5, …)
 #   4) else headless blocked → host bounce
 # shellcheck disable=SC2207
 PREFS=( $(parse_preferred_backends) )
@@ -447,6 +447,20 @@ if command -v jq >/dev/null 2>&1; then
   fi
   unset _unwrapped
 fi
+
+# Drop CLI narration ahead of the XML (grok --output-format plain prefixes a
+# line like "I'll read the full offloaded prompt ..." before <context>).
+# Single awk pass with no early exit — an exiting reader would SIGPIPE the
+# producer under `set -o pipefail`. Falls through untouched when no XML is
+# present, so validation still reports the real body.
+_stripped=$(printf '%s\n' "$GENERATED" | awk '
+  started { print; next }
+  /^[[:space:]]*<[a-zA-Z]/ { started = 1; print }
+')
+if [ -n "${_stripped:-}" ]; then
+  GENERATED="$_stripped"
+fi
+unset _stripped
 
 # --- Validate ---
 if [ "$SKIP_VALIDATE" = true ] || [ "$SKIP_VALIDATE" = "true" ]; then
