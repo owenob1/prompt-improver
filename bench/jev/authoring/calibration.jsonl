@@ -1,0 +1,30 @@
+{"id":"c01","node":"cli-flag.output-format","expect":"fit","request":"add a --format=tsv option to validate-prompt.sh that prints one line per check"}
+{"id":"c02","node":"cli-flag.output-format","expect":"fit","request":"make gather-context.sh accept --json and emit the context as a JSON object"}
+{"id":"c03","node":"cli-flag.output-format","expect":"fit","request":"add a --plain flag to generate-prompt.sh that strips XML comments from the improved prompt"}
+{"id":"c04","node":"cli-flag.diagnostic","expect":"fit","request":"add a --debug flag to assemble-generation-prompt.sh that prints each reference file as it is included"}
+{"id":"c05","node":"cli-flag.diagnostic","expect":"fit","request":"add a --explain option to validate-prompt.sh that says which pattern triggered each warning"}
+{"id":"c06","node":"config.env-var","expect":"fit","request":"support a PROMPT_IMPROVER_MAX_CONTEXT_BYTES env var that caps how much gather-context.sh prints"}
+{"id":"c07","node":"config.env-var","expect":"fit","request":"let users set PROMPT_IMPROVER_BACKEND_RETRIES to control how many times a failing backend is retried"}
+{"id":"c08","node":"config.env-var","expect":"miss","request":"add a max_context_bytes key to settings.default.json"}
+{"id":"c09","node":"docs.edit","expect":"fit","request":"clarify in the README how Codex users install the skill"}
+{"id":"c10","node":"docs.edit","expect":"fit","request":"fix the broken link to docs/MODELS.md in the README"}
+{"id":"c11","node":"docs.edit","expect":"fit","request":"document the PROMPT_IMPROVER_CACHE_DIR variable in docs/CUSTOM-BACKENDS.md"}
+{"id":"c12","node":"docs.edit","expect":"miss","request":"update the usage text that gather-context.sh prints"}
+{"id":"c13","node":"ci.workflow","expect":"fit","request":"run the CI smoke tests on ubuntu-24.04 as well as ubuntu-latest"}
+{"id":"c14","node":"ci.workflow","expect":"fit","request":"cache the jq install in the CI workflow"}
+{"id":"c15","node":"ci.workflow","expect":"fit","request":"only run CI on pushes to main and on pull requests"}
+{"id":"c16","node":"ci.workflow","expect":"miss","request":"add a git pre-commit hook that runs bash -n on changed scripts"}
+{"id":"c17","node":"bugfix.script","expect":"fit","request":"validate-prompt.sh exits with 'unbound variable' when the prompt file is empty"}
+{"id":"c18","node":"bugfix.script","expect":"fit","request":"candidates.sh reports 'e.g' as a file entity in some requests, fix it"}
+{"id":"c19","node":"bugfix.script","expect":"fit","request":"gather-context.sh prints 'Monorepo: no' even inside a pnpm workspace"}
+{"id":"c20","node":"bugfix.script","expect":"miss","request":"smoke test group 19 fails randomly on macOS runners"}
+{"id":"c21","node":"tests.add","expect":"fit","request":"add smoke tests for pi_is_safe_model_id covering spaces, semicolons and unicode"}
+{"id":"c22","node":"tests.add","expect":"fit","request":"test that gapfill.sh merge leaves the skeleton unchanged apart from the filled gaps"}
+{"id":"c23","node":"tests.add","expect":"miss","request":"make pi_is_safe_model_id reject unicode characters"}
+{"id":"c24","node":"perf.script","expect":"fit","request":"gather-context.sh takes 900ms on large repositories, make it faster"}
+{"id":"c25","node":"perf.script","expect":"fit","request":"speed up candidates.sh on repositories with 20,000 tracked files"}
+{"id":"c26","node":"perf.script","expect":"miss","request":"make validate-prompt.sh report its results as JSON"}
+{"id":"c27","node":"refactor.rename-move","expect":"fit","request":"rename _pi_bounded to pi_run_with_timeout everywhere"}
+{"id":"c28","node":"refactor.rename-move","expect":"fit","request":"move the limit detection functions out of lib/settings.sh into a new lib/limits.sh"}
+{"id":"c29","node":"refactor.rename-move","expect":"fit","request":"rename the fast_path setting to jev_fast_path and keep the old name working"}
+{"id":"c30","node":"refactor.rename-move","expect":"miss","request":"rename the --raw-input flag to --request and add a --request-url option"}

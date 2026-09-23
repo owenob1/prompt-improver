@@ -1,0 +1,401 @@
+{
+  "id": "tests.add",
+  "schema": 1,
+  "provenance": {
+    "authored_by": "opus via bench/jev/authoring/author.sh",
+    "reviewed_by": null,
+    "created": "2026-09-23"
+  },
+  "match": "Add or extend automated tests for existing code, such as a function, a fallback path or an edge case, without changing that code's behaviour",
+  "task_name": "add-{subject}-tests",
+  "key_slots": [
+    "subject"
+  ],
+  "fit": [
+    {
+      "id": "adds_tests",
+      "q": "Does the request ask for new or extended automated tests?",
+      "min": 0.6
+    },
+    {
+      "id": "tests_main_work",
+      "q": "Is writing tests the main work the request asks for, rather than a change to how the code behaves?",
+      "min": 0.6
+    }
+  ],
+  "requires": [
+    {
+      "id": "g_target_is_test",
+      "q": "Is the file described in `target.usage` itself an automated test file, rather than the code being tested?",
+      "max": 0.35
+    }
+  ],
+  "escalate": [
+    {
+      "id": "g_internal",
+      "q": "To choose which cases to test, does an engineer first need to understand branching or fallback logic inside the code under test?",
+      "min": 0.6,
+      "gap": "approach"
+    }
+  ],
+  "slots": {
+    "subject": {
+      "kind": "entity",
+      "accept": [
+        "identifier",
+        "code",
+        "file",
+        "path",
+        "quoted"
+      ],
+      "q": "Which candidate names the function, script or code path that the new tests cover?"
+    },
+    "desired": {
+      "kind": "role",
+      "role": "desired"
+    }
+  },
+  "items": [
+    {
+      "id": "desc",
+      "section": "description",
+      "text": "Add automated tests that pin down the current behaviour of `{subject}`, without changing the code of `{subject}`."
+    },
+    {
+      "id": "cur-target",
+      "section": "current",
+      "text": "`{target_path}`: {target_summary}. `{subject}` is defined there; its current behaviour is what the tests pin down.",
+      "guards": [
+        {
+          "id": "f_subject_present",
+          "fact": "target_has",
+          "text": "{subject}"
+        }
+      ]
+    },
+    {
+      "id": "cur-location",
+      "section": "current",
+      "text": "The code under test lives in `{target_path}`; that file stays unchanged."
+    },
+    {
+      "id": "cur-tests",
+      "section": "current",
+      "text": "Existing tests for `{subject}` live in `{test_file}`; extend them rather than starting a parallel file.",
+      "guards": [
+        {
+          "id": "g_existing",
+          "q": "Does the request or `target.usage` name a specific test file, test suite or test group that already runs this code?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "cur-none",
+      "section": "current",
+      "text": "`{subject}` has no automated tests today; the new tests are its first coverage.",
+      "guards": [
+        {
+          "id": "g_existing",
+          "q": "Does the request or `target.usage` name a specific test file, test suite or test group that already runs this code?",
+          "max": 0.35
+        }
+      ]
+    },
+    {
+      "id": "desired",
+      "section": "desired",
+      "text": "When done: {desired}."
+    },
+    {
+      "id": "desired-pass",
+      "section": "desired",
+      "text": "All new tests pass against the unchanged code of `{subject}`."
+    },
+    {
+      "id": "desired-sensitive",
+      "section": "desired",
+      "text": "Each new test fails if the behaviour of `{subject}` that it covers changes."
+    },
+    {
+      "id": "appr-read",
+      "section": "approach",
+      "text": "Before writing tests, read `{subject}` end to end and list its observable behaviours: return values, output, exit codes, errors raised, and side effects on files or the environment."
+    },
+    {
+      "id": "appr-conventions",
+      "section": "approach",
+      "text": "Read the existing tests nearest to `{subject}` and copy their framework, helpers, fixture setup, file naming and assertion style; use only tools those tests already use."
+    },
+    {
+      "id": "appr-branches",
+      "section": "approach",
+      "text": "List the branches of `{subject}` the request asks to cover and, for each, the smallest input or environment that makes it run; write one test per entry in that list."
+    },
+    {
+      "id": "appr-force",
+      "section": "approach",
+      "text": "For each fallback or error path, choose how the test forces it: an argument, an environment variable, a stubbed dependency, a missing file, or a restricted `PATH`. Prefer the mechanism the existing tests already use. Criteria: the test controls the condition fully and leaves no state behind.",
+      "guards": [
+        {
+          "id": "g_fallback",
+          "q": "Does the request ask to test a fallback, error or failure path that runs only when something is missing or fails?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-observe",
+      "section": "approach",
+      "text": "Decide how each fallback test proves which path ran, not only that the result looks right: a distinct output, a log line, a stub that records its calls, or a value only that path produces.",
+      "guards": [
+        {
+          "id": "g_fallback",
+          "q": "Does the request ask to test a fallback, error or failure path that runs only when something is missing or fails?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-edge",
+      "section": "approach",
+      "text": "For each edge case, run `{subject}` on it once by hand and record today's exact result; the test asserts that result, not a guess about the intended one.",
+      "guards": [
+        {
+          "id": "g_edge",
+          "q": "Does the request name edge-case inputs such as empty, missing, very large, malformed or boundary values?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-isolate",
+      "section": "approach",
+      "text": "List every external dependency `{subject}` touches (other programs, network, clock, file system, environment variables) and decide for each whether the test stubs it, points it at a temporary location, or uses it for real.",
+      "guards": [
+        {
+          "id": "g_external",
+          "q": "Does the code under test call other programs, the network, the clock, or read and write files?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "cov-each",
+      "section": "requirements.coverage",
+      "text": "Each behaviour named in the request has at least one test whose name states which behaviour it covers."
+    },
+    {
+      "id": "cov-assert",
+      "section": "requirements.coverage",
+      "text": "Each test asserts a specific value, output, error or exit code; a test that only checks that the code runs without crashing does not count."
+    },
+    {
+      "id": "cov-both-paths",
+      "section": "requirements.coverage",
+      "text": "Tests cover both the primary path and the fallback path, so a regression that makes the fallback run every time is also caught.",
+      "guards": [
+        {
+          "id": "g_fallback",
+          "q": "Does the request ask to test a fallback, error or failure path that runs only when something is missing or fails?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "cov-edge-cases",
+      "section": "requirements.coverage",
+      "text": "Each edge case the request names is its own test case (or its own row in a table-driven test), so a failure identifies the case.",
+      "guards": [
+        {
+          "id": "g_edge",
+          "q": "Does the request name edge-case inputs such as empty, missing, very large, malformed or boundary values?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "iso-order",
+      "section": "requirements.isolation",
+      "text": "Each new test passes when run alone and in any order with the others; it does not depend on state left by another test."
+    },
+    {
+      "id": "iso-cleanup",
+      "section": "requirements.isolation",
+      "text": "Temporary files, directories, environment changes and stubs live in a per-test temporary location and are removed or restored when the test ends, including when it fails.",
+      "guards": [
+        {
+          "id": "g_external",
+          "q": "Does the code under test call other programs, the network, the clock, or read and write files?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "iso-offline",
+      "section": "requirements.isolation",
+      "text": "No test reaches the network or a real external service; those calls are replaced by stubs or local fixtures.",
+      "guards": [
+        {
+          "id": "g_network",
+          "q": "Does the code under test call the network or an external service?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "iso-deterministic",
+      "section": "requirements.isolation",
+      "text": "Tests do not depend on the current time, random values, locale or machine-specific paths unless the test fixes them itself."
+    },
+    {
+      "id": "run-discover",
+      "section": "requirements.runner",
+      "text": "`{test_cmd}` runs the new tests without extra flags; if the runner lists test files explicitly, register the new file there."
+    },
+    {
+      "id": "ex-fallback",
+      "section": "example",
+      "input": "a test that forces the fallback path of `{subject}` by removing the dependency it normally uses",
+      "output": "the test asserts the fallback's result and that the fallback, not the primary path, produced it",
+      "reasoning": "If the primary path gives the same answer, a test that checks only the result passes without ever reaching the fallback.",
+      "guards": [
+        {
+          "id": "g_fallback",
+          "q": "Does the request ask to test a fallback, error or failure path that runs only when something is missing or fails?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ex-edge",
+      "section": "example",
+      "input": "an empty or boundary input to `{subject}`",
+      "output": "the test asserts the exact result, error or exit code today's code produces for that input",
+      "reasoning": "The tests pin down current behaviour; asserting an imagined intended result turns a test task into a behaviour change.",
+      "guards": [
+        {
+          "id": "g_edge",
+          "q": "Does the request name edge-case inputs such as empty, missing, very large, malformed or boundary values?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ex-bug",
+      "section": "example",
+      "input": "a new test shows `{subject}` returning a result that looks wrong",
+      "output": "the code of `{subject}` stays unchanged; the test is skipped or marked as an expected failure using the project's mechanism, or left out; the report gives the input, the actual result and why it looks wrong",
+      "reasoning": "Fixing the code is out of scope, and asserting the wrong result as correct would lock the bug in."
+    },
+    {
+      "id": "ex-mutation",
+      "section": "example",
+      "input": "the behaviour a new test covers is deliberately broken inside `{subject}`",
+      "output": "at least one new test fails, naming the broken behaviour",
+      "reasoning": "A test that still passes when the code is broken gives no protection."
+    },
+    {
+      "id": "ver-pass",
+      "section": "verification",
+      "text": "`{test_cmd}` exits 0 and its output lists the new tests as run and passed."
+    },
+    {
+      "id": "ver-unchanged",
+      "section": "verification",
+      "text": "Before starting, copy `{target_path}` to a temporary file; at the end, `cmp <copy> {target_path}` exits 0."
+    },
+    {
+      "id": "ver-mutation",
+      "section": "verification",
+      "text": "For each new test, temporarily break the behaviour it covers in `{subject}` (for example invert a condition or change a returned value), run the new tests and confirm that one fails; then restore the file with `git checkout -- <file>` and confirm `git diff --quiet -- <file>` exits 0."
+    },
+    {
+      "id": "ver-repeat",
+      "section": "verification",
+      "text": "Run the new tests three times in a row: every run passes with the same results."
+    },
+    {
+      "id": "ver-clean",
+      "section": "verification",
+      "text": "After the test run, `git status --porcelain` lists only the new or changed test files, fixtures and test helpers, with no production file and no leftover temporary files."
+    },
+    {
+      "id": "ver-lint",
+      "section": "verification",
+      "text": "`{lint_cmd}` reports no new findings in the changed test files."
+    },
+    {
+      "id": "comp-test",
+      "section": "companion",
+      "file": "{test_file}",
+      "text": "Add the new tests here, next to the existing coverage for `{subject}`, following that file's structure.",
+      "guards": [
+        {
+          "id": "g_existing",
+          "q": "Does the request or `target.usage` name a specific test file, test suite or test group that already runs this code?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "con-nochange",
+      "section": "constraint",
+      "text": "Do not modify the code of `{subject}` or any other production code; only test files, fixtures and test helpers change."
+    },
+    {
+      "id": "con-existing-tests",
+      "section": "constraint",
+      "text": "Do not weaken, skip or delete existing tests to make the new ones pass."
+    },
+    {
+      "id": "oos-flaky",
+      "section": "out_of_scope",
+      "text": "Investigating or fixing tests that already fail or are flaky."
+    },
+    {
+      "id": "oos-refactor",
+      "section": "out_of_scope",
+      "text": "Refactoring `{subject}` to make it easier to test."
+    },
+    {
+      "id": "esc-bug",
+      "section": "escape",
+      "text": "If a new test shows `{subject}` behaving in a way that looks wrong, stop before changing its code: report the input, the actual result and the result you expected, and ask whether to fix it."
+    },
+    {
+      "id": "esc-unreachable",
+      "section": "escape",
+      "text": "If a path of `{subject}` cannot be reached from a test without editing production code (for example a hard-coded path or an unconditional external call), list it with the change that would make it reachable, and ask instead of making the change."
+    },
+    {
+      "id": "esc-flaky",
+      "section": "escape",
+      "text": "If a new test passes on some runs and fails on others, stop and report the failing output; do not add retries, sleeps or looser assertions to hide it."
+    },
+    {
+      "id": "esc-generic",
+      "section": "escape",
+      "text": "If the request is ambiguous about which behaviours to cover, or contradicts what the code shows, stop and ask rather than guessing."
+    },
+    {
+      "id": "chk-files",
+      "section": "check",
+      "text": "Re-read each changed test file and confirm every behaviour of `{subject}` named in the request has a test that asserts a specific result; run `git status --porcelain` and confirm no production file is listed."
+    },
+    {
+      "id": "chk-target",
+      "section": "check",
+      "text": "Re-read `{target_path}` and confirm `{subject}` is unchanged."
+    }
+  ],
+  "required": {
+    "description": 1,
+    "desired": 1,
+    "approach": 2,
+    "verification": 3,
+    "check": 1,
+    "escape": 1
+  },
+  "target_from": "subject"
+}

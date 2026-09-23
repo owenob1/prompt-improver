@@ -1,0 +1,452 @@
+{
+  "id": "bugfix.script",
+  "schema": 1,
+  "provenance": {
+    "authored_by": "opus via bench/jev/authoring/author.sh",
+    "reviewed_by": null,
+    "created": "2026-09-23"
+  },
+  "match": "Fix incorrect behaviour, an error or a crash in an existing script, command or module, where the request names the symptom",
+  "task_name": "fix-{target_stem}",
+  "key_slots": [],
+  "fit": [
+    {
+      "id": "fixes_defect",
+      "q": "Does the request ask to fix something that goes wrong in code that already exists?",
+      "min": 0.6
+    },
+    {
+      "id": "names_symptom",
+      "q": "Does the request describe what goes wrong, such as an error message, a crash or wrong output?",
+      "min": 0.6
+    },
+    {
+      "id": "wrong_result",
+      "q": "Is the problem wrong results, errors or crashes, rather than slowness, memory use or a test that passes and fails at random?",
+      "min": 0.6
+    }
+  ],
+  "requires": [
+    {
+      "id": "g_code",
+      "q": "Is the file described in `target.usage` source code or a script, rather than documentation or data?",
+      "min": 0.5
+    }
+  ],
+  "escalate": [
+    {
+      "id": "g_trace",
+      "q": "To fix this, does an engineer first need to trace logic inside the file to find where the wrong behaviour starts?",
+      "min": 0.6,
+      "gap": "approach"
+    }
+  ],
+  "slots": {
+    "symptom": {
+      "kind": "role",
+      "role": "symptom"
+    },
+    "desired": {
+      "kind": "role",
+      "role": "desired"
+    },
+    "error": {
+      "kind": "entity",
+      "accept": [
+        "quoted",
+        "code"
+      ],
+      "q": "Which candidate is text that the request says the program prints or produces when it goes wrong (an error message, or a wrong value in its output)? Answer none if the request quotes no such text."
+    },
+    "trigger": {
+      "kind": "entity",
+      "accept": [
+        "flag",
+        "quoted",
+        "code",
+        "identifier",
+        "path",
+        "file",
+        "env",
+        "number",
+        "quantity",
+        "version"
+      ],
+      "q": "Which candidate is an input value, option, argument, file given as input or setting that the request says makes the defect appear? Answer none if the only candidates name the script, module or function being fixed."
+    }
+  },
+  "items": [
+    {
+      "id": "desc-base",
+      "section": "description",
+      "text": "Find and fix the root cause of the reported defect in `{target_path}`, so the symptom no longer occurs and inputs that already work behave exactly as today."
+    },
+    {
+      "id": "desc",
+      "section": "description",
+      "text": "Reported symptom: {symptom}."
+    },
+    {
+      "id": "current",
+      "section": "current",
+      "text": "`{target_path}`: {target_summary}. Reported symptom: {symptom}."
+    },
+    {
+      "id": "current-error-has",
+      "section": "current",
+      "text": "The reported text `{error}` appears in `{target_path}`; start from the place that produces it.",
+      "guards": [
+        {
+          "id": "f_error_present",
+          "fact": "target_has",
+          "text": "{error}"
+        }
+      ]
+    },
+    {
+      "id": "current-error-lacks",
+      "section": "current",
+      "text": "The reported text `{error}` does not appear literally in `{target_path}`; it is either built from parts at run time or comes from a command, library or runtime that `{target_name}` calls. Find which code produces it before changing anything.",
+      "guards": [
+        {
+          "id": "f_error_absent",
+          "fact": "target_lacks",
+          "text": "{error}"
+        }
+      ]
+    },
+    {
+      "id": "desired-base",
+      "section": "desired",
+      "text": "After the fix, `{target_name}` no longer shows the reported symptom for the input that triggered it, and produces the result that its usage text, documentation or tests describe."
+    },
+    {
+      "id": "desired",
+      "section": "desired",
+      "text": "After the fix, {desired}."
+    },
+    {
+      "id": "desired-unchanged",
+      "section": "desired",
+      "text": "Inputs that work correctly today produce exactly the same output, side effects and exit status after the fix."
+    },
+    {
+      "id": "appr-reproduce",
+      "section": "approach",
+      "text": "Before editing, reproduce the symptom: find the smallest invocation (command, input or function call) that shows it, and record the actual output, error text and exit status."
+    },
+    {
+      "id": "appr-trigger",
+      "section": "approach",
+      "text": "Include `{trigger}` in the reproduction, and also run the nearest variant without it, to confirm which part of the input causes the defect."
+    },
+    {
+      "id": "appr-crash",
+      "section": "approach",
+      "text": "Read the full error or stack trace from the reproduction: note the file, the line, and the value that was missing, empty or of an unexpected type at that point.",
+      "guards": [
+        {
+          "id": "g_crash",
+          "q": "Does the symptom in the request include a crash, an exception, a stack trace or an error message?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-diverge",
+      "section": "approach",
+      "text": "Write down the expected output for the reproduction next to the actual output, then step through `{target_path}` to the first point where the computed value differs from what the expected output needs.",
+      "guards": [
+        {
+          "id": "g_crash",
+          "q": "Does the symptom in the request include a crash, an exception, a stack trace or an error message?",
+          "max": 0.4
+        }
+      ]
+    },
+    {
+      "id": "appr-root",
+      "section": "approach",
+      "text": "Fix the first line whose behaviour is wrong (the root cause), not the place where the symptom becomes visible. State the root cause in one sentence before editing."
+    },
+    {
+      "id": "appr-siblings",
+      "section": "approach",
+      "text": "Search `{target_path}` for the same construct as the root cause (other uses of the same variable, call or pattern) and list every occurrence with the same defect; fix each one or record why it is left alone."
+    },
+    {
+      "id": "appr-test-first",
+      "section": "approach",
+      "text": "Add the reproduction as a regression case in `{test_file}` before fixing, and confirm it fails against the unchanged code."
+    },
+    {
+      "id": "appr-env",
+      "section": "approach",
+      "text": "Reproduce in an environment where the symptom is reported and in one where it does not occur; record the difference (platform, shell or runtime version, environment variables, locale) that decides it.",
+      "guards": [
+        {
+          "id": "g_env",
+          "q": "Does the request say the symptom happens only on some platforms, shells, versions or environments?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-regressed",
+      "section": "approach",
+      "text": "Find the change that introduced the defect with `git log -p -- {target_path}` (or `git bisect` driven by the reproduction), and read what that change intended so the fix keeps it.",
+      "guards": [
+        {
+          "id": "g_regressed",
+          "q": "Does the request say this used to work and has stopped working?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "beh-fixed-base",
+      "section": "requirements.behaviour",
+      "text": "The recorded reproduction no longer shows the reported symptom when run against the fixed `{target_path}`."
+    },
+    {
+      "id": "beh-fixed",
+      "section": "requirements.behaviour",
+      "text": "The reproduction no longer shows the symptom: {symptom}."
+    },
+    {
+      "id": "beh-trigger",
+      "section": "requirements.behaviour",
+      "text": "Inputs involving `{trigger}` produce the correct result; inputs without it behave exactly as today."
+    },
+    {
+      "id": "compat-unchanged",
+      "section": "requirements.compatibility",
+      "text": "Output, side effects and exit status for inputs that do not trigger the defect are unchanged."
+    },
+    {
+      "id": "compat-interface",
+      "section": "requirements.compatibility",
+      "text": "The interface of `{target_name}` (arguments, options, function signatures, return values) stays the same, unless the defect is in the interface itself."
+    },
+    {
+      "id": "err-cli",
+      "section": "requirements.errors",
+      "text": "For invalid input, `{target_name}` prints one line on stderr naming the bad input and exits non-zero, instead of crashing or printing a stack trace.",
+      "guards": [
+        {
+          "id": "g_bad_input",
+          "q": "Is the defect triggered by input that is missing, empty, malformed or otherwise invalid?",
+          "min": 0.6
+        },
+        {
+          "id": "g_cli",
+          "q": "Is the file described in `target.usage` a command people run directly, rather than a library other code loads?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "err-lib",
+      "section": "requirements.errors",
+      "text": "For invalid input, `{target_name}` raises or returns an error in the style it already uses elsewhere, naming the bad input, instead of failing later with an unrelated error.",
+      "guards": [
+        {
+          "id": "g_bad_input",
+          "q": "Is the defect triggered by input that is missing, empty, malformed or otherwise invalid?",
+          "min": 0.6
+        },
+        {
+          "id": "g_cli",
+          "q": "Is the file described in `target.usage` a command people run directly, rather than a library other code loads?",
+          "max": 0.4
+        }
+      ]
+    },
+    {
+      "id": "err-valid",
+      "section": "requirements.errors",
+      "text": "The input that triggers the defect is valid: the fix processes it correctly and does not reject, skip or truncate it to avoid the failure.",
+      "guards": [
+        {
+          "id": "g_bad_input",
+          "q": "Is the defect triggered by input that is missing, empty, malformed or otherwise invalid?",
+          "max": 0.4
+        }
+      ]
+    },
+    {
+      "id": "err-no-swallow",
+      "section": "requirements.errors",
+      "text": "The fix does not hide errors: no catch-all exception handler, ignored exit status or silenced stderr is added around the failing code."
+    },
+    {
+      "id": "ex-repro",
+      "section": "example",
+      "input": "the smallest input that reproduces the reported defect",
+      "output": "the correct result, as stated in the request or described by the code's usage text, documentation or tests, with no trace of the reported symptom",
+      "reasoning": "This is the reported case; the fix is judged first on it."
+    },
+    {
+      "id": "ex-unaffected",
+      "section": "example",
+      "input": "an input that worked correctly before the change",
+      "output": "the same output, side effects and exit status as before the fix",
+      "reasoning": "A fix that changes working behaviour trades one defect for another."
+    },
+    {
+      "id": "ex-neighbour",
+      "section": "example",
+      "input": "a different input that takes the same code path as the reproduction (another value of the same kind, or the same value in another position)",
+      "output": "also correct, without a special case for the reported value",
+      "reasoning": "Fixing the root cause covers the whole class of inputs; special-casing the reported value leaves the rest broken."
+    },
+    {
+      "id": "ex-invalid",
+      "section": "example",
+      "input": "genuinely invalid input, such as a missing or malformed value",
+      "output": "one error line on stderr naming the bad input and a non-zero exit status; no stack trace",
+      "reasoning": "Invalid input should fail early and say why, so users can correct it.",
+      "guards": [
+        {
+          "id": "g_bad_input",
+          "q": "Is the defect triggered by input that is missing, empty, malformed or otherwise invalid?",
+          "min": 0.6
+        },
+        {
+          "id": "g_cli",
+          "q": "Is the file described in `target.usage` a command people run directly, rather than a library other code loads?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-repro",
+      "section": "verification",
+      "text": "Re-run the reproduction recorded before the fix: the symptom no longer occurs, and the output and exit status match the expected result."
+    },
+    {
+      "id": "ver-unaffected",
+      "section": "verification",
+      "text": "Run `{target_name}` on one input that worked before the fix, before and after the change: output and exit status are identical (compare them with `diff`, expect no differences)."
+    },
+    {
+      "id": "ver-diff-scope",
+      "section": "verification",
+      "text": "`git diff --stat` lists `{target_path}` and only the companion test and changelog files, nothing else."
+    },
+    {
+      "id": "ver-error-text",
+      "section": "verification",
+      "text": "Re-running the reproduction prints no `{error}`.",
+      "guards": [
+        {
+          "id": "g_error_message",
+          "q": "Is the text the request quotes an error message that correct behaviour never prints, rather than a value that can legitimately appear in correct output?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-revert",
+      "section": "verification",
+      "text": "With only the fix reverted (`git stash push -- {target_path}`), `{test_cmd}` fails on the new regression case; after `git stash pop` it passes."
+    },
+    {
+      "id": "ver-tests",
+      "section": "verification",
+      "text": "`{test_cmd}` passes, including the new regression case."
+    },
+    {
+      "id": "ver-syntax",
+      "section": "verification",
+      "text": "`{syntax_check}` succeeds."
+    },
+    {
+      "id": "ver-typecheck",
+      "section": "verification",
+      "text": "`{typecheck_cmd}` succeeds."
+    },
+    {
+      "id": "comp-test",
+      "section": "companion",
+      "file": "{test_file}",
+      "text": "Add a regression case that runs the reproduction input and asserts the corrected result; name it after the symptom, not after the fix."
+    },
+    {
+      "id": "comp-changelog",
+      "section": "companion",
+      "file": "{changelog}",
+      "text": "Add a Fixed entry describing the symptom users saw and which inputs it affected."
+    },
+    {
+      "id": "con-callers",
+      "section": "constraint",
+      "text": "Callers of `{target_name}` ({callers}) keep working unchanged; do not edit them to fit the fix."
+    },
+    {
+      "id": "con-scope",
+      "section": "constraint",
+      "text": "Change only what the fix needs: no refactoring, renaming or reformatting of unrelated code in `{target_path}`."
+    },
+    {
+      "id": "con-deps",
+      "section": "constraint",
+      "text": "Do not add new dependencies to fix this defect."
+    },
+    {
+      "id": "oos-features",
+      "section": "out_of_scope",
+      "text": "New options, features or behaviour beyond correcting the reported defect."
+    },
+    {
+      "id": "oos-other",
+      "section": "out_of_scope",
+      "text": "Performance work and unrelated defects found along the way; list them in the final summary instead of fixing them."
+    },
+    {
+      "id": "esc-generic",
+      "section": "escape",
+      "text": "If the request is ambiguous, contradicts what the code shows, or the fix would change behaviour for inputs that work today, stop and ask rather than guessing or working around it."
+    },
+    {
+      "id": "esc-norepro",
+      "section": "escape",
+      "text": "If the symptom cannot be reproduced with the current code, stop and report what was tried (commands, inputs, environment) instead of changing code on speculation."
+    },
+    {
+      "id": "esc-outside",
+      "section": "escape",
+      "text": "If the root cause is in a dependency, the runtime or a file other than `{target_path}`, report where it is and ask before changing that code or adding a workaround in `{target_path}`."
+    },
+    {
+      "id": "esc-tests-expect",
+      "section": "escape",
+      "text": "If an existing test asserts the current wrong behaviour, or other code relies on it, list them and ask before changing that behaviour; do not edit test expectations to make them pass."
+    },
+    {
+      "id": "esc-expected-unclear",
+      "section": "escape",
+      "text": "If the correct result for the reproduction is not settled by the request, the code's own documentation or its tests, stop and ask which result is intended.",
+      "guards": [
+        {
+          "id": "g_desired_stated",
+          "q": "Can the correct output or behaviour be read directly from the request's words, either stated outright or as the only alternative to a yes/no, true/false or present/absent result the request calls wrong?",
+          "max": 0.4
+        }
+      ]
+    },
+    {
+      "id": "chk-diff",
+      "section": "check",
+      "text": "Re-read the diff of `{target_path}`: every changed line serves the fix, every occurrence listed in the approach is fixed or has a recorded reason, and no error is silenced or input rejected to hide the symptom."
+    }
+  ],
+  "required": {
+    "description": 1,
+    "desired": 1,
+    "approach": 2,
+    "verification": 3,
+    "check": 1,
+    "escape": 1
+  }
+}

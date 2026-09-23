@@ -1,0 +1,566 @@
+{
+  "id": "cli-flag.output-format",
+  "schema": 1,
+  "provenance": {
+    "authored_by": "opus via bench/jev/authoring/author.sh",
+    "reviewed_by": null,
+    "created": "2026-09-23"
+  },
+  "match": "Add a command-line flag or option to an existing tool or script that changes the format of its normal output, such as JSON, CSV or a plainer text form, so that people or other programs can consume it, while the existing output stays the default",
+  "task_name": "add-{flag}-output-format",
+  "key_slots": [
+    "flag"
+  ],
+  "fit": [
+    {
+      "id": "adds_flag",
+      "q": "Does the request add a new command-line flag or option to an existing tool or script?",
+      "min": 0.6
+    },
+    {
+      "id": "changes_format",
+      "q": "Is the purpose of the new flag to change the format or layout of the tool's normal output, for example to JSON, CSV or plain text?",
+      "min": 0.6
+    },
+    {
+      "id": "same_results",
+      "q": "Does the new flag present results the tool already produces, rather than extra information about what the tool is doing internally?",
+      "min": 0.55
+    }
+  ],
+  "requires": [
+    {
+      "id": "g_library",
+      "q": "Is the file described in `target.usage` a library that other scripts load, rather than a command people run directly?",
+      "max": 0.35
+    }
+  ],
+  "escalate": [
+    {
+      "id": "g_internal",
+      "q": "To add the new format well, does an engineer first need to understand how the tool builds its output across several functions, subcommands or code paths?",
+      "min": 0.6,
+      "gap": "approach"
+    }
+  ],
+  "slots": {
+    "flag": {
+      "kind": "entity",
+      "accept": [
+        "flag"
+      ],
+      "q": "Which candidate is the new command-line flag as the request writes it, for example `--json`, `--plain` or `--format=csv`?"
+    },
+    "format": {
+      "kind": "entity",
+      "accept": [
+        "word",
+        "quoted",
+        "code",
+        "identifier"
+      ],
+      "q": "Which candidate names the output format the new flag produces, such as JSON, CSV, TSV or plain?"
+    },
+    "desired": {
+      "kind": "role",
+      "role": "desired"
+    }
+  },
+  "items": [
+    {
+      "id": "desc",
+      "section": "description",
+      "text": "Add `{flag}` to `{target_name}` as an opt-in output format; today's output stays the default."
+    },
+    {
+      "id": "desc-desired",
+      "section": "description",
+      "text": "Requested outcome: {desired}."
+    },
+    {
+      "id": "current",
+      "section": "current",
+      "text": "`{target_path}`: {target_summary}. It has no `{flag}` option today; its only output format is the current default.",
+      "guards": [
+        {
+          "id": "f_flag_absent",
+          "fact": "target_lacks",
+          "text": "{flag}"
+        }
+      ]
+    },
+    {
+      "id": "current-has",
+      "section": "current",
+      "text": "`{target_path}`: {target_summary}. The text `{flag}` already appears in it; find out what it does today before adding anything.",
+      "guards": [
+        {
+          "id": "f_flag_present",
+          "fact": "target_has",
+          "text": "{flag}"
+        }
+      ]
+    },
+    {
+      "id": "desired",
+      "section": "desired",
+      "text": "`{target_name} {flag}` prints the results the tool already produces, in the new format; without `{flag}` stdout, stderr and exit codes are byte-for-byte unchanged."
+    },
+    {
+      "id": "desired-format",
+      "section": "desired",
+      "text": "With `{flag}`, the output is {format}."
+    },
+    {
+      "id": "appr-sites",
+      "section": "approach",
+      "text": "Before editing, read `{target_path}` end to end and list every place that writes to stdout, including helpers, subcommands, loops and error paths. Each one must end up either rendered in the new format or confirmed to print nothing when `{flag}` is given."
+    },
+    {
+      "id": "appr-model",
+      "section": "approach",
+      "text": "Choose one design and commit to it: collect each record into a data structure first and render it either as today's output or in the new format, or add a separate renderer beside the existing print calls. Criteria: default output byte-identical, one place defines the fields, smallest diff."
+    },
+    {
+      "id": "appr-schema",
+      "section": "approach",
+      "text": "Before writing code, run `{runner} {target_path}` once and write down the {format} shape: field names, types, order and nesting, derived from what the default output shows. Use that shape as the contract for the tests and the help text.",
+      "guards": [
+        {
+          "id": "g_structured",
+          "q": "Is the new output format a machine-readable structured format such as JSON, CSV, TSV, YAML or XML?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-serializer",
+      "section": "approach",
+      "text": "Produce {format} with a serializer the project already has available (the language's standard library or an existing dependency). Only if none exists, write one escaping helper and route every value through it; never build the format by unescaped string concatenation.",
+      "guards": [
+        {
+          "id": "g_structured",
+          "q": "Is the new output format a machine-readable structured format such as JSON, CSV, TSV, YAML or XML?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-desired",
+      "section": "requirements.behaviour",
+      "text": "Requested outcome with `{flag}`: {desired}."
+    },
+    {
+      "id": "req-default",
+      "section": "requirements.behaviour",
+      "text": "Without `{flag}`, the standard output, standard error and exit codes of `{target_name}` are identical to today's."
+    },
+    {
+      "id": "req-same-info",
+      "section": "requirements.behaviour",
+      "text": "The new output carries the same information as the default output: every value the default output shows is present, and nothing is added that the tool does not already compute."
+    },
+    {
+      "id": "req-exit",
+      "section": "requirements.behaviour",
+      "text": "`{flag}` does not change exit codes: a run that succeeds or fails without it succeeds or fails the same way with it."
+    },
+    {
+      "id": "fmt-stdout-only",
+      "section": "requirements.format",
+      "text": "With `{flag}`, stdout contains only the new-format output: no banners, progress lines, colour codes or trailing prose. Anything else the tool prints goes to stderr.",
+      "guards": [
+        {
+          "id": "g_consumed",
+          "q": "Does the request say the output will be parsed, piped or read by another program or script, or name a machine-readable format such as JSON, CSV or TSV?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "fmt-json",
+      "section": "requirements.format",
+      "text": "With `{flag}`, stdout is exactly one valid JSON document (an object or an array), or one JSON object per line if the tool streams results; pick one and state it in the help text. Numbers are JSON numbers, booleans are JSON booleans, and absent values are `null`, not empty strings.",
+      "guards": [
+        {
+          "id": "g_json",
+          "q": "Is the new output format JSON or JSON Lines?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "fmt-keys",
+      "section": "requirements.format",
+      "text": "Field names are fixed identifiers that do not depend on the data, follow the naming style the project already uses (snake_case if there is none), and keep the same order on every run.",
+      "guards": [
+        {
+          "id": "g_structured",
+          "q": "Is the new output format a machine-readable structured format such as JSON, CSV, TSV, YAML or XML?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "fmt-csv",
+      "section": "requirements.format",
+      "text": "The first line is a header row naming each column; every row has the same number of fields; fields containing the delimiter, a double quote or a newline are quoted as in RFC 4180.",
+      "guards": [
+        {
+          "id": "g_csv",
+          "q": "Is the new output format CSV, TSV or another delimiter-separated table?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "fmt-escape",
+      "section": "requirements.format",
+      "text": "Values containing quotes, backslashes, newlines, tabs or non-ASCII text are escaped by the rules of {format} and emitted as UTF-8; they are never truncated or dropped.",
+      "guards": [
+        {
+          "id": "g_structured",
+          "q": "Is the new output format a machine-readable structured format such as JSON, CSV, TSV, YAML or XML?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "fmt-empty",
+      "section": "requirements.format",
+      "text": "When there is nothing to report, the output is still valid {format} (for example an empty array, or a header row with no data rows), never empty stdout or a prose message.",
+      "guards": [
+        {
+          "id": "g_structured",
+          "q": "Is the new output format a machine-readable structured format such as JSON, CSV, TSV, YAML or XML?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "fmt-plain",
+      "section": "requirements.format",
+      "text": "With `{flag}`, output has no ANSI colour codes, box-drawing or decorative characters and no alignment padding; each record is one line with fields separated by a single tab, so `cut -f` and `awk -F'\\t'` can split it.",
+      "guards": [
+        {
+          "id": "g_plain",
+          "q": "Does the request ask only to remove colours, alignment, padding or decoration from the existing text output, keeping its wording and content otherwise?",
+          "min": 0.6
+        },
+        {
+          "id": "g_structured",
+          "q": "Is the new output format a machine-readable structured format such as JSON, CSV, TSV, YAML or XML?",
+          "max": 0.4
+        }
+      ]
+    },
+    {
+      "id": "if-switch",
+      "section": "requirements.interface",
+      "text": "`{flag}` is a switch that takes no value.",
+      "guards": [
+        {
+          "id": "g_value_flag",
+          "q": "Does the new flag take a value that names the format, as in `--format json` or `--format=json`, rather than being a switch on its own?",
+          "max": 0.35
+        }
+      ]
+    },
+    {
+      "id": "if-value",
+      "section": "requirements.interface",
+      "text": "The option in `{flag}` takes the format name as its value, accepted both space-separated and `=`-separated; the value naming today's output selects the default, and an unknown value exits non-zero with the list of supported values on stderr.",
+      "guards": [
+        {
+          "id": "g_value_flag",
+          "q": "Does the new flag take a value that names the format, as in `--format json` or `--format=json`, rather than being a switch on its own?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "if-positional",
+      "section": "requirements.interface",
+      "text": "`{flag}` is accepted before or after the positional arguments.",
+      "guards": [
+        {
+          "id": "g_positional",
+          "q": "Does the tool described in `target.usage` take positional (non-flag) arguments?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "if-anywhere",
+      "section": "requirements.interface",
+      "text": "`{flag}` can appear anywhere among the existing options.",
+      "guards": [
+        {
+          "id": "g_positional",
+          "q": "Does the tool described in `target.usage` take positional (non-flag) arguments?",
+          "max": 0.4
+        }
+      ]
+    },
+    {
+      "id": "if-combine",
+      "section": "requirements.interface",
+      "text": "Define how `{flag}` combines with the existing options that change what `{target_name}` prints (colour, verbose, quiet and similar), document it in the help text, and keep stdout in the new format whichever of them is also given.",
+      "guards": [
+        {
+          "id": "g_other_output_options",
+          "q": "Does the usage text in `target.usage` list an option that changes what is printed, such as --color, --no-color, --verbose, -v, --quiet or -q?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "if-help",
+      "section": "requirements.interface",
+      "text": "`{flag}` is listed in the usage/help text in the existing format, with a one-line description naming the output format."
+    },
+    {
+      "id": "err-stderr",
+      "section": "requirements.errors",
+      "text": "Errors and warnings go to stderr in every format; with `{flag}`, stdout on failure is either empty or still valid new-format output, never a mix of formatted output and error text."
+    },
+    {
+      "id": "ex-normal",
+      "section": "example",
+      "input": "a normal run of `{target_name}` with `{flag}`",
+      "output": "stdout is the same results as the default run, rendered in the new format and nothing else; stderr and the exit code match the default run",
+      "reasoning": "The format is the feature; any stray line on stdout breaks the programs that parse it."
+    },
+    {
+      "id": "ex-default",
+      "section": "example",
+      "input": "the same run of `{target_name}` without `{flag}`",
+      "output": "stdout, stderr and the exit code are byte-for-byte identical to before the change",
+      "reasoning": "Existing users and scripts depend on the default output; it must not change at all."
+    },
+    {
+      "id": "ex-empty",
+      "section": "example",
+      "input": "a run of `{target_name}` with `{flag}` that has no results",
+      "output": "stdout is still valid {format} with zero records (for example `[]` or a header row alone), and the exit code matches the default run",
+      "reasoning": "A consumer parsing the output must not need a special case for \"no results\".",
+      "guards": [
+        {
+          "id": "g_structured",
+          "q": "Is the new output format a machine-readable structured format such as JSON, CSV, TSV, YAML or XML?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ex-error",
+      "section": "example",
+      "input": "a run of `{target_name}` with `{flag}` that fails, for example on a missing input",
+      "output": "the error message is on stderr, the exit code is the same non-zero code as without the flag, and stdout holds no error text",
+      "reasoning": "Consumers detect failure from the exit code and must never try to parse an error message as data."
+    },
+    {
+      "id": "ver-default",
+      "section": "verification",
+      "text": "Before editing, run `{runner} {target_path} >before.out 2>before.err; echo $? >before.code`; after editing, repeat into `after.*`. `diff before.out after.out`, `diff before.err after.err` and `diff before.code after.code` print nothing.",
+      "guards": [
+        {
+          "id": "g_required_args",
+          "q": "Does the tool described in `target.usage` require at least one argument or option to be given?",
+          "max": 0.35
+        },
+        {
+          "id": "g_stdin",
+          "q": "Does the tool described in `target.usage` read its input from standard input when no file argument is given?",
+          "max": 0.35
+        }
+      ]
+    },
+    {
+      "id": "ver-default-args",
+      "section": "verification",
+      "text": "Run `{runner} {target_path}` with the smallest valid arguments from its usage text, before and after editing, capturing stdout, stderr and the exit code to files: `diff` of each pair prints nothing.",
+      "guards": [
+        {
+          "id": "g_required_args",
+          "q": "Does the tool described in `target.usage` require at least one argument or option to be given?",
+          "min": 0.65
+        }
+      ]
+    },
+    {
+      "id": "ver-default-stdin",
+      "section": "verification",
+      "text": "Pipe the same small valid input into `{runner} {target_path}` before and after editing, capturing stdout, stderr and the exit code to files: `diff` of each pair prints nothing.",
+      "guards": [
+        {
+          "id": "g_stdin",
+          "q": "Does the tool described in `target.usage` read its input from standard input when no file argument is given?",
+          "min": 0.65
+        },
+        {
+          "id": "g_required_args",
+          "q": "Does the tool described in `target.usage` require at least one argument or option to be given?",
+          "max": 0.35
+        }
+      ]
+    },
+    {
+      "id": "ver-flag-exit",
+      "section": "verification",
+      "text": "For the smallest valid invocation of `{runner} {target_path}` (arguments from its usage text, input piped in if it reads stdin), run it once without and once with `{flag}`: `echo $?` prints the same value both times, and the run with `{flag}` has no line on stdout that also appears on its stderr."
+    },
+    {
+      "id": "ver-json",
+      "section": "verification",
+      "text": "For the smallest valid invocation of `{runner} {target_path}` (arguments from its usage text, input piped in if it reads stdin) with `{flag}` added, `| python3 -m json.tool >/dev/null` exits 0; for JSON Lines, every line passes the same check.",
+      "guards": [
+        {
+          "id": "g_json",
+          "q": "Is the new output format JSON or JSON Lines?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-csv",
+      "section": "verification",
+      "text": "For the smallest valid invocation of `{runner} {target_path}` with `{flag}` added, piping stdout into `python3 -c 'import csv,sys; r=list(csv.reader(sys.stdin)); assert r and len({len(x) for x in r})==1'` exits 0 (add `delimiter=\"\\t\"` to `csv.reader` for TSV).",
+      "guards": [
+        {
+          "id": "g_csv",
+          "q": "Is the new output format CSV, TSV or another delimiter-separated table?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-plain",
+      "section": "verification",
+      "text": "For the smallest valid invocation of `{runner} {target_path}` with `{flag}` added, `| grep -c \"$(printf '\\033')\"` prints `0`.",
+      "guards": [
+        {
+          "id": "g_plain",
+          "q": "Does the request ask only to remove colours, alignment, padding or decoration from the existing text output, keeping its wording and content otherwise?",
+          "min": 0.6
+        },
+        {
+          "id": "g_structured",
+          "q": "Is the new output format a machine-readable structured format such as JSON, CSV, TSV, YAML or XML?",
+          "max": 0.4
+        }
+      ]
+    },
+    {
+      "id": "ver-bad-value",
+      "section": "verification",
+      "text": "Running `{runner} {target_path}` with the option from `{flag}` given the value `not-a-format` exits non-zero, prints nothing on stdout, and names the supported values on stderr.",
+      "guards": [
+        {
+          "id": "g_value_flag",
+          "q": "Does the new flag take a value that names the format, as in `--format json` or `--format=json`, rather than being a switch on its own?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-help",
+      "section": "verification",
+      "text": "The usage/help text of `{target_name}` lists `{flag}`."
+    },
+    {
+      "id": "ver-syntax",
+      "section": "verification",
+      "text": "`{syntax_check}` succeeds."
+    },
+    {
+      "id": "ver-tests",
+      "section": "verification",
+      "text": "`{test_cmd}` passes, including the new checks for `{flag}`."
+    },
+    {
+      "id": "comp-test",
+      "section": "companion",
+      "file": "{test_file}",
+      "text": "Add regression checks next to the existing coverage for `{target_name}`: the default output is unchanged, output with `{flag}` is in the new format, a run with no results still produces well-formed output, and a failing run keeps error text off stdout."
+    },
+    {
+      "id": "comp-changelog",
+      "section": "companion",
+      "file": "{changelog}",
+      "text": "Add an entry describing `{flag}` and the shape of its output."
+    },
+    {
+      "id": "con-callers",
+      "section": "constraint",
+      "text": "Callers of `{target_name}` ({callers}) keep calling it without `{flag}`; do not change them."
+    },
+    {
+      "id": "con-default",
+      "section": "constraint",
+      "text": "Do not reorder, reword or reformat any part of the default output of `{target_name}`; the new format is opt-in only."
+    },
+    {
+      "id": "con-deps",
+      "section": "constraint",
+      "text": "Do not add a new third-party dependency to produce the format; use the standard library or tools the project already requires."
+    },
+    {
+      "id": "oos-other-formats",
+      "section": "out_of_scope",
+      "text": "Output formats other than the one this request names, and changing which format is the default."
+    },
+    {
+      "id": "oos-input",
+      "section": "out_of_scope",
+      "text": "Reading {format} as input, or any change to how `{target_name}` parses its input.",
+      "guards": [
+        {
+          "id": "g_structured",
+          "q": "Is the new output format a machine-readable structured format such as JSON, CSV, TSV, YAML or XML?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "esc-fields",
+      "section": "escape",
+      "text": "If parts of the default output (free-form messages, mixed sections, values that are only formatted text) cannot be represented in {format} without inventing field names or dropping information, list those parts with a proposed representation and ask before choosing one.",
+      "guards": [
+        {
+          "id": "g_structured",
+          "q": "Is the new output format a machine-readable structured format such as JSON, CSV, TSV, YAML or XML?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "esc-restructure",
+      "section": "escape",
+      "text": "If some stdout writes cannot be routed through the new format without changing code beyond the printing (for example output printed from deep inside processing loops or subprocesses), list them and ask before restructuring; do not leave them printing unformatted text silently."
+    },
+    {
+      "id": "esc-generic",
+      "section": "escape",
+      "text": "If the request is ambiguous, contradicts what the code shows, or would change the default output, stop and ask rather than guessing or working around it."
+    },
+    {
+      "id": "chk-sites",
+      "section": "check",
+      "text": "Re-read `{target_path}` and confirm every stdout write listed during the approach is either rendered in the new format or suppressed when `{flag}` is given, and that the default path is untouched."
+    },
+    {
+      "id": "chk-tests",
+      "section": "check",
+      "text": "Re-read `{test_file}` and confirm the new checks cover both the default output and the output with `{flag}`."
+    }
+  ],
+  "required": {
+    "description": 1,
+    "desired": 1,
+    "approach": 2,
+    "verification": 3,
+    "check": 1,
+    "escape": 1
+  }
+}

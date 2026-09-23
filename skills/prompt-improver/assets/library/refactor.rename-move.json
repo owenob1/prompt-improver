@@ -1,0 +1,543 @@
+{
+  "id": "refactor.rename-move",
+  "schema": 1,
+  "provenance": {
+    "authored_by": "opus via bench/jev/authoring/author.sh",
+    "reviewed_by": null,
+    "created": "2026-09-23"
+  },
+  "match": "Rename or move a function, variable, file or module, or split one file into several, updating every reference across the codebase without changing behaviour",
+  "task_name": "restructure-{target_stem}",
+  "key_slots": [
+    "old"
+  ],
+  "fit": [
+    {
+      "id": "restructures",
+      "q": "Does the request rename, move or split an existing function, variable, class, file or module?",
+      "min": 0.6
+    },
+    {
+      "id": "same_behaviour",
+      "q": "Should the program behave exactly the same after the change as it did before?",
+      "min": 0.6
+    }
+  ],
+  "requires": [
+    {
+      "id": "g_mixed",
+      "q": "Does the request also ask for new behaviour, a new feature or a bug fix in addition to the rename, move or split?",
+      "max": 0.35
+    }
+  ],
+  "escalate": [
+    {
+      "id": "g_split_plan",
+      "q": "To carry out the split, does an engineer need to read the file's code to decide which functions, types and constants go into which new file?",
+      "min": 0.6,
+      "gap": "approach"
+    }
+  ],
+  "slots": {
+    "old": {
+      "kind": "entity",
+      "accept": [
+        "file",
+        "path",
+        "code",
+        "identifier",
+        "quoted",
+        "word"
+      ],
+      "q": "Which candidate is the existing name or path that the request renames, moves or splits, written as it appears in the code today (the name before the word 'to' or 'into')?"
+    },
+    "new": {
+      "kind": "entity",
+      "accept": [
+        "file",
+        "path",
+        "code",
+        "identifier",
+        "quoted",
+        "word"
+      ],
+      "q": "Which candidate is the new name or destination path it should have after the change?"
+    }
+  },
+  "items": [
+    {
+      "id": "desc-generic",
+      "section": "description",
+      "text": "Restructure `{old}` as the request describes and update every reference to it, keeping behaviour unchanged."
+    },
+    {
+      "id": "desc-rename",
+      "section": "description",
+      "text": "Rename or move `{old}` to `{new}` and update every reference to it, without changing behaviour.",
+      "guards": [
+        {
+          "id": "g_split",
+          "q": "Does the request split one file or module into several files?",
+          "max": 0.35
+        }
+      ]
+    },
+    {
+      "id": "desc-split",
+      "section": "description",
+      "text": "Split `{target_path}` into several files as the request describes, update every reference to the moved code, and keep behaviour unchanged.",
+      "guards": [
+        {
+          "id": "g_split",
+          "q": "Does the request split one file or module into several files?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "current-has",
+      "section": "current",
+      "text": "`{target_path}`: {target_summary}. It contains `{old}` today.",
+      "guards": [
+        {
+          "id": "f_old_present",
+          "fact": "target_has",
+          "text": "{old}"
+        }
+      ]
+    },
+    {
+      "id": "current-lacks",
+      "section": "current",
+      "text": "`{target_path}`: {target_summary}. The text `{old}` does not appear in it; find the file that defines `{old}` before editing anything.",
+      "guards": [
+        {
+          "id": "f_old_absent",
+          "fact": "target_lacks",
+          "text": "{old}"
+        }
+      ]
+    },
+    {
+      "id": "current-callers",
+      "section": "current",
+      "text": "Files that reference `{target_name}` today: {callers}."
+    },
+    {
+      "id": "desired-generic",
+      "section": "desired",
+      "text": "Every reference that meant `{old}` points to its new name or location, and every test, command and output behaves exactly as before."
+    },
+    {
+      "id": "desired-rename",
+      "section": "desired",
+      "text": "Every reference that means this item uses `{new}` instead of `{old}`, and every test, command and output behaves exactly as before.",
+      "guards": [
+        {
+          "id": "g_split",
+          "q": "Does the request split one file or module into several files?",
+          "max": 0.35
+        }
+      ]
+    },
+    {
+      "id": "desired-split",
+      "section": "desired",
+      "text": "The code from `{target_path}` lives in the new files, every caller loads each piece from its new location, and every test, command and output behaves exactly as before.",
+      "guards": [
+        {
+          "id": "g_split",
+          "q": "Does the request split one file or module into several files?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-baseline",
+      "section": "approach",
+      "text": "Before editing, run `{test_cmd}` and record which tests pass and fail, so the run after the change can be compared line for line."
+    },
+    {
+      "id": "appr-inventory",
+      "section": "approach",
+      "text": "Before editing, list every occurrence with `git grep -nF -- '{old}'` across code, tests, scripts, configuration, documentation and build files, and mark each line as either a reference to this item or an unrelated use of the same text."
+    },
+    {
+      "id": "appr-inventory-symbol",
+      "section": "approach",
+      "text": "Also run `git grep -nw -- '{old}'` and compare it with the full list: lines that appear only in the full list contain `{old}` as part of a longer name and are unrelated.",
+      "guards": [
+        {
+          "id": "g_symbol",
+          "q": "Does the request rename a function, variable, class, constant or other identifier inside the code?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-inventory-path",
+      "section": "approach",
+      "text": "Also search for the basename of `{old}` and its name without extension, because imports, includes and build files often omit directories or extensions.",
+      "guards": [
+        {
+          "id": "g_file_move",
+          "q": "Does the request change the path of an existing file or module by renaming or moving it?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-dynamic",
+      "section": "approach",
+      "text": "Search for indirect references as well: names built from strings, reflection or attribute lookups by name, registries, serialized keys, configuration values, CI workflows and generated code that name `{old}`.",
+      "guards": [
+        {
+          "id": "g_dynamic",
+          "q": "Could the thing being renamed or moved be referenced by name in strings, configuration files, build scripts or dynamically built names, as well as in ordinary code?",
+          "min": 0.5
+        }
+      ]
+    },
+    {
+      "id": "appr-split-plan",
+      "section": "approach",
+      "text": "Before moving code, write down which functions, types and constants go into which new file, and which of them call each other across the new boundaries; settle where shared helpers live so that no import cycle appears.",
+      "guards": [
+        {
+          "id": "g_split",
+          "q": "Does the request split one file or module into several files?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-mechanism",
+      "section": "approach",
+      "text": "Choose one mechanism and commit to it: a language-aware rename (editor or language-server refactor) when one is available, otherwise a scripted replacement applied only to the inventoried lines and reviewed hunk by hunk. Criteria: every inventoried reference covered, no unrelated match changed."
+    },
+    {
+      "id": "req-all-refs",
+      "section": "requirements.references",
+      "text": "Every inventoried reference to `{old}` that means this item, including comments, documentation and help text, now reads `{new}`."
+    },
+    {
+      "id": "req-unrelated",
+      "section": "requirements.references",
+      "text": "Occurrences of `{old}` that mean something else (another variable, part of a longer name, ordinary prose) are unchanged."
+    },
+    {
+      "id": "req-imports",
+      "section": "requirements.references",
+      "text": "Import, include, require and source statements that loaded `{old}` load `{new}`, with relative paths recomputed for each importing file.",
+      "guards": [
+        {
+          "id": "g_file_move",
+          "q": "Does the request change the path of an existing file or module by renaming or moving it?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-relative",
+      "section": "requirements.references",
+      "text": "Paths inside each moved file (its own imports, data files, paths derived from its own location) still resolve from the new location.",
+      "guards": [
+        {
+          "id": "g_moves_code",
+          "q": "Does the request move code from one file or directory to another?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-no-logic",
+      "section": "requirements.behaviour",
+      "text": "Apart from names, locations and the import lines they require, no logic, parameters, defaults, return values, output or exit codes change."
+    },
+    {
+      "id": "req-split-verbatim",
+      "section": "requirements.behaviour",
+      "text": "Code moved into the new files is moved verbatim; the only edits allowed are the imports, exports and visibility changes that the split itself requires.",
+      "guards": [
+        {
+          "id": "g_split",
+          "q": "Does the request split one file or module into several files?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-no-copy",
+      "section": "requirements.behaviour",
+      "text": "No copy of `{old}` is left beside `{new}`: the old definition or file is removed, not duplicated.",
+      "guards": [
+        {
+          "id": "g_keep_old",
+          "q": "Does the request ask for the old name or location to keep working after the change?",
+          "max": 0.4
+        }
+      ]
+    },
+    {
+      "id": "req-shim",
+      "section": "requirements.compatibility",
+      "text": "`{old}` keeps working as a thin alias or re-export of `{new}` with no logic of its own, marked deprecated in the language's usual way.",
+      "guards": [
+        {
+          "id": "g_keep_old",
+          "q": "Does the request ask for the old name or location to keep working after the change?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-gitmv",
+      "section": "requirements.history",
+      "text": "Files are moved with `git mv`, and content edits in each moved file are kept small enough that git still detects the rename.",
+      "guards": [
+        {
+          "id": "g_moves_code",
+          "q": "Does the request move code from one file or directory to another?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ex-substring",
+      "section": "example",
+      "input": "a line where `{old}` is only part of a longer identifier, as a prefix or suffix of another name",
+      "output": "the line is left unchanged",
+      "reasoning": "Only references to the item being renamed change; a longer name that contains the same text is a different name.",
+      "guards": [
+        {
+          "id": "g_symbol",
+          "q": "Does the request rename a function, variable, class, constant or other identifier inside the code?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ex-string",
+      "section": "example",
+      "input": "a string, comment or configuration value that contains `{old}`",
+      "output": "updated to `{new}` when it names this item (a lookup key, a path, a documented name); unchanged when it is the same text used for something else",
+      "reasoning": "String references break at runtime rather than at compile time, so each one is decided by what it refers to, not by whether the text matches."
+    },
+    {
+      "id": "ex-external",
+      "section": "example",
+      "input": "code or configuration that still uses `{old}` after the change",
+      "output": "it keeps working through the deprecated alias, which forwards to `{new}`",
+      "reasoning": "The request asks for the old name to keep working, so removing it would break users who have not switched yet.",
+      "guards": [
+        {
+          "id": "g_keep_old",
+          "q": "Does the request ask for the old name or location to keep working after the change?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ex-split",
+      "section": "example",
+      "input": "a function moved to a new file that is still called by code remaining in `{target_path}`",
+      "output": "the remaining code imports it from the new file; the function is defined exactly once and no import cycle appears",
+      "reasoning": "A split preserves behaviour only if every call still reaches the one moved definition.",
+      "guards": [
+        {
+          "id": "g_split",
+          "q": "Does the request split one file or module into several files?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-remaining",
+      "section": "verification",
+      "text": "`git grep -nF -- '{old}'` prints only lines that the inventory marked as unrelated uses of the same text, plus the deprecated alias if the request keeps the old name working."
+    },
+    {
+      "id": "ver-status",
+      "section": "verification",
+      "text": "`git status --short` lists only files that appear in the inventory, plus the moved or newly created files the change requires."
+    },
+    {
+      "id": "ver-no-old-symbol",
+      "section": "verification",
+      "text": "`git grep -nw -- '{old}'` prints only lines that the inventory marked as unrelated uses of the same text.",
+      "guards": [
+        {
+          "id": "g_symbol",
+          "q": "Does the request rename a function, variable, class, constant or other identifier inside the code?",
+          "min": 0.6
+        },
+        {
+          "id": "g_keep_old",
+          "q": "Does the request ask for the old name or location to keep working after the change?",
+          "max": 0.4
+        }
+      ]
+    },
+    {
+      "id": "ver-no-old-path",
+      "section": "verification",
+      "text": "`git grep -nF -- '{old}'` prints no line that refers to the old location.",
+      "guards": [
+        {
+          "id": "g_file_move",
+          "q": "Does the request change the path of an existing file or module by renaming or moving it?",
+          "min": 0.6
+        },
+        {
+          "id": "g_keep_old",
+          "q": "Does the request ask for the old name or location to keep working after the change?",
+          "max": 0.4
+        }
+      ]
+    },
+    {
+      "id": "ver-alias",
+      "section": "verification",
+      "text": "A use through `{old}` and the same use through `{new}` give identical results, and `git grep -n -- '{old}'` shows the old name only in the alias, its deprecation note and the changelog.",
+      "guards": [
+        {
+          "id": "g_keep_old",
+          "q": "Does the request ask for the old name or location to keep working after the change?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-rename-detected",
+      "section": "verification",
+      "text": "After `git add -A`, `git diff --cached -M --stat` shows each moved file as a rename (`old => new`), not as a deletion plus an addition.",
+      "guards": [
+        {
+          "id": "g_file_move",
+          "q": "Does the request change the path of an existing file or module by renaming or moving it?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-split-defs",
+      "section": "verification",
+      "text": "For each function, type and constant that `{target_path}` defined before the change, `git grep -n` finds exactly one definition after the change.",
+      "guards": [
+        {
+          "id": "g_split",
+          "q": "Does the request split one file or module into several files?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-tests",
+      "section": "verification",
+      "text": "`{test_cmd}` passes, and the same tests pass and fail as in the baseline run recorded before the change."
+    },
+    {
+      "id": "ver-typecheck",
+      "section": "verification",
+      "text": "`{typecheck_cmd}` succeeds with no new errors."
+    },
+    {
+      "id": "ver-syntax",
+      "section": "verification",
+      "text": "`{syntax_check}` succeeds.",
+      "guards": [
+        {
+          "id": "g_file_move",
+          "q": "Does the request change the path of an existing file or module by renaming or moving it?",
+          "max": 0.35
+        }
+      ]
+    },
+    {
+      "id": "comp-test",
+      "section": "companion",
+      "file": "{test_file}",
+      "text": "Update references to `{old}` in this file to `{new}`; do not change what any test asserts, and do not add or remove tests."
+    },
+    {
+      "id": "comp-changelog",
+      "section": "companion",
+      "file": "{changelog}",
+      "text": "Add an entry stating that `{old}` is now `{new}` and that the old name still works but is deprecated.",
+      "guards": [
+        {
+          "id": "g_keep_old",
+          "q": "Does the request ask for the old name or location to keep working after the change?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "con-scope",
+      "section": "constraint",
+      "text": "Change only what the rename, move or split requires: do not fix bugs, reformat, reorder code or rename other names (parameters, helpers, tests) that the request does not mention, even ones noticed along the way."
+    },
+    {
+      "id": "con-callers",
+      "section": "constraint",
+      "text": "In the callers of `{target_name}` ({callers}), change only the lines that reference the renamed or moved item."
+    },
+    {
+      "id": "oos-fixes",
+      "section": "out_of_scope",
+      "text": "Bug fixes, new features, API changes and style cleanups noticed during the restructuring; list them in the final report instead."
+    },
+    {
+      "id": "esc-ambiguous",
+      "section": "escape",
+      "text": "If a reference to `{old}` could mean either this item or something else with the same name, list it with file and line and ask instead of guessing."
+    },
+    {
+      "id": "esc-collision",
+      "section": "escape",
+      "text": "If `{new}` already exists in the same scope or at the destination, stop and ask; do not overwrite or merge it."
+    },
+    {
+      "id": "esc-external",
+      "section": "escape",
+      "text": "If `{old}` turns out to be used outside the repository (a published API, import path, command name or configuration key), stop and ask whether to keep a deprecated alias before removing it.",
+      "guards": [
+        {
+          "id": "g_keep_old",
+          "q": "Does the request ask for the old name or location to keep working after the change?",
+          "max": 0.4
+        }
+      ]
+    },
+    {
+      "id": "esc-cycle",
+      "section": "escape",
+      "text": "If the planned split creates an import cycle that only a redesign would remove, stop and describe the cycle instead of restructuring the code.",
+      "guards": [
+        {
+          "id": "g_split",
+          "q": "Does the request split one file or module into several files?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "esc-generic",
+      "section": "escape",
+      "text": "If the change would alter any output, error message or runtime path, or the request is ambiguous or contradicts what the code shows, stop and ask rather than guessing or working around it."
+    },
+    {
+      "id": "chk-diff",
+      "section": "check",
+      "text": "Re-read every changed file and the full `git diff`; confirm each hunk only renames, moves, or updates an import or reference, and revert any hunk that does anything else."
+    }
+  ],
+  "required": {
+    "description": 1,
+    "desired": 1,
+    "approach": 2,
+    "verification": 3,
+    "check": 1,
+    "escape": 1
+  }
+}

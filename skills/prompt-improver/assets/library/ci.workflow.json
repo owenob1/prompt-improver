@@ -1,0 +1,576 @@
+{
+  "id": "ci.workflow",
+  "schema": 1,
+  "provenance": {
+    "authored_by": "opus via bench/jev/authoring/author.sh",
+    "reviewed_by": null,
+    "created": "2026-09-23"
+  },
+  "match": "Change a continuous integration workflow: bump the version of an action or tool it uses, add or change a step or job, or change when the workflow runs",
+  "task_name": "change-{target_stem}-workflow",
+  "key_slots": [],
+  "fit": [
+    {
+      "id": "is_ci",
+      "q": "Does the request change a continuous integration workflow or pipeline configuration?",
+      "min": 0.6
+    },
+    {
+      "id": "ci_kind",
+      "q": "Is the change a version bump of an action or tool used in CI, an added or changed step or job, or a change to when the workflow runs?",
+      "min": 0.6
+    },
+    {
+      "id": "ci_main",
+      "q": "Is the main change made in the project's CI configuration rather than in its application code?",
+      "min": 0.6
+    }
+  ],
+  "requires": [
+    {
+      "id": "g_ci_file",
+      "q": "Is the file described in `target.usage` a CI workflow or pipeline configuration file?",
+      "min": 0.6
+    }
+  ],
+  "escalate": [
+    {
+      "id": "g_job_graph",
+      "q": "Does the change depend on how existing jobs in the workflow depend on each other, pass outputs or artifacts between them, or run over a matrix?",
+      "min": 0.6,
+      "gap": "approach"
+    }
+  ],
+  "slots": {
+    "subject": {
+      "kind": "entity",
+      "accept": [
+        "identifier",
+        "code",
+        "quoted",
+        "word",
+        "path",
+        "url",
+        "version"
+      ],
+      "q": "Which candidate is the name of the action, tool, runner image, step or job that the request changes or adds, written as it would appear in the workflow file? Answer none if the request only changes when the workflow runs or names no such thing."
+    },
+    "version": {
+      "kind": "entity",
+      "accept": [
+        "version",
+        "quoted",
+        "code",
+        "number"
+      ],
+      "q": "Which candidate is the version, tag or image version that the request asks the workflow to use, exactly as the request writes it? Answer none if the request states no version."
+    },
+    "desired": {
+      "kind": "role",
+      "role": "desired"
+    }
+  },
+  "items": [
+    {
+      "id": "desc-base",
+      "section": "description",
+      "text": "Change the CI configuration in `{target_path}` as the request describes, keeping every job, step and trigger the request does not mention as it is."
+    },
+    {
+      "id": "desc",
+      "section": "description",
+      "text": "Change `{target_path}` so that {desired}."
+    },
+    {
+      "id": "current",
+      "section": "current",
+      "text": "`{target_path}`: {target_summary}"
+    },
+    {
+      "id": "current-has",
+      "section": "current",
+      "text": "`{target_path}` references `{subject}` today; note its exact current version or definition before editing.",
+      "guards": [
+        {
+          "id": "f_subject_present",
+          "fact": "target_has",
+          "text": "{subject}"
+        }
+      ]
+    },
+    {
+      "id": "current-lacks",
+      "section": "current",
+      "text": "`{subject}` does not appear in `{target_path}`; find where the workflow gets it (another workflow file, a reusable workflow, a composite action or a tool-version file) before editing.",
+      "guards": [
+        {
+          "id": "f_subject_absent",
+          "fact": "target_lacks",
+          "text": "{subject}"
+        },
+        {
+          "id": "g_bump",
+          "q": "Does the request change the version of an action, container image or tool that the workflow uses?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "desired-base",
+      "section": "desired",
+      "text": "The workflow in `{target_path}` does what the request asks and still parses; every job, step and trigger the request does not mention runs exactly as before."
+    },
+    {
+      "id": "desired",
+      "section": "desired",
+      "text": "Requested outcome: {desired}."
+    },
+    {
+      "id": "desired-version",
+      "section": "desired",
+      "text": "Every reference to `{subject}` that the request covers uses `{version}`.",
+      "guards": [
+        {
+          "id": "g_bump",
+          "q": "Does the request change the version of an action, container image or tool that the workflow uses?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-read",
+      "section": "approach",
+      "text": "Before editing, read `{target_path}` end to end and list its triggers, its jobs, the order or `needs` dependencies between jobs, and any matrix, so the change lands in the right job."
+    },
+    {
+      "id": "appr-plan-lines",
+      "section": "approach",
+      "text": "Before editing, write down the exact lines of `{target_path}` the change adds, removes or rewrites and what each becomes; every line outside that list stays as it is."
+    },
+    {
+      "id": "appr-occurrences",
+      "section": "approach",
+      "text": "Run `git grep -n -F '{subject}'` and list every occurrence, including other workflow files, composite actions, tool-version files and docs; decide which of them the request covers before editing.",
+      "guards": [
+        {
+          "id": "g_bump",
+          "q": "Does the request change the version of an action, container image or tool that the workflow uses?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-release-notes",
+      "section": "approach",
+      "text": "Read the release notes of `{subject}` from the current version up to `{version}` and list renamed or removed inputs, changed defaults, and new runtime or runner requirements.",
+      "guards": [
+        {
+          "id": "g_bump",
+          "q": "Does the request change the version of an action, container image or tool that the workflow uses?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-placement",
+      "section": "approach",
+      "text": "Decide which job the new or changed step belongs to and where in that job's order it goes. Criteria: it runs after the steps it depends on (checkout, toolchain setup, dependency install), and it reuses the setup and caches already in that job instead of adding a second copy.",
+      "guards": [
+        {
+          "id": "g_step",
+          "q": "Does the request add a new step or job, or change the command, inputs or position of an existing step?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-local-first",
+      "section": "approach",
+      "text": "Before adding the check to CI, run its command locally on the current code and record whether it passes; if it fails, adding it will turn CI red.",
+      "guards": [
+        {
+          "id": "g_new_check",
+          "q": "Does the request ask CI to start running a linter, test suite, type checker or scanner that the workflow in `target.usage` does not run today?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-trigger",
+      "section": "approach",
+      "text": "List the events, branches, paths and schedules that start the workflow today, then write down the intended set after the change, including anything that must stop starting it.",
+      "guards": [
+        {
+          "id": "g_trigger",
+          "q": "Does the request change the events, branches, paths or schedule that start the workflow?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-minimal",
+      "section": "requirements.change",
+      "text": "The diff to `{target_path}` touches only what the request changes; key order, comments, quoting and indentation of other lines stay as they are."
+    },
+    {
+      "id": "req-ref-style",
+      "section": "requirements.change",
+      "text": "Keep the reference style already used for `{subject}`: a version tag stays a tag, and a commit hash stays a full commit hash with a trailing comment naming `{version}`.",
+      "guards": [
+        {
+          "id": "g_bump",
+          "q": "Does the request change the version of an action, container image or tool that the workflow uses?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-inputs",
+      "section": "requirements.change",
+      "text": "Every input or option passed to `{subject}` is valid in `{version}`: renamed ones are renamed and removed ones are removed or replaced in the same edit.",
+      "guards": [
+        {
+          "id": "g_bump",
+          "q": "Does the request change the version of an action, container image or tool that the workflow uses?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-matrix",
+      "section": "requirements.change",
+      "text": "The change applies to every matrix entry that uses `{subject}`, unless the request names specific entries.",
+      "guards": [
+        {
+          "id": "g_matrix",
+          "q": "Does the file described in `target.usage` run jobs over a matrix of versions or platforms?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-step-name",
+      "section": "requirements.change",
+      "text": "The new or changed step has a name that says what it runs, and runs the same command a developer would run locally from the repository root.",
+      "guards": [
+        {
+          "id": "g_step",
+          "q": "Does the request add a new step or job, or change the command, inputs or position of an existing step?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-fail",
+      "section": "requirements.change",
+      "text": "The new check fails its job with a non-zero exit code when it finds a problem; it is not wrapped in `continue-on-error`, `allow_failure` or `|| true` unless the request asks for a non-blocking check.",
+      "guards": [
+        {
+          "id": "g_new_check",
+          "q": "Does the request ask CI to start running a linter, test suite, type checker or scanner that the workflow in `target.usage` does not run today?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-trigger",
+      "section": "requirements.triggers",
+      "text": "The workflow starts on exactly the events, branches, paths and schedules the request describes; triggers the request does not mention are kept as they are.",
+      "guards": [
+        {
+          "id": "g_trigger",
+          "q": "Does the request change the events, branches, paths or schedule that start the workflow?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-cron",
+      "section": "requirements.triggers",
+      "text": "The schedule is a cron expression in UTC, with a comment on the same line giving the intended time in words.",
+      "guards": [
+        {
+          "id": "g_schedule",
+          "q": "Does the request make the workflow run on a timed schedule?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-required-checks",
+      "section": "requirements.triggers",
+      "text": "List every job whose name changes, that is removed, or that stops running on pull requests: branch protection rules that require it by name will block merges until a repository admin updates them.",
+      "guards": [
+        {
+          "id": "g_job_names",
+          "q": "Does the request rename or remove a job, or remove pull requests from the events that start the workflow?",
+          "min": 0.5
+        }
+      ]
+    },
+    {
+      "id": "req-perms",
+      "section": "requirements.security",
+      "text": "Do not widen the workflow's `permissions`, and do not add `pull_request_target` or `workflow_run` triggers that check out pull request code; if the change needs a new permission, grant it on the one job that needs it with a comment giving the reason.",
+      "guards": [
+        {
+          "id": "g_gha",
+          "q": "Is the file described in `target.usage` a GitHub Actions workflow?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-secrets",
+      "section": "requirements.security",
+      "text": "Secrets are read only from the CI system's secret store (for example `${{ secrets.NAME }}`), are never printed, and are not passed to steps that run code from forked pull requests.",
+      "guards": [
+        {
+          "id": "g_secrets",
+          "q": "Does the change involve secrets, tokens or permissions used by the workflow?",
+          "min": 0.5
+        }
+      ]
+    },
+    {
+      "id": "ex-bump",
+      "section": "example",
+      "input": "bump `{subject}` to `{version}`, where the new version renamed an input the workflow passes",
+      "output": "the version reference and the renamed input change in the same edit; nothing else in `{target_path}` changes",
+      "reasoning": "A bump that keeps an old input name either fails the job or silently ignores the setting.",
+      "guards": [
+        {
+          "id": "g_bump",
+          "q": "Does the request change the version of an action, container image or tool that the workflow uses?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ex-new-check",
+      "section": "example",
+      "input": "add a step running a check that reports findings on the current code",
+      "output": "the step is added and fails CI as intended; the findings are listed in the handoff as separate follow-up work and are not fixed in this change",
+      "reasoning": "Fixing the findings is separate work with its own review; mixing it into a CI change hides both.",
+      "guards": [
+        {
+          "id": "g_new_check",
+          "q": "Does the request ask CI to start running a linter, test suite, type checker or scanner that the workflow in `target.usage` does not run today?",
+          "min": 0.6
+        },
+        {
+          "id": "g_fix_findings",
+          "q": "Does the request also ask to fix the problems that a new check reports in the code?",
+          "max": 0.4
+        }
+      ]
+    },
+    {
+      "id": "ex-trigger",
+      "section": "example",
+      "input": "restrict the workflow to pushes on the default branch and to pull requests",
+      "output": "the trigger section lists exactly those events; a schedule or tag trigger it already had stays unless the request removes it",
+      "reasoning": "Trigger edits most often break by silently dropping an event the request never mentioned.",
+      "guards": [
+        {
+          "id": "g_trigger",
+          "q": "Does the request change the events, branches, paths or schedule that start the workflow?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-yaml",
+      "section": "verification",
+      "text": "`python3 -c 'import sys, yaml; yaml.safe_load(open(sys.argv[1]))' {target_path}` exits 0.",
+      "guards": [
+        {
+          "id": "g_yaml",
+          "q": "Is the file described in `target.usage` a YAML file?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-actionlint",
+      "section": "verification",
+      "text": "`actionlint {target_path}` exits 0 with no findings.",
+      "guards": [
+        {
+          "id": "g_gha",
+          "q": "Is the file described in `target.usage` a GitHub Actions workflow?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-scope",
+      "section": "verification",
+      "text": "`git diff --name-only` lists only CI configuration files and the companion files named in this spec."
+    },
+    {
+      "id": "ver-diff-lines",
+      "section": "verification",
+      "text": "`git diff -- {target_path}` shows only the lines written down in the approach; no other line of the file changed."
+    },
+    {
+      "id": "ver-version",
+      "section": "verification",
+      "text": "`git grep -n -F '{subject}'` shows every reference the request covers at `{version}` (or at a commit hash commented with `{version}`).",
+      "guards": [
+        {
+          "id": "g_bump",
+          "q": "Does the request change the version of an action, container image or tool that the workflow uses?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-local-cmd",
+      "section": "verification",
+      "text": "Run the new or changed step's command locally from the repository root, with the working directory and environment variables the step sets: it exits 0 on the current code, or its findings are recorded for the handoff.",
+      "guards": [
+        {
+          "id": "g_step",
+          "q": "Does the request add a new step or job, or change the command, inputs or position of an existing step?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-triggers",
+      "section": "verification",
+      "text": "`python3 -c 'import sys, yaml; d = yaml.safe_load(open(sys.argv[1])); print(d.get(\"on\", d.get(True)))' {target_path}` prints exactly the intended events, branches, paths and schedules (PyYAML reads the `on` key as `True`, hence the fallback).",
+      "guards": [
+        {
+          "id": "g_gha",
+          "q": "Is the file described in `target.usage` a GitHub Actions workflow?",
+          "min": 0.6
+        },
+        {
+          "id": "g_trigger",
+          "q": "Does the request change the events, branches, paths or schedule that start the workflow?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "comp-changelog",
+      "section": "companion",
+      "file": "{changelog}",
+      "text": "Add an entry describing the CI change contributors will notice.",
+      "guards": [
+        {
+          "id": "g_contributor",
+          "q": "Does the request add a check that pull requests must pass, or raise the minimum version of a tool that contributors install locally?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "con-no-app-code",
+      "section": "constraint",
+      "text": "Do not change application source or test code in this task; it changes CI configuration only."
+    },
+    {
+      "id": "con-no-disable",
+      "section": "constraint",
+      "text": "Do not delete, skip or mark as allowed-to-fail any existing job or step to make the workflow pass."
+    },
+    {
+      "id": "con-floating",
+      "section": "constraint",
+      "text": "Do not replace a pinned version with a floating one such as `latest`, `main` or a bare major tag unless the request asks for it.",
+      "guards": [
+        {
+          "id": "g_bump",
+          "q": "Does the request change the version of an action, container image or tool that the workflow uses?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "oos-findings",
+      "section": "out_of_scope",
+      "text": "Fixing the problems the new check reports in the code: that is separate work. List the findings (file, rule, count) in the handoff so it can be planned.",
+      "guards": [
+        {
+          "id": "g_fix_findings",
+          "q": "Does the request also ask to fix the problems that a new check reports in the code?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "oos-unrelated",
+      "section": "out_of_scope",
+      "text": "Upgrading actions, tools or runner images the request does not name."
+    },
+    {
+      "id": "esc-breaking",
+      "section": "escape",
+      "text": "If `{version}` needs changes beyond the CI configuration (a newer runtime, a different runner image, or a change to the build itself), list them and ask before making them.",
+      "guards": [
+        {
+          "id": "g_bump",
+          "q": "Does the request change the version of an action, container image or tool that the workflow uses?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "esc-red",
+      "section": "escape",
+      "text": "If the new check fails on the current code and the request does not say whether to fix the findings or land the check as non-blocking, stop and ask which.",
+      "guards": [
+        {
+          "id": "g_new_check",
+          "q": "Does the request ask CI to start running a linter, test suite, type checker or scanner that the workflow in `target.usage` does not run today?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "esc-secrets",
+      "section": "escape",
+      "text": "If the change needs a secret, token or permission that does not exist yet, name it and ask; do not add placeholders or widen permissions to work around it.",
+      "guards": [
+        {
+          "id": "g_secrets",
+          "q": "Does the change involve secrets, tokens or permissions used by the workflow?",
+          "min": 0.5
+        }
+      ]
+    },
+    {
+      "id": "esc-generic",
+      "section": "escape",
+      "text": "If the request is ambiguous, names a job, step or action that is not in the CI configuration, or would change what other jobs do, stop and ask rather than guessing."
+    },
+    {
+      "id": "chk-reread",
+      "section": "check",
+      "text": "Re-read `{target_path}` in full and confirm the change sits in the intended job and position, its indentation matches the surrounding lines, and nothing outside the request changed."
+    },
+    {
+      "id": "chk-grep",
+      "section": "check",
+      "text": "Re-run `git grep -n -F '{subject}'` and confirm the result matches the list of occurrences made in the approach.",
+      "guards": [
+        {
+          "id": "g_bump",
+          "q": "Does the request change the version of an action, container image or tool that the workflow uses?",
+          "min": 0.6
+        }
+      ]
+    }
+  ],
+  "required": {
+    "description": 1,
+    "desired": 1,
+    "approach": 2,
+    "verification": 3,
+    "check": 1,
+    "escape": 1
+  }
+}

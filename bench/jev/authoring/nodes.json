@@ -1,0 +1,45 @@
+{
+  "//": "Library v0 taxonomy. Each node becomes one cell in skills/prompt-improver/assets/library/<id>.json. Nodes describe kinds of requests, never specific benchmark requests: the authoring prompt never sees bench/jev/corpus.jsonl.",
+  "nodes": [
+    {
+      "id": "cli-flag.output-format",
+      "match": "Add a command-line flag or option to an existing tool or script that changes the format of its normal output, such as JSON, CSV or a plainer form, so that people or other programs can consume it",
+      "boundaries": "Not a flag that adds diagnostic, trace or debug information about what the tool is doing (that is cli-flag.diagnostic). The existing default output must stay the default."
+    },
+    {
+      "id": "config.env-var",
+      "match": "Add support for a new environment variable that configures or extends how an existing tool, script or service behaves",
+      "boundaries": "The variable is new; renaming or removing variables is a refactor. The default behaviour when the variable is unset must stay as it is today."
+    },
+    {
+      "id": "docs.edit",
+      "match": "Change existing documentation: fix a typo or an error, clarify or reorganise a section, or document an existing feature, option or setting in a named document",
+      "boundaries": "Documentation only; no code or configuration changes. Writing documentation for something that does not exist yet is out of scope."
+    },
+    {
+      "id": "ci.workflow",
+      "match": "Change a continuous integration workflow: bump the version of an action or tool, add or change a step or job, or change when the workflow runs",
+      "boundaries": "Changes to the CI configuration files; if the request also asks to fix everything a new check reports, that second part is separate work that the spec should call out."
+    },
+    {
+      "id": "bugfix.script",
+      "match": "Fix incorrect behaviour, an error or a crash in an existing script, command or module, where the request names the symptom",
+      "boundaries": "Fixing a defect in code that exists. New features, flaky tests and performance problems are other kinds of work."
+    },
+    {
+      "id": "tests.add",
+      "match": "Add or extend automated tests for existing code, such as a function, a fallback path or an edge case, without changing that code's behaviour",
+      "boundaries": "Tests only; production code changes are out of scope unless a test proves a bug, which must then be reported rather than silently fixed. Flaky tests are a different kind of work."
+    },
+    {
+      "id": "perf.script",
+      "match": "Make an existing script, command, query or function faster or use fewer resources without changing what it produces",
+      "boundaries": "The output and behaviour must stay identical; the work is measurement first, then targeted changes."
+    },
+    {
+      "id": "refactor.rename-move",
+      "match": "Rename or move a function, variable, file or module, or split one file into several, across the codebase without changing behaviour",
+      "boundaries": "Behaviour-preserving restructuring only; no new features or fixes mixed in."
+    }
+  ]
+}

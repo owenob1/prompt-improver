@@ -56,6 +56,22 @@ else
   bad "skill scripts/smoke-test.sh missing"
 fi
 
+# 3b. Jev library cells: structure, robustness rule and a dry compile.
+echo ""
+echo "[3b] Jev library cells"
+if command -v jq >/dev/null 2>&1; then
+  for cell in "$ROOT"/skills/prompt-improver/assets/library/*.json; do
+    case "$(basename "$cell")" in _*) continue ;; esac
+    if out=$(bash "$ROOT/bench/jev/authoring/validate-cell.sh" "$cell" 2>&1); then
+      ok "$(basename "$cell") validates"
+    else
+      bad "$(basename "$cell"): $(printf '%s' "$out" | head -n 3 | tr '\n' ' ')"
+    fi
+  done
+else
+  echo "  SKIP jq not available"
+fi
+
 # 4. skills CLI discovery (if available)
 echo ""
 echo "[4] npx skills discovery"

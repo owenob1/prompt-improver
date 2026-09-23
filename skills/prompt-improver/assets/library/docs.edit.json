@@ -1,0 +1,562 @@
+{
+  "id": "docs.edit",
+  "schema": 1,
+  "provenance": {
+    "authored_by": "opus via bench/jev/authoring/author.sh",
+    "reviewed_by": null,
+    "created": "2026-09-23"
+  },
+  "match": "Change existing documentation in a named document: fix a typo or an error, clarify or reorganise a section, or document an existing feature, option or setting",
+  "task_name": "edit-{target_stem}-docs",
+  "key_slots": [],
+  "fit": [
+    {
+      "id": "edits_docs",
+      "q": "Does the request ask to change the text of a documentation file, such as a README, guide or reference page?",
+      "min": 0.6
+    },
+    {
+      "id": "docs_only",
+      "q": "Can the request be completed by editing documentation alone, with no change to code or configuration?",
+      "min": 0.6
+    }
+  ],
+  "requires": [
+    {
+      "id": "g_is_doc",
+      "q": "Is the file described in `target.usage` a documentation file written as prose (for example Markdown, reStructuredText or plain text), rather than source code or configuration?",
+      "min": 0.6
+    }
+  ],
+  "escalate": [
+    {
+      "id": "g_needs_source",
+      "q": "To make this change correctly, does an engineer first need to read source code to find out how the documented feature or option actually behaves?",
+      "min": 0.6,
+      "gap": "approach",
+      "prompt": "Name the source files and functions that define the documented behaviour, and list the exact facts (flag spelling, accepted values, defaults, output) the agent must confirm in each before writing."
+    }
+  ],
+  "slots": {
+    "subject": {
+      "kind": "entity",
+      "accept": [
+        "identifier",
+        "flag",
+        "env",
+        "code",
+        "quoted",
+        "path",
+        "word"
+      ],
+      "q": "Which candidate names the feature, option, setting or topic that the documentation change is about?"
+    },
+    "wrong_text": {
+      "kind": "entity",
+      "accept": [
+        "quoted",
+        "code",
+        "word"
+      ],
+      "q": "Which candidate does the request quote as text that is in the document today and must be replaced or removed? Choose none if the request only describes the problem without quoting the existing text."
+    },
+    "desired": {
+      "kind": "role",
+      "role": "desired"
+    }
+  },
+  "items": [
+    {
+      "id": "desc-base",
+      "section": "description",
+      "text": "Edit `{target_path}` as the request describes, changing only the passages the request concerns."
+    },
+    {
+      "id": "desc",
+      "section": "description",
+      "text": "Edit `{target_path}` so that it {desired}."
+    },
+    {
+      "id": "desc-feature",
+      "section": "description",
+      "text": "Document the existing `{subject}` in `{target_path}`.",
+      "guards": [
+        {
+          "id": "g_document_feature",
+          "q": "Does the request ask to add documentation for an existing feature, option or setting?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "current",
+      "section": "current",
+      "text": "`{target_path}`: {target_summary}."
+    },
+    {
+      "id": "current-absent",
+      "section": "current",
+      "text": "`{target_path}` does not mention `{subject}` today.",
+      "guards": [
+        {
+          "id": "f_subject_absent",
+          "fact": "target_lacks",
+          "text": "{subject}"
+        }
+      ]
+    },
+    {
+      "id": "current-present",
+      "section": "current",
+      "text": "`{target_path}` already mentions `{subject}`; read every mention before editing, so the change corrects or extends them instead of duplicating them.",
+      "guards": [
+        {
+          "id": "f_subject_present",
+          "fact": "target_has",
+          "text": "{subject}"
+        }
+      ]
+    },
+    {
+      "id": "current-wrong",
+      "section": "current",
+      "text": "The text `{wrong_text}` currently appears in `{target_path}`.",
+      "guards": [
+        {
+          "id": "f_wrong_present",
+          "fact": "target_has",
+          "text": "{wrong_text}"
+        }
+      ]
+    },
+    {
+      "id": "desired-base",
+      "section": "desired",
+      "text": "`{target_path}` contains the requested change, and every passage the request does not concern reads exactly as before."
+    },
+    {
+      "id": "desired",
+      "section": "desired",
+      "text": "`{target_path}` {desired}; every passage the request does not concern reads exactly as before."
+    },
+    {
+      "id": "desired-feature",
+      "section": "desired",
+      "text": "A reader looking for `{subject}` finds it next to the documentation of related features or options, with what it does, how to set it, its accepted values, its default, and one usage example.",
+      "guards": [
+        {
+          "id": "g_document_feature",
+          "q": "Does the request ask to add documentation for an existing feature, option or setting?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "desired-reorg",
+      "section": "desired",
+      "text": "The same content in the new order: every paragraph, code block, table and link that existed before is still present, under the heading where it now belongs.",
+      "guards": [
+        {
+          "id": "g_reorg",
+          "q": "Does the request ask to move, split, merge or reorder sections or headings of the document?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "desired-link",
+      "section": "desired",
+      "text": "Every link the request concerns points at a file or heading that exists, and its visible text still describes where it leads.",
+      "guards": [
+        {
+          "id": "g_link",
+          "q": "Does the request ask to fix, add or change a link in the document?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-read",
+      "section": "approach",
+      "text": "Read `{target_path}` end to end before editing and note its conventions: heading levels, list markers, table layout, code-fence languages, how commands, flags and paths are formatted, and line wrapping."
+    },
+    {
+      "id": "appr-scope",
+      "section": "approach",
+      "text": "Before editing, write down the exact paragraphs, list entries or table rows that will change and confirm everything else stays untouched; choose the smallest edit that satisfies the request."
+    },
+    {
+      "id": "appr-source",
+      "section": "approach",
+      "text": "Confirm every factual statement you add or change against the project itself (source code, the command's own `--help` output, configuration defaults), not against memory or other documentation, and note the file and line that backs each one.",
+      "guards": [
+        {
+          "id": "g_factual_content",
+          "q": "Does the change add or alter statements about how the project behaves, such as what an option does or what a command outputs?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-placement",
+      "section": "approach",
+      "text": "Decide where the new text goes and commit to it: beside the documentation of the most closely related feature or option, in the same form those use (table row, list entry or subsection). Criteria: a reader scanning the existing structure finds it, and it introduces no heading level its neighbours lack.",
+      "guards": [
+        {
+          "id": "g_document_feature",
+          "q": "Does the request ask to add documentation for an existing feature, option or setting?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-outline",
+      "section": "approach",
+      "text": "Before moving anything, write the current outline (headings in order) and the proposed outline side by side, and map every existing paragraph, code block and table to its new place; leave nothing unmapped.",
+      "guards": [
+        {
+          "id": "g_reorg",
+          "q": "Does the request ask to move, split, merge or reorder sections or headings of the document?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-link",
+      "section": "approach",
+      "text": "For each link the request concerns, resolve its target relative to the directory of `{target_path}` and confirm with `git ls-files` that the file exists; for a `#anchor`, confirm a heading with that text exists in the linked file.",
+      "guards": [
+        {
+          "id": "g_link",
+          "q": "Does the request ask to fix, add or change a link in the document?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-accurate",
+      "section": "requirements.content",
+      "text": "Every statement added or changed matches the project's current behaviour as confirmed in the source; no value, default, limit or example is invented.",
+      "guards": [
+        {
+          "id": "g_factual_content",
+          "q": "Does the change add or alter statements about how the project behaves, such as what an option does or what a command outputs?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-feature-facts",
+      "section": "requirements.content",
+      "text": "The entry for `{subject}` states what it does, how to set it (exact spelling of the flag, key or variable), its accepted values, and its default when unset.",
+      "guards": [
+        {
+          "id": "g_document_feature",
+          "q": "Does the request ask to add documentation for an existing feature, option or setting?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-meaning",
+      "section": "requirements.content",
+      "text": "The rewritten passage says the same things as before: no fact, caveat, warning or example is dropped or added.",
+      "guards": [
+        {
+          "id": "g_clarify",
+          "q": "Does the request ask to rewrite a passage so it is easier to understand while keeping what it says?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-typo-only",
+      "section": "requirements.content",
+      "text": "Only the wrong spelling, grammar, punctuation or formatting changes; the words around it stay as they are.",
+      "guards": [
+        {
+          "id": "g_typo",
+          "q": "Is the request only a correction of spelling, grammar or punctuation, with no change to facts, links, commands or structure?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "sty-conventions",
+      "section": "requirements.style",
+      "text": "New and changed text follows the conventions noted in `{target_path}`: heading levels, list markers, code-fence languages, capitalisation of names and line wrapping."
+    },
+    {
+      "id": "sty-code",
+      "section": "requirements.style",
+      "text": "Commands, flags, file paths, setting names and identifiers are spelled exactly as the project spells them and formatted the way `{target_path}` formats them elsewhere."
+    },
+    {
+      "id": "scope-doc",
+      "section": "requirements.scope",
+      "text": "Only `{target_path}` changes, plus the companion file listed below if it applies; no source, configuration or test file is edited."
+    },
+    {
+      "id": "ex-typo",
+      "section": "example",
+      "input": "`{target_path}` contains `{wrong_text}`",
+      "output": "the corrected text in its place, with the rest of the line byte-for-byte unchanged",
+      "reasoning": "A fix that also rewords the sentence makes the diff harder to review and can change its meaning.",
+      "guards": [
+        {
+          "id": "g_replace_text",
+          "q": "Does the request quote the exact wrong word, phrase or value that is in the document today and say it must be replaced?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ex-feature",
+      "section": "example",
+      "input": "a reader searches `{target_path}` for `{subject}`",
+      "output": "one entry beside the related features or options giving what it does, how to set it, its values, its default and one example, in the same format as its neighbours",
+      "reasoning": "Documentation is found by scanning the existing structure; an entry in a different place or format is missed.",
+      "guards": [
+        {
+          "id": "g_document_feature",
+          "q": "Does the request ask to add documentation for an existing feature, option or setting?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ex-mismatch",
+      "section": "example",
+      "input": "the source shows behaviour that differs from what the request says the document should state",
+      "output": "the agent stops before editing and reports both versions, citing the source file and line",
+      "reasoning": "Documentation written to the request instead of the code is wrong the day it ships.",
+      "guards": [
+        {
+          "id": "g_factual_content",
+          "q": "Does the change add or alter statements about how the project behaves, such as what an option does or what a command outputs?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ex-reorg",
+      "section": "example",
+      "input": "a section of `{target_path}` is moved under a different heading",
+      "output": "the same paragraphs, code blocks and links appear in the new place, and in-repository links to its old anchor are updated",
+      "reasoning": "A reorganisation that loses content or breaks links is a regression, however much better the order reads.",
+      "guards": [
+        {
+          "id": "g_reorg",
+          "q": "Does the request ask to move, split, merge or reorder sections or headings of the document?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ex-link",
+      "section": "example",
+      "input": "a link in `{target_path}` points at a path that `git ls-files` does not list",
+      "output": "the link target is changed to the path of the existing file, relative to the directory of `{target_path}`, and the link text is left as it was unless it names the wrong file",
+      "reasoning": "Relative links resolve from the document's own directory; a path that is correct from the repository root can still be broken.",
+      "guards": [
+        {
+          "id": "g_link",
+          "q": "Does the request ask to fix, add or change a link in the document?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-files",
+      "section": "verification",
+      "text": "`git diff --name-only` lists `{target_path}` and no source, configuration or test file; a changelog entry, if one was added, is the only other file."
+    },
+    {
+      "id": "ver-whitespace",
+      "section": "verification",
+      "text": "`git diff --check -- {target_path}` prints nothing."
+    },
+    {
+      "id": "ver-hunks",
+      "section": "verification",
+      "text": "`git diff -U0 -- {target_path}` shows hunks only in the passages written down before editing; each hunk is named in the final report."
+    },
+    {
+      "id": "ver-subject",
+      "section": "verification",
+      "text": "`grep -n -F '{subject}' {target_path}` prints the lines that document it, each spelled exactly as the project spells it.",
+      "guards": [
+        {
+          "id": "g_subject_literal",
+          "q": "Does the request name the subject by an exact term the project uses, such as a flag, variable, setting key, command or file name, rather than a general topic word?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-wrong-gone",
+      "section": "verification",
+      "text": "`grep -c -F '{wrong_text}' {target_path}` prints `0`.",
+      "guards": [
+        {
+          "id": "g_replace_text",
+          "q": "Does the request quote the exact wrong word, phrase or value that is in the document today and say it must be replaced?",
+          "min": 0.6
+        },
+        {
+          "id": "f_wrong_present",
+          "fact": "target_has",
+          "text": "{wrong_text}"
+        }
+      ]
+    },
+    {
+      "id": "ver-links",
+      "section": "verification",
+      "text": "For every relative link target on a changed line of `git diff -U0 -- {target_path}`, `git ls-files --error-unmatch <target>` run from the directory of `{target_path}` exits 0.",
+      "guards": [
+        {
+          "id": "g_link",
+          "q": "Does the request ask to fix, add or change a link in the document?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-examples",
+      "section": "verification",
+      "text": "Run each command or code example in the changed passage exactly as written, from a scratch copy of the repository: each one succeeds and prints what `{target_path}` says it prints.",
+      "guards": [
+        {
+          "id": "g_code_examples",
+          "q": "Does the request explicitly ask to add or change a command, code block or code example shown in the document?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-anchors",
+      "section": "verification",
+      "text": "From the repository root, `git grep -n -F '{target_name}#'` lists every in-repository link into the document; each anchor after the `#` matches a heading that still exists in `{target_path}`.",
+      "guards": [
+        {
+          "id": "g_reorg",
+          "q": "Does the request ask to move, split, merge or reorder sections or headings of the document?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-reorg-content",
+      "section": "verification",
+      "text": "From the repository root, `diff <(git show HEAD:{target_path} | grep -v '^#' | sort) <(grep -v '^#' {target_path} | sort)` prints nothing, or only connecting sentences you added; every removed line is listed in the final report.",
+      "guards": [
+        {
+          "id": "g_reorg",
+          "q": "Does the request ask to move, split, merge or reorder sections or headings of the document?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-lint",
+      "section": "verification",
+      "text": "`{lint_cmd}` reports no new warnings for `{target_path}`."
+    },
+    {
+      "id": "comp-changelog",
+      "section": "companion",
+      "file": "{changelog}",
+      "text": "Add an entry for the documentation change only if earlier entries record documentation changes; otherwise leave it untouched."
+    },
+    {
+      "id": "con-no-code",
+      "section": "constraint",
+      "text": "Do not change code, configuration or defaults to make them match the documentation."
+    },
+    {
+      "id": "con-no-future",
+      "section": "constraint",
+      "text": "Document only behaviour that exists in the project today; do not describe planned, proposed or unreleased features."
+    },
+    {
+      "id": "con-anchors",
+      "section": "constraint",
+      "text": "Keep the exact text of every heading the request does not ask to rename, so existing links to it keep working."
+    },
+    {
+      "id": "oos-other",
+      "section": "out_of_scope",
+      "text": "Rewording, restyling or reorganising passages of `{target_path}` that the request does not mention."
+    },
+    {
+      "id": "oos-noticed",
+      "section": "out_of_scope",
+      "text": "Other errors noticed while editing; list them in the final report instead of fixing them."
+    },
+    {
+      "id": "esc-mismatch",
+      "section": "escape",
+      "text": "If the source code or the command's own output contradicts what the request says the documentation should state, stop and report both, with the file and line, instead of choosing one."
+    },
+    {
+      "id": "esc-missing",
+      "section": "escape",
+      "text": "If `{subject}` has no match in the project's source for its exact spelling, stop and ask: documenting something that does not exist yet is out of scope.",
+      "guards": [
+        {
+          "id": "g_subject_literal",
+          "q": "Does the request name the subject by an exact term the project uses, such as a flag, variable, setting key, command or file name, rather than a general topic word?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "esc-link-target",
+      "section": "escape",
+      "text": "If no file or heading in the repository matches what a link the request concerns should point at, stop and report the candidates you found instead of guessing a target or deleting the link.",
+      "guards": [
+        {
+          "id": "g_link",
+          "q": "Does the request ask to fix, add or change a link in the document?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "esc-generated",
+      "section": "escape",
+      "text": "If `{target_path}` states that it is generated from another file, stop and name that file instead of editing the generated output."
+    },
+    {
+      "id": "esc-other-docs",
+      "section": "escape",
+      "text": "If other documents repeat the statement you are changing (check with `git grep -n -F` on its key phrase), list them and ask whether to update them too, rather than leaving them contradicting `{target_path}` or editing them unasked.",
+      "guards": [
+        {
+          "id": "g_factual_content",
+          "q": "Does the change add or alter statements about how the project behaves, such as what an option does or what a command outputs?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "esc-generic",
+      "section": "escape",
+      "text": "If the request is ambiguous about which passage to change, or the change would need edits outside documentation, stop and ask rather than guessing."
+    },
+    {
+      "id": "chk-reread",
+      "section": "check",
+      "text": "Re-read `{target_path}` from the heading above the change to the end of the changed passage and confirm it reads correctly in context, heading levels and list numbering still line up, and every hunk in `git diff` belongs to the requested change."
+    }
+  ],
+  "required": {
+    "description": 1,
+    "desired": 1,
+    "approach": 2,
+    "verification": 3,
+    "check": 1,
+    "escape": 1
+  }
+}

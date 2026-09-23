@@ -1,0 +1,520 @@
+{
+  "id": "perf.script",
+  "schema": 1,
+  "provenance": {
+    "authored_by": "opus via bench/jev/authoring/author.sh",
+    "reviewed_by": null,
+    "created": "2026-09-23"
+  },
+  "match": "Make an existing script, command, query or function run faster or use fewer resources while producing exactly the same output and behaviour",
+  "task_name": "speed-up-{target_stem}",
+  "key_slots": [
+    "subject"
+  ],
+  "fit": [
+    {
+      "id": "wants_perf",
+      "q": "Is the main goal of the request to make something run faster or use less memory, disk, network or other resources?",
+      "min": 0.6
+    },
+    {
+      "id": "existing_thing",
+      "q": "Does the thing the request wants faster or lighter already exist and work today?",
+      "min": 0.6
+    },
+    {
+      "id": "same_result",
+      "q": "Would the thing still produce the same results after the change the request asks for?",
+      "min": 0.6
+    }
+  ],
+  "requires": [
+    {
+      "id": "g_behaviour_change",
+      "q": "Does the request also ask to change what the target outputs, add a feature, or fix a bug in its results?",
+      "max": 0.35
+    }
+  ],
+  "escalate": [
+    {
+      "id": "g_internal",
+      "q": "To make it faster, does an engineer need to understand specific loops, calls, queries or branches inside the target file?",
+      "min": 0.6,
+      "gap": "approach",
+      "prompt": "Read the target's source and name the concrete loops, external calls, queries or data structures most likely to dominate its cost, and what to measure to confirm each one before changing it."
+    }
+  ],
+  "slots": {
+    "subject": {
+      "kind": "entity",
+      "accept": [
+        "file",
+        "path",
+        "code",
+        "identifier",
+        "quoted",
+        "word"
+      ],
+      "q": "Which candidate names the script, command, query or function that should become faster or lighter?"
+    },
+    "workload": {
+      "kind": "entity",
+      "accept": [
+        "file",
+        "path",
+        "quoted",
+        "quantity",
+        "number"
+      ],
+      "q": "Which candidate names the input on which it is slow today: an input file or path, or a size such as a number of files, rows, items or bytes?"
+    },
+    "desired": {
+      "kind": "role",
+      "role": "desired"
+    },
+    "symptom": {
+      "kind": "role",
+      "role": "symptom"
+    },
+    "metric": {
+      "kind": "role",
+      "role": "metric"
+    }
+  },
+  "items": [
+    {
+      "id": "desc",
+      "section": "description",
+      "text": "Reduce the run time or resource use of `{subject}` in `{target_path}`, with its output, exit codes and side effects unchanged."
+    },
+    {
+      "id": "current",
+      "section": "current",
+      "text": "`{target_path}`: {target_summary}."
+    },
+    {
+      "id": "current-symptom",
+      "section": "current",
+      "text": "Reported problem today: {symptom}."
+    },
+    {
+      "id": "current-unmeasured",
+      "section": "current",
+      "text": "No measurement of today's cost is given; the first step establishes one.",
+      "guards": [
+        {
+          "id": "g_measured",
+          "q": "Does the request give a number for how long it takes or how much it uses today, such as a time in seconds or milliseconds or a memory size?",
+          "max": 0.35
+        }
+      ]
+    },
+    {
+      "id": "desired",
+      "section": "desired",
+      "text": "For every input, `{subject}` produces the same output, exit code and side effects as today, and a benchmark on the same input and machine shows it needs less time (or less memory, when that is what the request asks to reduce) than the unchanged version."
+    },
+    {
+      "id": "desired-role",
+      "section": "desired",
+      "text": "Requested outcome: {desired}."
+    },
+    {
+      "id": "desired-metric",
+      "section": "desired",
+      "text": "The target is {metric}, measured with the same command, input and machine before and after the change.",
+      "guards": [
+        {
+          "id": "g_numeric",
+          "q": "Does the request state a value the result must reach, such as a maximum time, a maximum memory size or a speed-up factor, rather than only how slow it is today?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "desired-nometric",
+      "section": "desired",
+      "text": "No target value was given: the result is a measured reduction in run time (or peak memory, when that is what the request asks to reduce) on a representative input, reported as before and after numbers.",
+      "guards": [
+        {
+          "id": "g_numeric",
+          "q": "Does the request state a value the result must reach, such as a maximum time, a maximum memory size or a speed-up factor, rather than only how slow it is today?",
+          "max": 0.35
+        }
+      ]
+    },
+    {
+      "id": "appr-reference",
+      "section": "approach",
+      "text": "Before editing, capture reference behaviour from the unchanged version (for example in a `git worktree` of `HEAD`): stdout, stderr, exit code and any files written, for the benchmark input and for edge cases (empty input, a single item, invalid input)."
+    },
+    {
+      "id": "appr-baseline",
+      "section": "approach",
+      "text": "Before editing, fix one benchmark command and input, run the unchanged version at least 3 times, and record the median wall-clock time (and peak memory when the request asks to reduce memory) together with the exact command."
+    },
+    {
+      "id": "appr-workload",
+      "section": "approach",
+      "text": "Use {workload} as the benchmark input, since that is where the request reports the cost."
+    },
+    {
+      "id": "appr-profile",
+      "section": "approach",
+      "text": "Profile before choosing what to change: list the steps that account for most of the cost, each with its measured share, and change only those."
+    },
+    {
+      "id": "appr-shell",
+      "section": "approach",
+      "text": "Time each stage of the script separately and count the external commands and subshells started inside loops; one process per iteration (`grep`, `sed`, `awk`, `$(...)`) is the usual dominant cost.",
+      "guards": [
+        {
+          "id": "g_shell",
+          "q": "Is the file described in `target.usage` a shell script?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-query",
+      "section": "approach",
+      "text": "Capture the query plan (`EXPLAIN ANALYZE` or the database's equivalent) before and after; look for full scans, missing indexes, repeated per-row queries and row estimates far from actual counts.",
+      "guards": [
+        {
+          "id": "g_query",
+          "q": "Is the thing the request wants faster a database query?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-calls",
+      "section": "approach",
+      "text": "Count calls to other programs, services or APIs per run, and find repeated calls with identical arguments that can be batched or reused within the run.",
+      "guards": [
+        {
+          "id": "g_external",
+          "q": "Does the work the request wants faster involve calls to other programs, network services or APIs?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-memory",
+      "section": "approach",
+      "text": "Measure peak memory (`/usr/bin/time -v` on Linux, `/usr/bin/time -l` on macOS) and find where whole inputs are loaded or copied when they could be streamed or processed in chunks.",
+      "guards": [
+        {
+          "id": "g_memory",
+          "q": "Does the request ask to reduce memory use?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "appr-design",
+      "section": "approach",
+      "text": "Change the largest measured contributor first, re-run the benchmark and the reference comparison after each change, and keep each change a separate revertible step; stop when the target is met or the next change would alter behaviour."
+    },
+    {
+      "id": "req-output",
+      "section": "requirements.behaviour",
+      "text": "For every input, stdout, stderr, exit codes and written files are byte-for-byte identical to the unchanged version, including the order of lines and records.",
+      "guards": [
+        {
+          "id": "g_nondet",
+          "q": "Does the output of the thing described in `target.usage` include timestamps, random values or data fetched from the network?",
+          "max": 0.35
+        }
+      ]
+    },
+    {
+      "id": "req-output-nondet",
+      "section": "requirements.behaviour",
+      "text": "Output that depends on the clock, randomness or the network is compared after masking those fields; everything else, including line and record order, is identical to the unchanged version.",
+      "guards": [
+        {
+          "id": "g_nondet",
+          "q": "Does the output of the thing described in `target.usage` include timestamps, random values or data fetched from the network?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "req-errors",
+      "section": "requirements.behaviour",
+      "text": "Error messages, exit codes and failure behaviour on invalid or missing input are unchanged."
+    },
+    {
+      "id": "req-interface",
+      "section": "requirements.behaviour",
+      "text": "The command-line interface, function signature, return values and environment variables read are unchanged."
+    },
+    {
+      "id": "meas-report",
+      "section": "requirements.measurement",
+      "text": "Report before and after numbers for the same command, input and machine: the median of at least 3 runs each, with the command shown."
+    },
+    {
+      "id": "meas-metric",
+      "section": "requirements.measurement",
+      "text": "The after number meets {metric}; if it does not, report the remaining gap and the largest remaining contributor.",
+      "guards": [
+        {
+          "id": "g_numeric",
+          "q": "Does the request state a value the result must reach, such as a maximum time, a maximum memory size or a speed-up factor, rather than only how slow it is today?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "meas-scale",
+      "section": "requirements.measurement",
+      "text": "Measure at two input sizes about 10x apart and report both, so any change in how cost grows with input size is visible.",
+      "guards": [
+        {
+          "id": "g_scale",
+          "q": "Does the cost described in the request grow with the size of the input, such as the number of files, rows or items?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "scope-deps",
+      "section": "requirements.scope",
+      "text": "No new runtime dependency (tool, library or service) unless the project already uses it elsewhere."
+    },
+    {
+      "id": "scope-cache",
+      "section": "requirements.scope",
+      "text": "Any cache or reuse added lives for one run only, or is keyed on every input that affects the result, so a stale entry can never change the output.",
+      "guards": [
+        {
+          "id": "g_external",
+          "q": "Does the work the request wants faster involve calls to other programs, network services or APIs?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ex-bench",
+      "section": "example",
+      "input": "the benchmark input, run on the unchanged and the changed version",
+      "output": "identical output and exit code; the changed version's median run time (or peak memory, when that is the goal) is lower, reported with both numbers and the command",
+      "reasoning": "The speed-up only counts when it is measured on the same input and the behaviour comparison passes."
+    },
+    {
+      "id": "ex-edge",
+      "section": "example",
+      "input": "empty input, a single item, and invalid input",
+      "output": "the same output, error messages and exit codes as the unchanged version",
+      "reasoning": "Batching, caching and fast paths tend to break at the boundaries, which the benchmark input does not exercise."
+    },
+    {
+      "id": "ex-reject",
+      "section": "example",
+      "input": "a change that halves the run time but reorders two output lines",
+      "output": "the change is reverted and a different change is tried, or the trade-off is reported and the user asked",
+      "reasoning": "Identical behaviour is the requirement; a gain that changes output is a different request."
+    },
+    {
+      "id": "ver-reference",
+      "section": "verification",
+      "text": "The reference captures from the approach (stdout, stderr, exit code and written files for the benchmark input, empty input, a single item and invalid input) are recorded again on the changed version into a parallel directory: `diff -r before/ after/` prints nothing."
+    },
+    {
+      "id": "ver-diff",
+      "section": "verification",
+      "text": "`{runner} {target_path} > before.out 2>&1; echo \"exit=$?\" >> before.out` on the unchanged version, the same into `after.out` on the changed version: `diff before.out after.out` prints nothing.",
+      "guards": [
+        {
+          "id": "g_required_args",
+          "q": "Does the tool described in `target.usage` require at least one argument or option to be given?",
+          "max": 0.35
+        },
+        {
+          "id": "g_stdin",
+          "q": "Does the tool described in `target.usage` read its input from standard input when no file argument is given?",
+          "max": 0.35
+        },
+        {
+          "id": "g_function",
+          "q": "Is the thing the request wants faster a function called from other code, rather than a script or command run on its own?",
+          "max": 0.35
+        },
+        {
+          "id": "g_nondet",
+          "q": "Does the output of the thing described in `target.usage` include timestamps, random values or data fetched from the network?",
+          "max": 0.35
+        }
+      ]
+    },
+    {
+      "id": "ver-args",
+      "section": "verification",
+      "text": "Run `{runner} {target_path}` with the benchmark arguments on the unchanged and the changed version, saving stdout, stderr and the exit code of each: `diff` of the two prints nothing.",
+      "guards": [
+        {
+          "id": "g_required_args",
+          "q": "Does the tool described in `target.usage` require at least one argument or option to be given?",
+          "min": 0.6
+        },
+        {
+          "id": "g_function",
+          "q": "Is the thing the request wants faster a function called from other code, rather than a script or command run on its own?",
+          "max": 0.35
+        }
+      ]
+    },
+    {
+      "id": "ver-stdin",
+      "section": "verification",
+      "text": "Pipe the benchmark input into `{runner} {target_path}` on the unchanged and the changed version, saving stdout, stderr and the exit code of each: `diff` of the two prints nothing.",
+      "guards": [
+        {
+          "id": "g_stdin",
+          "q": "Does the tool described in `target.usage` read its input from standard input when no file argument is given?",
+          "min": 0.6
+        },
+        {
+          "id": "g_function",
+          "q": "Is the thing the request wants faster a function called from other code, rather than a script or command run on its own?",
+          "max": 0.35
+        }
+      ]
+    },
+    {
+      "id": "ver-query",
+      "section": "verification",
+      "text": "Run the old and the new query on the same data: the result sets are identical (`diff` of the exported rows prints nothing, compared in order when the query has `ORDER BY`), and the new plan shows the intended change.",
+      "guards": [
+        {
+          "id": "g_query",
+          "q": "Is the thing the request wants faster a database query?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-bench",
+      "section": "verification",
+      "text": "The benchmark command, run 3 times on each version, gives a lower median wall-clock time for the changed version than for the unchanged one (lower peak memory instead, when the request asks to reduce memory)."
+    },
+    {
+      "id": "ver-memory",
+      "section": "verification",
+      "text": "Peak resident memory reported by `/usr/bin/time -v` (Linux) or `/usr/bin/time -l` (macOS) on the benchmark input is lower for the changed version than for the unchanged one.",
+      "guards": [
+        {
+          "id": "g_memory",
+          "q": "Does the request ask to reduce memory use?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-metric",
+      "section": "verification",
+      "text": "The changed version's median over 3 benchmark runs meets {metric}.",
+      "guards": [
+        {
+          "id": "g_numeric",
+          "q": "Does the request state a value the result must reach, such as a maximum time, a maximum memory size or a speed-up factor, rather than only how slow it is today?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "ver-tests",
+      "section": "verification",
+      "text": "`{test_cmd}` passes with no test modified, skipped or loosened."
+    },
+    {
+      "id": "ver-syntax",
+      "section": "verification",
+      "text": "`{syntax_check}` succeeds."
+    },
+    {
+      "id": "comp-test",
+      "section": "companion",
+      "file": "{test_file}",
+      "text": "Add a regression check that `{subject}` gives the reference output for empty input, a single item and a normal input, so later optimisations cannot change behaviour unnoticed."
+    },
+    {
+      "id": "comp-changelog",
+      "section": "companion",
+      "file": "{changelog}",
+      "text": "Add an entry describing the improvement with the before and after numbers and the input they were measured on."
+    },
+    {
+      "id": "con-callers",
+      "section": "constraint",
+      "text": "Callers of `{subject}` ({callers}) keep working unchanged; do not edit them."
+    },
+    {
+      "id": "con-correctness",
+      "section": "constraint",
+      "text": "Do not remove edge-case handling, error checks or input validation to gain speed."
+    },
+    {
+      "id": "con-portable",
+      "section": "constraint",
+      "text": "Keep the script running on every shell and platform it supports today; use no shell features or GNU-only options it does not already use.",
+      "guards": [
+        {
+          "id": "g_shell",
+          "q": "Is the file described in `target.usage` a shell script?",
+          "min": 0.6
+        }
+      ]
+    },
+    {
+      "id": "oos-rewrite",
+      "section": "out_of_scope",
+      "text": "Rewriting `{target_path}` in another language or replacing it with a different tool."
+    },
+    {
+      "id": "oos-refactor",
+      "section": "out_of_scope",
+      "text": "Renaming, reformatting or restructuring code that the profile does not show as a cost."
+    },
+    {
+      "id": "esc-behaviour",
+      "section": "escape",
+      "text": "If the only changes that reach the target would alter output, ordering, errors or the interface, stop and present them with their measured gains instead of applying them."
+    },
+    {
+      "id": "esc-input",
+      "section": "escape",
+      "text": "If no representative benchmark input can be built (for example it needs production data or credentials), stop and ask for one instead of optimising without measurement."
+    },
+    {
+      "id": "esc-noise",
+      "section": "escape",
+      "text": "If run-to-run variation is larger than the measured gain, report the gain as not measurable instead of claiming it."
+    },
+    {
+      "id": "esc-elsewhere",
+      "section": "escape",
+      "text": "If the profile shows most of the cost outside `{target_path}` (a dependency, the database, the network or a caller), report the breakdown and ask before changing anything there."
+    },
+    {
+      "id": "esc-generic",
+      "section": "escape",
+      "text": "If the request is ambiguous, contradicts what the code shows, or cannot be met without changing behaviour, stop and ask rather than guessing or working around it."
+    },
+    {
+      "id": "chk-diff",
+      "section": "check",
+      "text": "Re-read the diff of `{target_path}` and confirm every change addresses a contributor named in the profile, and that no output, error message or exit path changed."
+    }
+  ],
+  "required": {
+    "description": 1,
+    "desired": 1,
+    "approach": 2,
+    "verification": 3,
+    "check": 1,
+    "escape": 1
+  }
+}
