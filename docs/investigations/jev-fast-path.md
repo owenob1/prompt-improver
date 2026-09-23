@@ -79,7 +79,7 @@ These are the decisions the skill makes today, mostly implicitly inside the LLM 
 | How big is it? | `complexity` · score (4 levels) | Good (rubric scoring) |
 | How risky is it? | `risk` · score (3 levels) | Good |
 | Is it several independent tasks? | `multi_task` · noul | Good; this is the key gate for templates |
-| Is it too vague to specify? | `vague` · noul | Plausible; must be validated on the corpus |
+| Is it clear enough to specify? | `clarity` · score (3 levels) | Good — see [Question design](#question-design-findings); a yes/no `vague` question did not work |
 | Needs external research? UI? Autonomous agent? | `needs_research` / `ui` / `autonomous` · noul | Good |
 | Does a spec faithfully cover the request? | `faithful` · noul, `fit` · score | Good (claim checking against evidence) |
 | **Write the requirements, steps and acceptance criteria for *this* request** | — | **Impossible: text generation** |
@@ -110,7 +110,7 @@ All of these gates must pass:
 - complexity ≤ 1.0
 - risk ≤ 0.5
 - `multi_task` ≤ 0.25
-- `vague` ≤ 0.3
+- `clarity` ≥ 1.0 (out of 2)
 
 When they do, [`fast-compose.sh`](../../skills/prompt-improver/scripts/fast-compose.sh) fills [`assets/fast-templates/base.xml`](../../skills/prompt-improver/assets/fast-templates/base.xml) with the archetype fragment. The inputs are:
 - the verbatim, XML-escaped request;
@@ -151,7 +151,7 @@ Settings (`config/runtime-defaults.json` → `fast_path`, env `PROMPT_IMPROVER_F
   "timeout_ms": 2000,
   "judge": true,
   "thresholds": { "ready_confidence": 0.8, "archetype_confidence": 0.6, "max_complexity": 1.0,
-                  "max_risk": 0.5, "max_multi_task": 0.25, "max_vague": 0.3,
+                  "max_risk": 0.5, "max_multi_task": 0.25, "min_clarity": 1.0,
                   "min_faithful": 0.7, "min_fit": 1.5 },
   "route_models": { "claude": { "low": "sonnet", "high": "opus" }, … },
   "route_prune_references": true

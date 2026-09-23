@@ -974,7 +974,7 @@ if [ "$judge" = yes ]; then
   body '{"model":"jev-1.13.0","answers":{"faithful":{"type":"noul","noul":'"$f"'},"fit":{"type":"score","score":1.9,"confidence":0.8}},"usage":{"input_tokens":900,"output_tokens":20}}'
   printf 200; exit 0
 fi
-tri=rough; tc=0.9; ac=0.88; cx=0.4; rk=0.1; mt=0.05; vg=0.05
+tri=rough; tc=0.9; ac=0.88; cx=0.4; rk=0.1; mt=0.05; cl=1.8
 case "$mode" in
   complex) cx=2.6; mt=0.85; rk=1.2 ;;
   lowconf) ac=0.3 ;;
@@ -986,7 +986,7 @@ body '{"model":"jev-1.13.0","answers":{
  "complexity":{"type":"score","score":'"$cx"',"confidence":0.7},
  "risk":{"type":"score","score":'"$rk"',"confidence":0.7},
  "multi_task":{"type":"noul","noul":'"$mt"'},
- "vague":{"type":"noul","noul":'"$vg"'},
+ "clarity":{"type":"score","score":'"$cl"',"confidence":0.8},
  "needs_research":{"type":"noul","noul":0.1},
  "ui":{"type":"noul","noul":0.1},
  "autonomous":{"type":"noul","noul":0.0}},

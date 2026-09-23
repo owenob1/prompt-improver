@@ -64,8 +64,8 @@ ARCH_CONF=$(_a '.answers.archetype.confidence')
 COMPLEXITY=$(_a '.answers.complexity.score')
 RISK=$(_a '.answers.risk.score')
 MULTI=$(_a '.answers.multi_task.noul')
-VAGUE=$(_a '.answers.vague.noul')
-log "jev decide ${JEV_MS:-?}ms — triage=${TRIAGE:-?} archetype=${ARCH:-?}(${ARCH_CONF:-?}) complexity=${COMPLEXITY:-?} risk=${RISK:-?} multi=${MULTI:-?} vague=${VAGUE:-?}"
+CLARITY=$(_a '.answers.clarity.score')
+log "jev decide ${JEV_MS:-?}ms — triage=${TRIAGE:-?} archetype=${ARCH:-?}(${ARCH_CONF:-?}) complexity=${COMPLEXITY:-?} risk=${RISK:-?} multi=${MULTI:-?} clarity=${CLARITY:-?}"
 
 # S1: already an execution-ready spec → pass it through unchanged.
 if [ "$TRIAGE" = "ready" ] && _ge "$TRIAGE_CONF" "$(_thr ready_confidence 0.8)" \
@@ -82,7 +82,7 @@ if [ "$MODE" = "compose" ] || [ "$MODE" = "auto" ]; then
   [ -z "$reason" ] && { _le "$COMPLEXITY" "$(_thr max_complexity 1.0)" || reason="complexity ${COMPLEXITY:-none}"; }
   [ -z "$reason" ] && { _le "$RISK" "$(_thr max_risk 0.5)" || reason="risk ${RISK:-none}"; }
   [ -z "$reason" ] && { _le "$MULTI" "$(_thr max_multi_task 0.25)" || reason="multi-task ${MULTI:-none}"; }
-  [ -z "$reason" ] && { _le "$VAGUE" "$(_thr max_vague 0.3)" || reason="vague ${VAGUE:-none}"; }
+  [ -z "$reason" ] && { _ge "$CLARITY" "$(_thr min_clarity 1.0)" || reason="clarity ${CLARITY:-none}"; }
 
   if [ -z "$reason" ]; then
     if ! bash "$SCRIPT_DIR/fast-compose.sh" "$DEC" "$RAW_FILE" "$CTX_FILE" >"$CMP" 2>/dev/null; then

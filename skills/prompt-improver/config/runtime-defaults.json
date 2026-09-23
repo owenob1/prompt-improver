@@ -509,7 +509,7 @@
       "max_complexity": 1.0,
       "max_risk": 0.5,
       "max_multi_task": 0.25,
-      "max_vague": 0.3,
+      "min_clarity": 1.0,
       "min_faithful": 0.7,
       "min_fit": 1.5
     },
