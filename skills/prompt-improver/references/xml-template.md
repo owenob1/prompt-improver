@@ -16,6 +16,8 @@ The canonical template for improved prompts. Not every section is required — u
   <error>{verbatim error if available}</error>
 </context>
 
+<done>{observable finish line. One sentence.}</done>
+
 <!-- Reference material using document structure -->
 <documents>
   <document index="1">
@@ -56,12 +58,10 @@ The canonical template for improved prompts. Not every section is required — u
     - Follow the pattern in `{file path}`
   </references>
 
-  <!-- Think-before-acting directive -->
+  <!-- Committed decision. Omit when there is nothing to choose. -->
   <approach>
-    Before implementing, reason through:
-    - {specific decision or design question}
-    - {criteria for evaluation}
-    Select an approach and commit to it.
+    Commit before editing:
+    - {the choice, not an open question}
   </approach>
 
   <!-- Deterministic verification -->
@@ -89,9 +89,15 @@ The canonical template for improved prompts. Not every section is required — u
   </out-of-scope>
 
   <!-- Escape clause — prevents hallucinated workarounds -->
+  <stops>
+    - If a step needs no input, keep going. Put status in the same message as the next action.
+    - Stop only when blocked on the user, or before deleting data, force-pushing, or writing outside this repository.
+    - Do not end the turn by asking whether to continue.
+  </stops>
+
   <escape>
-    If any requirement seems contradictory, infeasible, or would degrade
-    existing functionality — flag it and ask rather than working around it.
+    If a requirement is contradictory or infeasible, name it once and continue
+    with every part that is not blocked. Do not invent a workaround.
   </escape>
 </execution>
 
@@ -101,8 +107,14 @@ The canonical template for improved prompts. Not every section is required — u
   - Re-read every changed file — verify no placeholders, empty functions, or type escapes
   - Run {typecheck command}
   - Run {test command}
+  - Review the diff against the base. List only merge-blocking problems: file, line, why it is wrong, how to show it fails. Fix those and re-run the commands above.
   - Compare each original requirement against actual implementation
   - Report status for each requirement: done / partial / skipped
+  - Report:
+    Blocked on me:
+    Changed:
+    Found:
+    Unconfirmed:
 </check>
 ```
 
@@ -200,6 +212,8 @@ When in planning mode:
   <project>{tech stack}</project>
 </context>
 
+<done>{observable finish line. One sentence.}</done>
+
 <task>
   <description>{what to do}</description>
   <requirements>
@@ -210,9 +224,15 @@ When in planning mode:
   </verification>
 </task>
 
+<stops>
+  - If a step needs no input, keep going. Status goes in the same message as the next action.
+  - Stop only when blocked, or before deleting data, force-pushing, or writing outside this repository.
+</stops>
+
 <check>
   - Re-read changed files — confirm no placeholders
   - Run {typecheck command}
+  - Report: Blocked on me / Changed / Found / Unconfirmed
 </check>
 ```
 
@@ -234,12 +254,14 @@ When in planning mode:
 | `<examples>` | Input/output pairs with optional `<reasoning>` | Default for any pattern/decision task |
 | `<reasoning>` | WHY this is the correct output (inside examples) | For decision boundary examples |
 | `<references>` | Existing code to follow | When patterns exist |
-| `<approach>` | Think-before-acting reasoning | Default for non-trivial tasks |
+| `<done>` | Observable finish line, one sentence | Yes |
+| `<approach>` | Committed choice. Not an instruction to reason | Only when two designs were real |
 | `<verification>` | Deterministic checks — commands to run | Yes |
 | `<execution>` | Global approach and constraints | For multi-task prompts |
 | `<constraints>` | Task-specific guardrails against likely failure modes | When there are task-specific risks |
 | `<out-of-scope>` | What NOT to do | When scope creep is likely |
-| `<escape>` | Permission to flag contradictions | Yes — always in execution |
+| `<stops>` | Keep going, and the only reasons to pause | Yes |
+| `<escape>` | Name a contradiction once and continue | Yes — always in execution |
 | `<check>` | End-of-work review | Yes — always include |
 
 ### Extended tags (for autonomous agent prompts)
@@ -269,3 +291,13 @@ When in planning mode:
 - Constraints address task-specific failure modes, not generic quality rules
 - Generic quality rules (no stubs, run tests, re-read files) belong in verification and check blocks
 - Include `<reasoning>` blocks inside examples for decision-point tasks
+
+## Opus 5.5
+
+These change what the tags contain. They do not add a second schema, and the prompt does not name the product the agent is running in.
+
+- `<done>` is the finish line. `<desired-behavior>` is only the behavior change on a fix.
+- Do not write "think step by step", "think carefully", "think hard", or "reason through". Thinking is already on. `<approach>` states the choice or is omitted.
+- `<stops>` is the pause rule. `<escape>` is the contradiction rule. Do not merge them, and do not end a turn by asking whether to continue.
+- On a long run (more than three tasks, or an audit or migration), `<strategy>` says to keep the checklist in `TASKS.md` and to check a subagent's evidence before accepting it.
+- `<check>` reviews the diff for merge blockers only, then reports Blocked on me, Changed, Found, Unconfirmed.
