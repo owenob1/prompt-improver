@@ -8,11 +8,28 @@ on:
 
 jobs:
   smoke:
-    name: Smoke tests
-    runs-on: ubuntu-latest
+    name: Smoke tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS runs the suite under the stock /bin/bash 3.2 and BSD userland.
+        os: [ubuntu-latest, macos-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Use stock /bin/bash (3.2) on macOS
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p "$RUNNER_TEMP/bash32"
+          ln -sf /bin/bash "$RUNNER_TEMP/bash32/bash"
+          echo "$RUNNER_TEMP/bash32" >> "$GITHUB_PATH"
+
+      - name: Show tool versions
+        run: |
+          bash --version | head -1
+          jq --version || echo "jq not installed"
 
       - name: Make scripts executable
         run: |

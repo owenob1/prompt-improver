@@ -1,76 +1,52 @@
 #!/usr/bin/env bash
 # scripts/backends/codex.sh
-# Adapter for OpenAI Codex CLI.
-# Honors PROMPT_IMPROVER_MODEL when set.
+# OpenAI Codex CLI (`codex exec`). Honors PROMPT_IMPROVER_MODEL.
 #
-# Known CLI quirks (codex 0.145.x observed):
-# - `codex exec` streams its whole session log to stdout: version banner,
-#   workdir/model/provider/approval/sandbox/session-id block, `hook:` lines,
-#   MCP/skill-loading ERROR lines, the echoed prompt, and a trailing
-#   `tokens used` count. Piping that straight through makes the log the
-#   "improved prompt".
-# - It also reads inherited stdin ("Reading additional input from stdin..."),
-#   which appends a duplicate <stdin> block to the prompt.
-# Mitigation: take the agent's final message from `-o/--output-last-message`,
-# close stdin, and run read-only so the generator cannot execute the request.
-# On failure the session log still goes to stdout so the caller's rate-limit
-# detection can sniff it.
+# Known CLI quirks (codex 0.14x–0.15x observed):
+# - `codex exec` streams its whole session log to stdout (banner, config block,
+#   hook/MCP lines, echoed prompt, token count). The agent's answer is taken
+#   from `--output-last-message` instead.
+# - It reads inherited stdin, appending a duplicate <stdin> block; stdin is
+#   closed unless the prompt itself is passed there (`codex exec -`).
+# - `--sandbox read-only` keeps the generator from executing the request;
+#   `--ephemeral` keeps generator runs out of the user's session history.
+# On failure the session log goes to stdout so the caller's limit detection
+# can sniff it.
 
 set -euo pipefail
 
-PROMPT_FILE="${1:-}"
-
-if [ -z "$PROMPT_FILE" ] || [ ! -f "$PROMPT_FILE" ]; then
-  echo "Usage: $0 <prompt-file>" >&2
-  exit 1
-fi
-
-if ! command -v codex >/dev/null 2>&1; then
-  echo "codex CLI not found. Install OpenAI Codex CLI, or set custom_command in settings." >&2
-  exit 127
-fi
-
-MODEL_ARGS=()
-if [ -n "${PROMPT_IMPROVER_MODEL:-}" ]; then
-  MODEL_ARGS=(-m "$PROMPT_IMPROVER_MODEL")
-fi
+# shellcheck source=../lib/backend-common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/backend-common.sh"
+pi_backend_init "${1:-}"
+pi_require_cli "Install OpenAI Codex CLI (npm install -g @openai/codex), or set custom_command." codex
 
 MSG_FILE=$(mktemp -t pi-codex-msg.XXXXXX)
-LOG_FILE=$(mktemp -t pi-codex-log.XXXXXX)
-ERR_FILE=$(mktemp -t pi-codex-err.XXXXXX)
-trap 'rm -f "$MSG_FILE" "$LOG_FILE" "$ERR_FILE"' EXIT
+trap 'rm -f "$PI_OUT_FILE" "$PI_ERR_FILE" "$MSG_FILE"' EXIT
 
-set +e
-codex exec \
-  "${MODEL_ARGS[@]}" \
-  --output-last-message "$MSG_FILE" \
-  --sandbox read-only \
-  --skip-git-repo-check \
-  --color never \
-  "$(cat "$PROMPT_FILE")" \
-  >"$LOG_FILE" 2>"$ERR_FILE" </dev/null
-CODE=$?
-set -e
-
-if [ -s "$ERR_FILE" ]; then
-  sed 's/^/[codex stderr] /' "$ERR_FILE" >&2 || true
+ARGS=(exec --output-last-message "$MSG_FILE" --sandbox read-only --skip-git-repo-check --ephemeral --color never)
+if [ -n "${PROMPT_IMPROVER_MODEL:-}" ]; then
+  ARGS+=(-m "$PROMPT_IMPROVER_MODEL")
 fi
 
-if [ "$CODE" -eq 0 ] && [ -s "$MSG_FILE" ]; then
+code=0
+if pi_prompt_fits_argv; then
+  pi_run_bounded "$PI_OUT_FILE" "$PI_ERR_FILE" codex "${ARGS[@]}" "$(cat "$PI_PROMPT_FILE")" || code=$?
+else
+  echo "Prompt is $(pi_prompt_size) bytes; passing via stdin." >&2
+  pi_run_bounded_stdin "$PI_OUT_FILE" "$PI_ERR_FILE" codex "${ARGS[@]}" - || code=$?
+fi
+
+if [ "$code" -eq 0 ] && [ -s "$MSG_FILE" ]; then
+  if [ -s "$PI_ERR_FILE" ]; then
+    sed 's/^/[codex stderr] /' "$PI_ERR_FILE" >&2 || true
+  fi
   cat "$MSG_FILE"
   exit 0
 fi
 
-# Failure (or empty final message): surface the session log so the caller can
-# detect rate/usage limits and cascade, and keep the exit code intact.
-sed 's/^/[codex log] /' "$LOG_FILE" >&2 || true
-if [ -s "$LOG_FILE" ]; then
-  cat "$LOG_FILE"
-fi
-
-if [ "$CODE" -eq 0 ]; then
+# Failure or empty final message: surface the session log (stdout) for limit sniffing.
+if [ "$code" -eq 0 ]; then
   echo "codex exec exited 0 but wrote no final message." >&2
-  exit 1
+  code=1
 fi
-
-exit "$CODE"
+pi_finish codex "$code"

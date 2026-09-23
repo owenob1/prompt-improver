@@ -1,79 +1,126 @@
 {
   "version": 1,
   "model_aliases": {
+    "mythos-5.1": "claude-mythos-5-1",
+    "mythos5.1": "claude-mythos-5-1",
+    "claude-mythos-5-1": "claude-mythos-5-1",
+    "mythos": "claude-mythos-5-1",
     "mythos-5": "claude-mythos-5",
     "mythos5": "claude-mythos-5",
     "claude-mythos-5": "claude-mythos-5",
     "mythos-preview": "claude-mythos-preview",
     "claude-mythos-preview": "claude-mythos-preview",
-    "mythos": "claude-mythos-preview",
+    "fable-5.1": "claude-fable-5-1",
+    "fable5.1": "claude-fable-5-1",
+    "claude-fable-5-1": "claude-fable-5-1",
     "fable-5": "claude-fable-5",
     "fable5": "claude-fable-5",
     "claude-fable-5": "claude-fable-5",
     "fable": "fable",
-    "sonnet-5": "claude-sonnet-5",
-    "claude-sonnet-5": "claude-sonnet-5",
-    "sonnet": "sonnet",
-    "haiku-4.5": "haiku",
-    "haiku4.5": "haiku",
-    "claude-haiku-4-5": "haiku",
-    "claude-haiku-4.5": "haiku",
-    "haiku": "haiku",
+    "opus-5.5": "claude-opus-5-5",
+    "opus5.5": "claude-opus-5-5",
+    "claude-opus-5-5": "claude-opus-5-5",
+    "claude-opus-5.5": "claude-opus-5-5",
     "opus-5": "claude-opus-5",
     "opus5": "claude-opus-5",
     "claude-opus-5": "claude-opus-5",
     "opus-4.8": "claude-opus-4-8",
+    "opus4.8": "claude-opus-4-8",
     "claude-opus-4-8": "claude-opus-4-8",
+    "opus-4.7": "claude-opus-4-7",
+    "opus4.7": "claude-opus-4-7",
+    "claude-opus-4-7": "claude-opus-4-7",
     "opus-4.6": "claude-opus-4-6",
+    "opus4.6": "claude-opus-4-6",
     "claude-opus-4-6": "claude-opus-4-6",
     "opus": "opus",
+    "sonnet-5": "claude-sonnet-5",
+    "sonnet5": "claude-sonnet-5",
+    "claude-sonnet-5": "claude-sonnet-5",
+    "sonnet-4.6": "claude-sonnet-4-6",
+    "sonnet4.6": "claude-sonnet-4-6",
+    "claude-sonnet-4-6": "claude-sonnet-4-6",
+    "sonnet": "sonnet",
+    "haiku-4.5": "claude-haiku-4-5",
+    "haiku4.5": "claude-haiku-4-5",
+    "claude-haiku-4-5": "claude-haiku-4-5",
+    "claude-haiku-4.5": "claude-haiku-4-5",
+    "claude-haiku-4-5-20251001": "claude-haiku-4-5-20251001",
+    "haiku": "haiku",
+    "gpt-6-sol": "gpt-6-sol",
+    "gpt6-sol": "gpt-6-sol",
+    "sol": "gpt-6-sol",
+    "gpt-6": "gpt-6-sol",
+    "gpt6": "gpt-6-sol",
+    "gpt-6-astra": "gpt-6-astra",
+    "gpt6-astra": "gpt-6-astra",
+    "astra": "gpt-6-astra",
+    "gpt-6-luna": "gpt-6-luna",
+    "gpt6-luna": "gpt-6-luna",
+    "luna": "gpt-6-luna",
     "gpt-5.6-sol": "gpt-5.6-sol",
     "gpt5.6-sol": "gpt-5.6-sol",
-    "sol": "gpt-5.6-sol",
+    "gpt-5.6": "gpt-5.6-sol",
+    "gpt5.6": "gpt-5.6-sol",
     "gpt-5.6-terra": "gpt-5.6-terra",
     "gpt5.6-terra": "gpt-5.6-terra",
     "terra": "gpt-5.6-terra",
     "gpt-5.6-luna": "gpt-5.6-luna",
     "gpt5.6-luna": "gpt-5.6-luna",
-    "luna": "gpt-5.6-luna",
-    "gpt-5.6": "gpt-5.6-sol",
-    "gpt5.6": "gpt-5.6-sol",
-    "gpt5.5": "gpt-5.5",
     "gpt-5.5": "gpt-5.5",
-    "gpt5": "gpt-5.5",
+    "gpt5.5": "gpt-5.5",
     "gpt-5": "gpt-5.5",
+    "gpt5": "gpt-5.5",
     "gpt-5.3-codex": "gpt-5.3-codex",
     "gpt5.3-codex": "gpt-5.3-codex",
     "gpt-5.2-codex": "gpt-5.2-codex",
     "gpt5.2-codex": "gpt-5.2-codex",
-    "codex": "gpt-5.6-terra",
-    "openai": "gpt-5.6-terra",
+    "codex": "gpt-6-sol",
+    "openai": "gpt-6-sol",
     "o4-mini": "o4-mini",
     "o4mini": "o4-mini",
+    "grok-4.7": "grok-4.7",
+    "grok4.7": "grok-4.7",
+    "grok": "grok-4.7",
+    "grok-4.6": "grok-4.6",
+    "grok4.6": "grok-4.6",
     "grok-4.5": "grok-4.5",
     "grok4.5": "grok-4.5",
     "grok-4.3": "grok-4.3",
     "grok4.3": "grok-4.3",
-    "composer-2.5-fast": "grok-composer-2.5-fast",
-    "composer2.5-fast": "grok-composer-2.5-fast",
-    "grok-composer-2.5-fast": "grok-composer-2.5-fast",
-    "composer-2.5": "grok-composer-2.5-fast",
-    "composer2.5": "grok-composer-2.5-fast",
-    "grok-composer-2.5": "grok-composer-2.5-fast",
-    "grok-build": "grok-build",
-    "grokbuild": "grok-build",
-    "grok-build-0.1": "grok-build",
-    "grok-code-fast-1": "grok-code-fast-1",
+    "grok-build-0.1": "grok-build-0.1",
+    "grok-build": "grok-build-0.1",
+    "grokbuild": "grok-build-0.1",
+    "grok-code-fast-1": "grok-build-0.1",
+    "grok-code-fast": "grok-build-0.1",
+    "composer-2.5-fast": "grok-build-0.1",
+    "composer2.5-fast": "grok-build-0.1",
+    "grok-composer-2.5-fast": "grok-build-0.1",
+    "composer-2.5": "grok-build-0.1",
+    "composer2.5": "grok-build-0.1",
+    "grok-composer-2.5": "grok-build-0.1",
+    "gemini-3.8-flash": "gemini-3.8-flash",
+    "gemini3.8-flash": "gemini-3.8-flash",
+    "gemini-3.7-flash": "gemini-3.7-flash",
+    "gemini3.7-flash": "gemini-3.7-flash",
+    "gemini-3.6-flash": "gemini-3.6-flash",
+    "gemini3.6-flash": "gemini-3.6-flash",
+    "gemini-3.5-flash": "gemini-3.5-flash",
+    "gemini3.5-flash": "gemini-3.5-flash",
+    "gemini-3.5-flash-lite": "gemini-3.5-flash-lite",
+    "gemini3.5-flash-lite": "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite": "gemini-3.1-flash-lite",
+    "gemini3.1-flash-lite": "gemini-3.1-flash-lite",
+    "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
+    "gemini-3.1-pro": "gemini-3.1-pro-preview",
+    "gemini3.1-pro": "gemini-3.1-pro-preview",
+    "gemini-pro": "gemini-3.1-pro-preview",
     "gemini-2.5-pro": "gemini-2.5-pro",
     "gemini2.5-pro": "gemini-2.5-pro",
     "gemini-2.5-flash": "gemini-2.5-flash",
     "gemini2.5-flash": "gemini-2.5-flash",
-    "gemini-3.5-flash": "gemini-3.5-flash",
-    "gemini3.5-flash": "gemini-3.5-flash",
-    "gemini-3.1-pro": "gemini-3.1-pro",
-    "gemini3.1-pro": "gemini-3.1-pro",
-    "gemini-pro": "gemini-2.5-pro",
-    "gemini-flash": "gemini-2.5-flash"
+    "gemini-flash": "gemini-3.8-flash",
+    "gemini": "gemini-3.8-flash"
   },
   "model_backend_patterns": [
     {
@@ -91,8 +138,7 @@
     {
       "patterns": [
         "grok*",
-        "composer*",
-        "spacex*"
+        "composer*"
       ],
       "backend": "grok"
     },
@@ -104,32 +150,31 @@
     },
     {
       "patterns": [
-        "gpt-*",
         "gpt*",
         "o1*",
         "o3*",
         "o4*",
-        "codex",
         "codex*",
         "openai",
         "chatgpt*",
         "sol",
         "terra",
-        "luna"
+        "luna",
+        "astra"
       ],
       "backend": "codex"
     }
   ],
   "model_fallback_chains": [
     {
+      "//": "Every chain starts with the requested id; the rest are same-CLI fallbacks.",
       "patterns": [
-        "*mythos*",
-        "mythos"
+        "*mythos*"
       ],
       "chain": [
+        "$primary",
+        "claude-mythos-5-1",
         "claude-mythos-5",
-        "claude-mythos-preview",
-        "claude-fable-5",
         "fable",
         "opus",
         "sonnet"
@@ -137,11 +182,10 @@
     },
     {
       "patterns": [
-        "*fable*",
-        "fable"
+        "*fable*"
       ],
       "chain": [
-        "claude-fable-5",
+        "$primary",
         "fable",
         "opus",
         "sonnet"
@@ -149,30 +193,17 @@
     },
     {
       "patterns": [
-        "claude-opus-5",
-        "opus-5",
-        "opus5"
+        "*opus*"
       ],
       "chain": [
-        "claude-opus-5",
+        "$primary",
         "opus",
         "sonnet"
       ]
     },
     {
       "patterns": [
-        "*opus*",
-        "opus"
-      ],
-      "chain": [
-        "opus",
-        "sonnet"
-      ]
-    },
-    {
-      "patterns": [
-        "*sonnet*",
-        "sonnet"
+        "*sonnet*"
       ],
       "chain": [
         "$primary",
@@ -181,8 +212,7 @@
     },
     {
       "patterns": [
-        "*haiku*",
-        "haiku"
+        "*haiku*"
       ],
       "chain": [
         "$primary",
@@ -192,91 +222,90 @@
     },
     {
       "patterns": [
-        "*sol*",
-        "gpt-5.6"
-      ],
-      "chain": [
-        "gpt-5.6-sol",
-        "gpt-5.6-terra",
-        "gpt-5.6-luna",
-        "gpt-5.5"
-      ]
-    },
-    {
-      "patterns": [
-        "*terra*"
-      ],
-      "chain": [
-        "gpt-5.6-terra",
-        "gpt-5.6-luna",
-        "gpt-5.5"
-      ]
-    },
-    {
-      "patterns": [
-        "*luna*"
-      ],
-      "chain": [
-        "gpt-5.6-luna",
-        "gpt-5.5"
-      ]
-    },
-    {
-      "patterns": [
-        "gpt-5.5",
-        "gpt-5"
-      ],
-      "chain": [
-        "gpt-5.5"
-      ]
-    },
-    {
-      "patterns": [
-        "codex",
-        "openai"
-      ],
-      "chain": [
-        "gpt-5.6-terra",
-        "gpt-5.6-luna",
-        "gpt-5.5"
-      ]
-    },
-    {
-      "//": "`grok models` lists only grok-4.5 — composer/grok-build are retired ids",
-      "patterns": [
-        "grok-4.5",
-        "grok-4*"
-      ],
-      "chain": [
-        "grok-4.5"
-      ]
-    },
-    {
-      "patterns": [
-        "*composer*"
+        "gpt-6*"
       ],
       "chain": [
         "$primary",
+        "gpt-6-sol",
+        "gpt-6-luna",
+        "gpt-5.6-terra",
+        "gpt-5.5"
+      ]
+    },
+    {
+      "patterns": [
+        "gpt-5.6*"
+      ],
+      "chain": [
+        "$primary",
+        "gpt-6-sol",
+        "gpt-5.6-terra",
+        "gpt-5.6-luna",
+        "gpt-5.5"
+      ]
+    },
+    {
+      "//": "gpt-5.5 retires from Codex on 2026-10-14; older codex ids are deprecated",
+      "patterns": [
+        "*codex*",
+        "gpt-5*",
+        "o[0-9]*"
+      ],
+      "chain": [
+        "$primary",
+        "gpt-6-sol",
+        "gpt-6-luna"
+      ]
+    },
+    {
+      "patterns": [
+        "grok-4*"
+      ],
+      "chain": [
+        "$primary",
+        "grok-4.7",
+        "grok-4.6",
         "grok-4.5"
       ]
     },
     {
       "patterns": [
-        "*gemini*pro*",
-        "gemini-2.5-pro"
+        "grok*"
       ],
       "chain": [
-        "gemini-2.5-pro",
+        "$primary",
+        "grok-4.7"
+      ]
+    },
+    {
+      "patterns": [
+        "*gemini*pro*"
+      ],
+      "chain": [
+        "$primary",
+        "gemini-3.1-pro-preview",
+        "gemini-3.8-flash",
+        "gemini-2.5-pro"
+      ]
+    },
+    {
+      "patterns": [
+        "*gemini*flash*"
+      ],
+      "chain": [
+        "$primary",
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
         "gemini-2.5-flash"
       ]
     },
     {
       "patterns": [
-        "*gemini*flash*",
-        "gemini-2.5-flash"
+        "gemini*"
       ],
       "chain": [
-        "gemini-2.5-flash"
+        "$primary",
+        "gemini-3.8-flash"
       ]
     }
   ],
@@ -285,43 +314,60 @@
     "grok",
     "gemini",
     "codex",
-    "cline",
+    "agy",
+    "copilot",
+    "cursor",
     "opencode",
+    "cline",
+    "qwen",
+    "droid",
+    "amp",
     "kimi",
     "kiro"
   ],
   "backend_commands": {
-    "grok": "grok --prompt-file \"{prompt_file}\" {model_args} --output-format plain --always-approve --no-subagents --max-turns 3",
-    "claude": "claude -p \"$(cat \"{prompt_file}\")\" --print {model_args}",
-    "gemini": "gemini -p \"$(cat \"{prompt_file}\")\" {model_args}",
-    "cline": "cline --prompt \"$(cat \"{prompt_file}\")\" --headless {model_args}",
-    "opencode": "opencode -p \"$(cat \"{prompt_file}\")\" {model_args}",
-    "kimi": "kimi \"$(cat \"{prompt_file}\")\" --headless {model_args}",
-    "kiro": "kiro -p \"$(cat \"{prompt_file}\")\" {model_args}",
-    "codex": "codex exec \"$(cat \"{prompt_file}\")\" {model_args}",
-    "openai": "codex exec \"$(cat \"{prompt_file}\")\" {model_args}"
+    "//": "Used when backend_invocation=commands (or auto with your own override). {prompt_file} {model} {model_args} {max_tokens} are substituted; {model} is shell-quoted. Scripts in scripts/backends/ add timeouts and large-prompt handling that these templates cannot.",
+    "claude": "claude -p \"$(cat \"{prompt_file}\")\" --tools \"\" --output-format text --no-session-persistence --permission-mode dontAsk {model_args} </dev/null",
+    "grok": "grok -p \"$(cat \"{prompt_file}\")\" --output-format plain --always-approve --no-subagents --no-plan --disable-web-search --max-turns 3 {model_args} </dev/null",
+    "gemini": "gemini -p \"$(cat \"{prompt_file}\")\" --output-format text --approval-mode default {model_args} </dev/null",
+    "codex": "codex exec --sandbox read-only --skip-git-repo-check --ephemeral --color never {model_args} - <\"{prompt_file}\"",
+    "agy": "agy -p \"$(cat \"{prompt_file}\")\" --output-format text {model_args} </dev/null",
+    "copilot": "copilot -p \"$(cat \"{prompt_file}\")\" -s --no-ask-user --deny-tool shell --deny-tool write {model_args} </dev/null",
+    "cursor": "cursor-agent -p \"$(cat \"{prompt_file}\")\" --mode ask --output-format text {model_args} </dev/null",
+    "opencode": "opencode run {model_args} \"$(cat \"{prompt_file}\")\" </dev/null",
+    "cline": "cline --plan -y {model_args} \"$(cat \"{prompt_file}\")\" </dev/null",
+    "qwen": "qwen -p \"$(cat \"{prompt_file}\")\" --output-format text --approval-mode default {model_args} </dev/null",
+    "droid": "droid exec -f \"{prompt_file}\" {model_args} </dev/null",
+    "amp": "amp -x <\"{prompt_file}\"",
+    "kimi": "kimi -p \"$(cat \"{prompt_file}\")\" --output-format text {model_args} </dev/null",
+    "kiro": "kiro-cli chat --no-interactive {model_args} \"$(cat \"{prompt_file}\")\" </dev/null"
   },
   "backend_model_flags": {
-    "grok": "-m {model}",
     "claude": "--model {model}",
+    "grok": "-m {model}",
     "gemini": "-m {model}",
     "codex": "-m {model}",
-    "openai": "-m {model}",
-    "cline": "",
-    "opencode": "",
-    "kimi": "",
-    "kiro": ""
+    "agy": "--model {model}",
+    "copilot": "--model {model}",
+    "cursor": "--model {model}",
+    "opencode": "-m {model}",
+    "cline": "-m {model}",
+    "qwen": "-m {model}",
+    "droid": "-m {model}",
+    "amp": "",
+    "kimi": "-m {model}",
+    "kiro": "--model {model}"
   },
   "limit_detection": {
-    "account_patterns": "weekly.?limit|monthly.?limit|hit your .*limit|you.?ve hit your|you have hit your|organization.?limit|org.?limit|account.?limit|out of (usage|credits)|usage.?limit.?reached|limit \u00b7 resets|limit \u00b7 reset",
-    "retry_patterns": "rate.?limit|usage.?limit|quota|out of (limit|usage|credits)|capacity|overloaded|529|429|403|401|not (available|found|supported|enabled)|unknown model|invalid model|model .* (denied|restricted|not accessible)|access denied|does not have access|invitation|glasswing|unavailable|try again later|too many requests|resource.?exhausted|throttl",
-    "xml_markers": "<task[[:space:]>]|<prompt[[:space:]>]|<verification[[:space:]>]"
+    "account_patterns": "weekly.?limit|monthly.?limit|session limit|spend limit|hit your .*limit|you.?ve hit your|you have hit your|you.?ve reached your|organization.?limit|org.?limit|account.?limit|individual usage limit|out of (usage|credits)|usage.?limit.?reached|credit balance is too low|exhausted your daily quota|grok build usage limit|upgrade to (plus|pro|supergrok)|limit · resets|limit · reset",
+    "retry_patterns": "rate.?limit|usage.?limit|quota|out of (limit|usage|credits)|capacity|overloaded|(^|[^0-9])(401|403|429|503|529)([^0-9]|$)|not (available|supported|enabled) (for|on|with|in)|model .*not found|unknown model|invalid model|not a (recognized|valid) model|model .* (denied|restricted|not accessible)|restricted by your organization|access denied|does not have access|not available with the|invitation|glasswing|temporarily (unavailable|limiting)|service unavailable|try again (later|at)|too many requests|resource.?exhausted|throttl|not supported when using codex",
+    "xml_markers": "^[[:space:]]*<[A-Za-z][A-Za-z0-9_-]*[[:space:]>/]"
   },
   "host_env_markers": {
     "claude": [
-      "CLAUDE_CODE",
       "CLAUDECODE",
       "CLAUDE_CODE_ENTRYPOINT",
+      "CLAUDE_CODE",
       "CLAUDE_AGENT"
     ],
     "grok": [
@@ -334,9 +380,14 @@
       "GOOGLE_GEMINI_CLI"
     ],
     "codex": [
-      "CODEX_HOME",
+      "CODEX_SANDBOX",
+      "CODEX_MANAGED_BY_NPM",
       "OPENAI_CODEX"
-    ]
+    ],
+    "qwen": [
+      "QWEN_CODE"
+    ],
+    "//": "Only variables a CLI is known to export to its child shells. Checked in supported_backends order. CODEX_HOME is deliberately absent: it is user config, not a session marker."
   },
   "parent_process_patterns": {
     "claude": [
@@ -359,6 +410,18 @@
       "codex-*",
       "*codex*"
     ],
+    "agy": [
+      "agy",
+      "antigravity*"
+    ],
+    "copilot": [
+      "copilot",
+      "copilot-*"
+    ],
+    "cursor": [
+      "cursor-agent",
+      "cursor-agent*"
+    ],
     "opencode": [
       "opencode",
       "opencode-*"
@@ -367,24 +430,42 @@
       "cline",
       "cline-*"
     ],
+    "qwen": [
+      "qwen",
+      "qwen-*"
+    ],
+    "droid": [
+      "droid",
+      "droid-*"
+    ],
+    "amp": [
+      "amp"
+    ],
     "kimi": [
       "kimi",
       "kimi-*"
     ],
     "kiro": [
       "kiro",
-      "kiro-*"
+      "kiro-*",
+      "kiro-cli*"
     ]
   },
   "cascade_scan_order": [
-    "grok",
     "claude",
+    "codex",
+    "grok",
     "gemini",
-    "cline",
+    "agy",
+    "copilot",
+    "cursor",
     "opencode",
+    "cline",
+    "qwen",
+    "droid",
+    "amp",
     "kimi",
-    "kiro",
-    "codex"
+    "kiro"
   ],
   "generation": {
     "context_mode": "deterministic",
@@ -402,7 +483,19 @@
     "output_instructions": "Output ONLY the final improved XML prompt. No explanation, no code fences, no commentary, no execution of the request.",
     "require_xml_output": true,
     "forbid_agent_codebase_search": true,
+    "backend_timeout_secs": 300,
     "grok_timeout_secs": 180,
     "grok_max_turns": 3
+  },
+  "backend_binaries": {
+    "//": "CLI executable(s) per backend, first found wins. Default: the backend name.",
+    "cursor": [
+      "cursor-agent",
+      "agent"
+    ],
+    "kiro": [
+      "kiro-cli",
+      "kiro"
+    ]
   }
 }

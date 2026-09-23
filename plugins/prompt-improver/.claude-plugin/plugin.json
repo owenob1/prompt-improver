@@ -1,7 +1,7 @@
 {
   "name": "prompt-improver",
   "description": "Turn vague agent prompts into precise, verifiable XML specs — then execute or plan. Headless multi-CLI generator. Use when the user says improve prompt, plan carefully, or structure a vague coding request.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": {
     "name": "owenob1"
   },

@@ -1,23 +1,22 @@
 #!/usr/bin/env bash
 # scripts/backends/opencode.sh
-# Adapter for OpenCode CLI.
+# opencode headless (`opencode run`). Honors PROMPT_IMPROVER_MODEL
+# (`provider/model` ids, e.g. anthropic/claude-sonnet-5).
 
 set -euo pipefail
 
-PROMPT_FILE="${1:-}"
+# shellcheck source=../lib/backend-common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/backend-common.sh"
+pi_backend_init "${1:-}"
+pi_require_cli "See https://opencode.ai/docs/cli/" opencode
 
-if [ -z "$PROMPT_FILE" ] || [ ! -f "$PROMPT_FILE" ]; then
-  echo "Usage: $0 <prompt-file>" >&2
-  exit 1
+ARGS=(run)
+if [ -n "${PROMPT_IMPROVER_MODEL:-}" ]; then
+  ARGS+=(-m "$PROMPT_IMPROVER_MODEL")
 fi
 
-if ! command -v opencode >/dev/null 2>&1; then
-  echo "opencode CLI not found. Install from https://opencode.ai" >&2
-  exit 127
-fi
+pi_prompt_fits_argv || pi_too_large_for opencode
 
-if opencode -p "$(cat "$PROMPT_FILE")" 2>/dev/null; then
-  exit 0
-fi
-
-exec opencode "$(cat "$PROMPT_FILE")" --non-interactive
+code=0
+pi_run_bounded "$PI_OUT_FILE" "$PI_ERR_FILE" opencode "${ARGS[@]}" "$(cat "$PI_PROMPT_FILE")" || code=$?
+pi_finish opencode "$code"

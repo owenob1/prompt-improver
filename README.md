@@ -34,7 +34,7 @@
 | **Headless generation** | Improves prompts in a separate model call — not by grinding the host agent session |
 | **Improvement-only** | Generator never implements your feature; it only rewrites the request |
 | **Execute or plan** | Run immediately, or review the XML first |
-| **Any model override** | `model:fable-5`, `model:sonnet`, `model:gpt-5.5`, … — routes to the right CLI when installed |
+| **Any model override** | `model:fable`, `model:sonnet`, `model:gpt-6-sol`, … — routes to the right CLI when installed |
 | **Cross-host / cross-CLI** | Claude host + GPT generator, Grok host + Claude generator — OK if that CLI is on PATH |
 | **Portable skill** | [Agent Skills](https://agentskills.io/) format · [skills.sh](https://skills.sh) · Claude marketplace |
 
@@ -106,12 +106,13 @@ git clone https://github.com/owenob1/prompt-improver.git && cp -R prompt-improve
 
 | Backend CLI | Default model | Notes |
 |-------------|---------------|--------|
-| `claude` | `sonnet` → Sonnet 5 | Daily-driver structured rewrite |
-| `grok` | `grok-composer-2.5-fast` | Fast high-quality improver |
-| `gemini` | `gemini-2.5-pro` | Pro reasoning for specs |
-| `codex` | `gpt-5.5` | GPT-5 family Codex default |
+| `claude` | `opus` → Opus 5.5 | Alias tracks the newest Opus; `model:sonnet` for cheaper runs |
+| `codex` | `gpt-6-sol` | GPT-6 Sol |
+| `grok` | `grok-4.7` | Grok 4.7 |
+| `gemini` | `gemini-3.8-flash` | Paid API keys / Code Assist; personal accounts use `agy` |
+| `agy`, `copilot`, `cursor`, `opencode`, `cline`, `qwen`, `droid`, `amp`, `kimi`, `kiro` | CLI default | Pin with `default_models.<cli>` |
 
-**Default pick:** host CLI + that CLI’s default (Claude→`sonnet`, Grok→`composer`, …) — not first-on-PATH.  
+**Default pick:** host CLI + that CLI’s default (Claude→`opus`, Codex→`gpt-6-sol`, Grok→`grok-4.7`, …) — not first-on-PATH.  
 **Override:** `model:` → env/settings.model → routes by model family when that CLI is installed.
 
 <details>
@@ -119,16 +120,16 @@ git clone https://github.com/owenob1/prompt-improver.git && cp -R prompt-improve
 
 <br>
 
-Pass full IDs or short aliases. **Unknown future IDs pass through** (e.g. `gpt-5.6-sol-ultra`, `grok-4.6`) and still route by family prefix.
+Pass full IDs or short aliases. **Unknown future IDs pass through** (e.g. `gpt-6-sol-pro`, `grok-4.8`) and still route by family prefix.
 
 | Family | Examples (`model:…`) | Generator CLI |
 |--------|----------------------|---------------|
-| Claude | `fable-5`, `fable`, `opus`, `sonnet`, `haiku`, `claude-*` | `claude` |
-| Grok | `grok-4.5`, `grok-4.3`, `grok-composer-2.5-fast`, `grok-build`, `composer-*` | `grok` |
-| Gemini | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-3.1-pro`, `gemini-*` | `gemini` |
-| OpenAI / Codex | `codex`, `openai`, `gpt-5.5`, `gpt-5`, `gpt-5.6-sol`, `sol`, `terra`, `luna`, `gpt-5.3-codex`, `o4-mini`, `gpt-*` | `codex` |
+| Claude | `fable`, `fable-5.1`, `opus`, `opus-5.5`, `sonnet`, `haiku`, `mythos`, `claude-*` | `claude` |
+| Grok | `grok`, `grok-4.7`, `grok-4.6`, `grok-4.5`, `grok-build`, `grok-*` | `grok` |
+| Gemini | `gemini`, `gemini-3.8-flash`, `gemini-pro` (3.1 Pro preview), `gemini-2.5-pro`, `gemini-*` | `gemini` |
+| OpenAI / Codex | `codex`, `openai`, `gpt-6`, `gpt-6-sol`, `astra`, `luna`, `gpt-5.6-terra`, `gpt-5.5`, `o4-mini`, `gpt-*` | `codex` |
 
-**Cross-host is fine:** Claude Code + `model:gpt-5.6-sol` uses **codex** if installed; Grok + `model:sonnet` / `model:fable-5` uses **claude** if installed.
+**Cross-host is fine:** Claude Code + `model:gpt-6-sol` uses **codex** if installed; Grok + `model:sonnet` / `model:fable` uses **claude** if installed.
 
 </details>
 
@@ -145,10 +146,12 @@ If a model is unavailable, restricted, or out of usage, headless generation:
 
 | CLI | Fallback |
 |-----|----------|
-| Claude | fable → opus → sonnet |
-| Codex | sol → terra → luna → gpt-5.5 |
-| Grok | grok-4.5 → composer-2.5-fast → grok-build |
-| Gemini | gemini-2.5-pro → gemini-2.5-flash |
+| Claude | requested → fable → opus → sonnet |
+| Codex | requested → gpt-6-sol → gpt-6-luna → gpt-5.6-terra → gpt-5.5 |
+| Grok | requested → grok-4.7 → grok-4.6 → grok-4.5 |
+| Gemini | requested → gemini-3.1-pro-preview → gemini-3.8-flash → gemini-2.5-pro |
+
+Limit messages are read from stdout **and** stderr; each CLI attempt is bounded by `generation.backend_timeout_secs` (default 300s).
 
 </details>
 
@@ -208,7 +211,7 @@ cp skills/prompt-improver/config/settings.example.json \
 |-----------|---------|
 | `model` / `PROMPT_IMPROVER_MODEL` | Force one generator model |
 | `default_models` | Per-backend defaults |
-| `backend` / `PROMPT_IMPROVER_BACKEND` | `auto` (host-matched), `claude`, `grok`, `opencode`, … |
+| `backend` / `PROMPT_IMPROVER_BACKEND` | `auto` (host-matched), `claude`, `codex`, `grok`, `gemini`, `agy`, `copilot`, `cursor`, `opencode`, `cline`, `qwen`, `droid`, `amp`, `kimi`, `kiro` |
 | `custom_command` / `PROMPT_IMPROVER_CUSTOM_COMMAND` | Any CLI: prompt on stdin → improved text on stdout |
 | `model_aliases` | Extend/override short names → model IDs |
 | `model_fallback_chains` | Custom rate-limit cascades |
@@ -239,6 +242,8 @@ tests/                    # smoke tests
 <br>
 
 Scripts under `skills/prompt-improver/scripts/` run shell and may invoke coding CLIs. Review before install.
+
+Generator CLIs run with tools disabled or read-only wherever the CLI allows it (claude `--tools ""`, codex `--sandbox read-only`, cursor `--mode ask`, copilot with shell/write denied, cline `--plan`, gemini/qwen without auto-approval). `kimi -p` auto-approves tools, so kimi is never used as an automatic fallback. Model ids are restricted to plain id characters before they reach a command line.
 
 </details>
 

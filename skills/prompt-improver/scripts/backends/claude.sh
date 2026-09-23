@@ -1,37 +1,31 @@
 #!/usr/bin/env bash
 # scripts/backends/claude.sh
-# Invokes Claude Code headless for prompt generation.
-# Honors PROMPT_IMPROVER_MODEL when set (generator model — prefer cheap/fast).
+# Claude Code headless (`claude -p`). Honors PROMPT_IMPROVER_MODEL.
+#
+# The generator must never do the user's work, so every built-in tool is
+# disabled (`--tools ""`) and anything else is denied (`--permission-mode
+# dontAsk`). `--bare` is deliberately not used: it ignores OAuth/keychain
+# auth, which would break subscription users.
+# `--tools` is variadic — keep it directly before another flag, never before
+# the positional prompt.
 
 set -euo pipefail
 
-PROMPT_FILE="${1:-}"
+# shellcheck source=../lib/backend-common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/backend-common.sh"
+pi_backend_init "${1:-}"
+pi_require_cli "Install: npm install -g @anthropic-ai/claude-code" claude
 
-if [ -z "$PROMPT_FILE" ] || [ ! -f "$PROMPT_FILE" ]; then
-  echo "Usage: $0 <prompt-file>" >&2
-  exit 1
-fi
-
-if ! command -v claude >/dev/null 2>&1; then
-  echo "claude CLI not found on PATH" >&2
-  exit 127
-fi
-
-MODEL_ARGS=()
+ARGS=(--tools "" --output-format text --no-session-persistence --permission-mode dontAsk)
 if [ -n "${PROMPT_IMPROVER_MODEL:-}" ]; then
-  MODEL_ARGS=(--model "$PROMPT_IMPROVER_MODEL")
+  ARGS+=(--model "$PROMPT_IMPROVER_MODEL")
 fi
 
-# Assembled prompts embed every reference file and can grow past ARG_MAX. Above the
-# limit, pass the prompt on stdin (`claude --print` reads it there) instead of argv,
-# which would otherwise fail with an opaque E2BIG.
-ARG_MAX=$(getconf ARG_MAX 2>/dev/null || echo 262144)
-SIZE_LIMIT=$(( ARG_MAX / 2 ))
-FILE_SIZE=$(wc -c <"$PROMPT_FILE" | tr -d ' ')
-
-if [ "$FILE_SIZE" -lt "$SIZE_LIMIT" ]; then
-  exec claude -p "$(cat "$PROMPT_FILE")" --print "${MODEL_ARGS[@]}"
+code=0
+if pi_prompt_fits_argv; then
+  pi_run_bounded "$PI_OUT_FILE" "$PI_ERR_FILE" claude -p "$(cat "$PI_PROMPT_FILE")" "${ARGS[@]}" || code=$?
+else
+  echo "Prompt is $(pi_prompt_size) bytes; passing via stdin." >&2
+  pi_run_bounded_stdin "$PI_OUT_FILE" "$PI_ERR_FILE" claude -p "${ARGS[@]}" || code=$?
 fi
-
-echo "Prompt is ${FILE_SIZE} bytes (limit ${SIZE_LIMIT}); passing via stdin." >&2
-exec claude --print "${MODEL_ARGS[@]}" <"$PROMPT_FILE"
+pi_finish claude "$code"

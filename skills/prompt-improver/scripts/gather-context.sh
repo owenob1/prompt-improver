@@ -10,6 +10,22 @@ set -euo pipefail
 ROOT="${1:-.}"
 cd "$ROOT"
 
+# Bound external tools so a slow package manager can't stall prompt generation.
+_bounded() {
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 15 "$@"
+  elif command -v gtimeout >/dev/null 2>&1; then
+    gtimeout 15 "$@"
+  else
+    "$@"
+  fi
+}
+
+# python3 that actually runs (macOS ships a /usr/bin/python3 stub without CLT).
+_have_python() {
+  command -v python3 >/dev/null 2>&1 && python3 -c 'pass' >/dev/null 2>&1
+}
+
 echo "=== PROJECT CONTEXT (deterministic) ==="
 
 # Tech stack detection
@@ -32,9 +48,9 @@ else
 fi
 
 # List workspaces if monorepo
-if [ -f "pnpm-workspace.yaml" ] && command -v pnpm &>/dev/null; then
+if [ -f "pnpm-workspace.yaml" ] && command -v pnpm &>/dev/null && _have_python; then
   echo "Workspaces:"
-  pnpm ls --depth -1 --json 2>/dev/null | python3 -c "
+  _bounded pnpm ls --depth -1 --json 2>/dev/null | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
@@ -42,7 +58,7 @@ try:
         print(f'  - {pkg.get(\"name\", \"unknown\")}')
 except: pass
 " 2>/dev/null || echo "  (could not list workspaces)"
-elif [ -f "package.json" ]; then
+elif [ -f "package.json" ] && _have_python; then
   # Check for yarn/npm workspaces in package.json
   python3 -c "
 import sys, json
@@ -56,7 +72,7 @@ try:
         for w in workspaces:
             print(f'  - {w}')
 except: pass
-" 2>/dev/null
+" 2>/dev/null || true
 fi
 
 if [ -f "package.json" ]; then
@@ -69,7 +85,7 @@ if [ -f "package.json" ]; then
       select(.key | test("^(next|react|vue|svelte|angular|astro|express|fastify|hono|remix|nuxt|typescript|tailwindcss|prisma|drizzle-orm|supabase|vitest|jest|playwright|cypress)$")) |
       "  \(.key): \(.value)"
     ' package.json 2>/dev/null || echo "  (could not parse with jq)"
-  elif command -v python3 &>/dev/null; then
+  elif _have_python; then
     cat package.json | python3 -c "
 import sys, json
 try:
@@ -146,14 +162,18 @@ fi
 echo ""
 echo "--- AGENT INSTRUCTIONS ---"
 FOUND_AGENT_MD=false
+# Parent-level files are read only from the enclosing git repo root, never
+# from arbitrary directories above the project.
+GIT_TOP=$(git rev-parse --show-toplevel 2>/dev/null || true)
+[ "$GIT_TOP" = "$(pwd -P)" ] && GIT_TOP=""
 for f in CLAUDE.md AGENTS.md .cursorrules; do
   if [ -f "$f" ]; then
     echo "Found: $f"
     head -40 "$f"
     FOUND_AGENT_MD=true
-  elif [ -f "../$f" ]; then
-    echo "Found: ../$f"
-    head -40 "../$f"
+  elif [ -n "$GIT_TOP" ] && [ -f "$GIT_TOP/$f" ]; then
+    echo "Found: (repo root) $f"
+    head -40 "$GIT_TOP/$f"
     FOUND_AGENT_MD=true
   fi
 done
@@ -205,7 +225,13 @@ echo ""
 echo "--- STRUCTURE (top-level only) ---"
 if [ -d . ]; then
   # shellcheck disable=SC2012
-  ls -1A 2>/dev/null | head -60 | while IFS= read -r name; do
+  # Capture first, then walk: `ls | head` SIGPIPEs ls in big dirs under pipefail.
+  _names=$(ls -1A 2>/dev/null || true)
+  _shown=0
+  while IFS= read -r name; do
+    [ -z "$name" ] && continue
+    [ "$_shown" -ge 60 ] && break
+    _shown=$((_shown + 1))
     case "$name" in
       .|..|node_modules|.git|dist|build|.next|__pycache__|.venv|target) continue ;;
     esac
@@ -214,7 +240,7 @@ if [ -d . ]; then
     else
       echo "  file $name"
     fi
-  done
+  done <<<"$_names"
 fi
 
 # Recent git activity (deterministic metadata only)
@@ -224,7 +250,11 @@ if git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
   git log --oneline -5 2>/dev/null || echo "(no git history)"
   echo ""
   echo "Recently modified files (git):"
-  git diff --name-only HEAD~5 HEAD 2>/dev/null | head -15 || echo "(insufficient history)"
+  if _changed=$(git diff --name-only HEAD~5 HEAD 2>/dev/null); then
+    sed -n '1,15p' <<<"$_changed"
+  else
+    echo "(insufficient history)"
+  fi
 else
   echo "(not a git repository)"
 fi
@@ -290,10 +320,10 @@ if [ "$TEST_CMD_FOUND" = false ] && [ -f "package.json" ]; then
   TEST_SCRIPT=""
   if command -v jq &>/dev/null; then
     TEST_SCRIPT=$(jq -r '.scripts.test // ""' package.json 2>/dev/null)
-  elif command -v python3 &>/dev/null; then
-    TEST_SCRIPT=$(python3 -c "import json; pkg=json.load(open('package.json')); print(pkg.get('scripts',{}).get('test',''))" 2>/dev/null)
+  elif _have_python; then
+    TEST_SCRIPT=$(python3 -c "import json; pkg=json.load(open('package.json')); print(pkg.get('scripts',{}).get('test',''))" 2>/dev/null || true)
   fi
-  if [ -n "$TEST_SCRIPT" ] && ! echo "$TEST_SCRIPT" | grep -q 'echo.*Error'; then
+  if [ -n "$TEST_SCRIPT" ] && ! grep -q 'echo.*Error' <<<"$TEST_SCRIPT"; then
     echo "$TEST_SCRIPT"
     TEST_CMD_FOUND=true
   fi
@@ -310,8 +340,8 @@ if [ -f "package.json" ]; then
   BUILD_SCRIPT=""
   if command -v jq &>/dev/null; then
     BUILD_SCRIPT=$(jq -r '.scripts.build // ""' package.json 2>/dev/null)
-  elif command -v python3 &>/dev/null; then
-    BUILD_SCRIPT=$(python3 -c "import json; pkg=json.load(open('package.json')); print(pkg.get('scripts',{}).get('build',''))" 2>/dev/null)
+  elif _have_python; then
+    BUILD_SCRIPT=$(python3 -c "import json; pkg=json.load(open('package.json')); print(pkg.get('scripts',{}).get('build',''))" 2>/dev/null || true)
   fi
   if [ -n "$BUILD_SCRIPT" ]; then
     echo "$BUILD_SCRIPT"
