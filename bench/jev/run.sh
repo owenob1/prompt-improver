@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # bench/jev/run.sh — run the corpus through generate-prompt.sh in each fast-path mode.
 #
-#   BENCH_MODES="off route compose auto"   modes to run (off = the 1.1.0 LLM baseline)
+#   BENCH_MODES="off auto"                 modes to run (off = the 1.1.0 LLM baseline; auto | ground = v2)
 #   BENCH_CWD=<repo>                       project the requests are about (default: this repo)
 #   BENCH_IDS="r01 r05"                    run a subset
 #   BENCH_OUT=<dir>                        results directory (default: bench/jev/results)
@@ -17,7 +17,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 GEN="$REPO/skills/prompt-improver/scripts/generate-prompt.sh"
 VALIDATE="$REPO/skills/prompt-improver/scripts/validate-prompt.sh"
-MODES="${BENCH_MODES:-off route compose auto}"
+MODES="${BENCH_MODES:-off auto}"
 CWD="${BENCH_CWD:-$REPO}"
 OUT="${BENCH_OUT:-$HERE/results}"
 mkdir -p "$OUT"
@@ -49,12 +49,16 @@ while IFS= read -r line; do
       >"$xml" 2>"$err" </dev/null || rc=$?
     ms=$(( $(_now_ms) - t0 ))
 
+    # v2 tiers: A compiled (no LLM) · B compiled + LLM gap-fill · C grounded LLM.
     path="llm"
-    grep -q '^fast-path: compose (' "$err" && path="compose"
+    grep -q '^fast-path: tier A' "$err" && path="A"
+    grep -q '^fast-path: tier B merged' "$err" && path="B"
+    grep -q '^fast-path: tier B output was incomplete' "$err" && path="B-fallback"
+    grep -q '^fast-path: tier C' "$err" && path="C"
     grep -q '^fast-path: passthrough' "$err" && path="passthrough"
     [ "$rc" -eq 3 ] && path="bounce"
-    tier=$(sed -n 's/^fast-path: route (tier \([a-z]*\).*/\1/p' "$err" | tail -n 1)
-    jev_ms=$(sed -n 's/^fast-path: jev decide \([0-9]*\)ms.*/\1/p' "$err" | tail -n 1)
+    tier=$(sed -n 's/^Using backend: .*(model: \(.*\))$/\1/p' "$err" | tail -n 1)
+    jev_ms=$(sed -n 's/^fast-path: tier [ABC].*(\([0-9]*\)ms.*/\1/p; s/^fast-path: tier A: .* in \([0-9]*\)ms.*/\1/p' "$err" | tail -n 1)
     model=$(sed -n 's/^Trying backend: [a-z]* (model: \(.*\))$/\1/p' "$err" | tail -n 1)
     valid=false
     warnings=0
@@ -64,10 +68,10 @@ while IFS= read -r line; do
       warnings=$(grep -c '^WARN' <<<"$vout" || true)
     fi
     jq -cn --arg id "$id" --arg kind "$kind" --arg mode "$mode" --argjson rc "$rc" --argjson ms "$ms" \
-      --arg path "$path" --arg tier "$tier" --arg jev_ms "$jev_ms" --arg model "$model" \
+      --arg path "$path" --arg tier "$tier" --arg fast_ms "$jev_ms" --arg model "$model" \
       --argjson valid "$valid" --argjson warnings "${warnings:-0}" \
       '{id:$id, kind:$kind, mode:$mode, rc:$rc, ms:$ms, path:$path, tier:$tier,
-        jev_ms:($jev_ms|tonumber? // null), model:$model, valid:$valid, warnings:$warnings}' \
+        fast_ms:($fast_ms|tonumber? // null), model:$model, valid:$valid, warnings:$warnings}' \
       >>"$OUT/runs.jsonl"
     echo "$id $mode rc=$rc ${ms}ms path=$path${tier:+ tier=$tier}${model:+ model=$model}" >&2
   done

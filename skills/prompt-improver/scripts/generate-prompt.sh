@@ -211,27 +211,6 @@ TMP_OUT=$(mktemp -t pi-be-out.XXXXXX)
 TMP_ERR=$(mktemp -t pi-be-err.XXXXXX)
 printf '%s\n' "$RAW_INPUT" >"$TMP_RAW"
 
-# Deterministic context: shell gather-context only (no headless AI search/grep/glob).
-CONTEXT_MODE="${CONTEXT_MODE:-deterministic}"
-if [ "$CONTEXT_MODE" = "off" ] || [ "$CONTEXT_MODE" = "none" ]; then
-  echo "Context gathering disabled (generation.context_mode=off)." >&2
-  unset PROMPT_IMPROVER_PROJECT_CONTEXT_FILE || true
-else
-  if [ "$CONTEXT_MODE" != "deterministic" ] && [ "$CONTEXT_MODE" != "on" ]; then
-    echo "WARNING: generation.context_mode=$CONTEXT_MODE — still pre-gathering; agent search remains forbidden by default." >&2
-  fi
-  TMP_CTX=$(mktemp -t prompt-improver-ctx.XXXXXX)
-  _ctx_rc=0
-  bash "$SCRIPT_DIR/gather-context.sh" "$CWD" >"$TMP_CTX" 2>/dev/null </dev/null || _ctx_rc=$?
-  if [ "$_ctx_rc" -ne 0 ] || [ ! -s "$TMP_CTX" ]; then
-    echo "WARNING: deterministic gather-context produced little/no output (rc=$_ctx_rc)." >&2
-    [ -s "$TMP_CTX" ] || echo "(no project context gathered)" >"$TMP_CTX"
-  else
-    echo "Gathered deterministic project context ($(wc -c <"$TMP_CTX" | tr -d ' ') bytes)." >&2
-  fi
-  export PROMPT_IMPROVER_PROJECT_CONTEXT_FILE="$TMP_CTX"
-fi
-
 GENERATED=""
 _generation_ok=false
 TRIED_ATTEMPTS=""
@@ -261,6 +240,30 @@ if [ "${FAST_PATH_MODE:-off}" != "off" ] && [ -z "$CUSTOM_COMMAND" ]; then
         FAST_GROUNDING) [ -f "$_hv" ] && FAST_GROUNDING="$_hv" ;;
       esac
     done <"$TMP_HINTS"
+  fi
+fi
+
+# Deterministic context (shell gather-context only; no headless AI search/grep/glob).
+# Skipped when the fast path already served the request.
+if [ "$_generation_ok" != true ]; then
+  CONTEXT_MODE="${CONTEXT_MODE:-deterministic}"
+  if [ "$CONTEXT_MODE" = "off" ] || [ "$CONTEXT_MODE" = "none" ]; then
+    echo "Context gathering disabled (generation.context_mode=off)." >&2
+    unset PROMPT_IMPROVER_PROJECT_CONTEXT_FILE || true
+  else
+    if [ "$CONTEXT_MODE" != "deterministic" ] && [ "$CONTEXT_MODE" != "on" ]; then
+      echo "WARNING: generation.context_mode=$CONTEXT_MODE — still pre-gathering; agent search remains forbidden by default." >&2
+    fi
+    TMP_CTX=$(mktemp -t prompt-improver-ctx.XXXXXX)
+    _ctx_rc=0
+    bash "$SCRIPT_DIR/gather-context.sh" "$CWD" >"$TMP_CTX" 2>/dev/null </dev/null || _ctx_rc=$?
+    if [ "$_ctx_rc" -ne 0 ] || [ ! -s "$TMP_CTX" ]; then
+      echo "WARNING: deterministic gather-context produced little/no output (rc=$_ctx_rc)." >&2
+      [ -s "$TMP_CTX" ] || echo "(no project context gathered)" >"$TMP_CTX"
+    else
+      echo "Gathered deterministic project context ($(wc -c <"$TMP_CTX" | tr -d ' ') bytes)." >&2
+    fi
+    export PROMPT_IMPROVER_PROJECT_CONTEXT_FILE="$TMP_CTX"
   fi
 fi
 

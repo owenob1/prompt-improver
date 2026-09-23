@@ -39,10 +39,14 @@ Host agent session (Claude Code / Grok / …)
        ├─ assemble-generation-prompt.sh  references + context + raw request → one prompt file
        ├─ backends/<cli>.sh              headless invoke of the generator CLI
        ├─ validate-prompt.sh             structural checks on the XML
-       └─ fast-path.sh (EXPERIMENTAL, fast_path.mode ≠ off; runs before assembly)
-            ├─ jev-decide.sh             one Jev /systemone call: typed decisions, no text
-            ├─ fast-compose.sh           assets/fast-templates/<archetype>.xml → XML, no LLM
-            └─ exit 0 = served · exit 3 = route hints (model tier, reference pruning) for the LLM path
+       └─ fast-path.sh (EXPERIMENTAL, fast_path.mode ≠ off; runs before context and assembly)
+            └─ compile/pipeline.sh       Jev v2: library cells compiled with Jev decisions
+                 ├─ candidates.sh        L0: request entities/spans, git ls-files cards, rule sentences, commands (cached)
+                 ├─ target.sh            the target file's usage, options and callers (read, never run)
+                 ├─ l1.jq ∥ prior.jq ∥ l1b.jq   concurrent /systemone calls; answers cached by request hash
+                 ├─ understand.jq + compile.jq   guarded items → XML + trace + gaps
+                 └─ tier A: exit 0, compiled spec · tier B: gapfill.sh (LLM writes only the gaps)
+                    · tier C: grounding block added to the full generation prompt
   └─ host executes the XML (execute mode) or shows it (plan mode)
 ```
 
@@ -93,7 +97,7 @@ Four merge layers, later wins: `config/runtime-defaults.json` → `config/settin
 
 **Backend scripts share `lib/backend-common.sh`.** It owns the per-attempt timeout (`timeout` → `gtimeout` → pure-bash watchdog), the 120 KB argv cap (Linux `MAX_ARG_STRLEN` is 128 KiB per argument, regardless of `ARG_MAX`) with stdin/file fallbacks, closed stdin, and exit-code mapping. Generators must stay read-only: every script disables tools or avoids auto-approval where the CLI allows it.
 
-**The Jev fast path must fail open and stay opt-in.** Any Jev error, timeout or low-confidence answer means "not served", and the unchanged LLM path runs. `fast_path.mode` ships `off` because the request leaves the machine (redacted by `pi_jev_redact`). Jev cannot generate text, so questions stay typed (`noul`/`choice`/`score`) and positively phrased, since Jev handles negation poorly. Archetype options in `assets/fast-templates/questions.json` must each have a fragment file, and smoke group `[25]` checks that every template validates. Investigation and benchmark: `docs/investigations/jev-fast-path.md`, `bench/jev/`.
+**The Jev fast path must fail open and stay opt-in.** Any Jev error or timeout means "not served", and the unchanged LLM path runs. `fast_path.mode` ships `off` because the request and repo facts leave the machine (redacted by `pi_jev_redact`). Jev cannot generate text, so questions stay typed (`noul`/`choice`/`score`) and positively phrased, since Jev handles negation poorly. Put each candidate in its own question (the state stays the request, plus the target for L1b); rows packed into the state lose accuracy. Library cells live in `assets/library/*.json` (schema in `SCHEMA.md`; files starting with `_` are engine data): slots only take verbatim candidates, and every judgement-dependent item needs a guard, so an item that does not fit a request is dropped rather than emitted. Unreviewed cells (`provenance.reviewed_by: null`) are served only with `fast_path.allow_unreviewed`. The repo index in `compile/candidates.sh` (`git ls-files`, `git grep -F`) is allowed on the fast path only; `gather-context.sh` stays fixed-path. Smoke group `[25]` drives every tier against a stub `/systemone` keyed by question id. Investigation and benchmark: `docs/investigations/jev-v2-architecture.md`, `bench/jev/`.
 
 **Layout is enforced.** Installable content lives only under `skills/prompt-improver/`. `plugins/prompt-improver/skills/prompt-improver` is a symlink back to it, and `tests/smoke-test.sh` group `[1]` checks that the symlink resolves to a real `SKILL.md`. Never duplicate skill files at the repo root.
 

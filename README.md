@@ -218,7 +218,7 @@ cp skills/prompt-improver/config/settings.example.json \
 | `backend_commands` | Custom CLI invoke templates |
 | `generation` | Materials paths, output contract, **deterministic context** (no AI grep/glob) |
 
-**Experimental — Jev fast path** (`fast_path.mode`, default `off`): with a `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`, [Jev](https://docs.typesafe.ai) classifies the request in ~0.1–0.5 s. Simple requests are composed from templates with no LLM call; the rest get a cheaper model tier. It is opt-in because it sends the redacted request to a third party. See [docs/investigations/jev-fast-path.md](./docs/investigations/jev-fast-path.md).
+**Experimental: Jev fast path** (`fast_path.mode`, default `off`). With a `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`, [Jev](https://docs.typesafe.ai) decides which reviewed library recipe fits the request, fills it from the request and the repository, and checks every line's applicability. A fitting request gets its spec in about a second with no LLM call. Code-specific gaps go to a fast model, and everything else gets the normal generator plus the repository facts Jev selected. It is opt-in because it sends the redacted request and repository facts to a third party. See [docs/investigations/jev-v2-architecture.md](./docs/investigations/jev-v2-architecture.md).
 
 Runtime tables (aliases, cascades, host detection, generation materials, …) ship in `config/runtime-defaults.json` and are fully overridable. Full guide: [docs/CUSTOM-BACKENDS.md](./docs/CUSTOM-BACKENDS.md).
 

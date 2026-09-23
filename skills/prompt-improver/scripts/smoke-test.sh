@@ -718,6 +718,7 @@ case "$mode" in
   limit_stdout0) echo "You've hit your weekly limit · resets Jul 11" ;;
   fail) echo "boom" >&2; exit 9 ;;
   hang) cat "$STUB_FIXTURE" >/dev/null; sleep 30 ;;
+  gap) printf '<gap name="approach">\n- stub gap bullet naming run_headless_once\n- <task id="9"> must be dropped\n</gap>\n' | emit ;;
 esac
 EOF
 chmod +x "$STUB/bin/_stub"
@@ -973,10 +974,10 @@ fi
 rm -rf "$_iso"
 
 echo ""
-echo "[25] EXPERIMENTAL Jev fast path (stub /systemone API)"
-# A `curl` stub that answers like POST /v1/systemone. STUB_JEV_MODE:
-#   ok | complex | lowconf | ready | judge_fail | http401 | malformed | timeout
-cat >"$STUB/bin/curl" <<'EOF'
+echo "[25] EXPERIMENTAL Jev v2 fast path (stub /systemone API)"
+# A `curl` stub that answers like POST /v1/systemone, keyed by question id.
+# STUB_JEV_MODE: ok | attempts | escalate | complex | nocell | ready | http401 | malformed | timeout
+cat >"$STUB/bin/curl" <<'CURLSTUB'
 #!/usr/bin/env bash
 log="$STUB_LOG"
 printf '%s\n' "$@" >>"$log/curl.argv"
@@ -989,52 +990,63 @@ for a in "$@"; do
   esac
   prev="$a"
 done
-n=$(ls "$log"/jev.req.* 2>/dev/null | wc -l | tr -d ' ')
-cp "$data" "$log/jev.req.$n"
+# The engine makes its calls concurrently: one log file per stub process.
+cp "$data" "$log/jev.req.$$"
 mode="${STUB_JEV_MODE:-ok}"
-judge=$(jq -r 'if .questions.faithful then "yes" else "no" end' "$data")
-body() { printf '%s' "$1" >"$out"; }
 case "$mode" in
-  http401) body '{"detail":{"error_type":"authentication_error"}}'; printf 401; exit 0 ;;
-  malformed) body '<html>oops</html>'; printf 200; exit 0 ;;
+  http401) printf '%s' '{"detail":{"error_type":"authentication_error"}}' >"$out"; printf 401; exit 0 ;;
+  malformed) printf '%s' '<html>oops</html>' >"$out"; printf 200; exit 0 ;;
   timeout) sleep "${maxt:-1}"; printf 000; exit 28 ;;
 esac
-if [ "$judge" = yes ]; then
-  f=0.93; [ "$mode" = judge_fail ] && f=0.2
-  body '{"model":"jev-1.13.0","answers":{"faithful":{"type":"noul","noul":'"$f"'},"fit":{"type":"score","score":1.9,"confidence":0.8}},"usage":{"input_tokens":900,"output_tokens":20}}'
-  printf 200; exit 0
-fi
-tri=rough; tc=0.9; ac=0.88; cx=0.4; rk=0.1; mt=0.05; cl=1.8
-case "$mode" in
-  complex) cx=2.6; mt=0.85; rk=1.2 ;;
-  lowconf) ac=0.3 ;;
-  ready) tri=ready; tc=0.95 ;;
-esac
-body '{"model":"jev-1.13.0","answers":{
- "triage":{"type":"choice","choice":"'"$tri"'","confidence":'"$tc"'},
- "archetype":{"type":"choice","choice":"bugfix","confidence":'"$ac"'},
- "complexity":{"type":"score","score":'"$cx"',"confidence":0.7},
- "risk":{"type":"score","score":'"$rk"',"confidence":0.7},
- "multi_task":{"type":"noul","noul":'"$mt"'},
- "clarity":{"type":"score","score":'"$cl"',"confidence":0.8},
- "needs_research":{"type":"noul","noul":0.1},
- "ui":{"type":"noul","noul":0.1},
- "autonomous":{"type":"noul","noul":0.0}},
- "usage":{"input_tokens":1200,"output_tokens":40}}'
+jq --arg mode "$mode" '
+  def nv($k; $i):
+    if $k | startswith("fit_") then 0.95
+    elif $k | test("^g_[0-9]+_g_library$") then 0.05
+    elif $k | test("^g_[0-9]+_g_required_args$") then (if $mode == "attempts" then 0.9 else 0.1 end)
+    elif $k | test("^g_[0-9]+_g_stdin$") then 0.05
+    elif $k | test("^g_[0-9]+_g_sites$") then (if $mode == "attempts" then 0.1 else 0.8 end)
+    elif $k | test("^g_[0-9]+_g_attempts$") then (if $mode == "attempts" then 0.9 else 0.3 end)
+    elif $k | test("^g_[0-9]+_g_lookup$") then 0.8
+    elif $k | test("^g_[0-9]+_g_positional$") then (if $mode == "attempts" then 0.1 else 0.9 end)
+    elif $k | test("^g_[0-9]+_g_internal$") then (if $mode == "escalate" then 0.9 else 0.2 end)
+    elif $k | startswith("g_") then 0.1
+    elif $k | startswith("file_") then (if $i | test("gather-context\\.sh —") then 0.9 else 0.1 end)
+    elif ($k | startswith("rule_")) or ($k | startswith("trule_")) then (if $i | test("Bash 3\\.2") then 0.85 else 0.3 end)
+    elif $k | startswith("prior_") then 0.4
+    elif $k == "multi_task" then (if $mode == "complex" then 0.85 else 0.05 end)
+    elif $k == "needs_test" or $k == "user_facing" then 0.8
+    else 0.1 end;
+  def pick($k; $q):
+    ($q.criteria | keys) as $opts
+    | if $k == "triage" then (if $mode == "ready" then "ready" else "rough" end)
+      elif $k == "cell" then (if $mode == "nocell" then "none" else "c0" end)
+      elif $k | startswith("cmd_") then (if $q.instructions | test("smoke-test") then "test" else "other" end)
+      elif $k | startswith("slot_") then ([$opts[] | select(. != "none" and ($q.criteria[.] | test("\\((flag|file)\\)$")))] + [$opts[] | select(. != "none")] | first // "none")
+      elif $k == "role_desired" then ([$opts[] | select(. != "none" and ($q.criteria[.] == "prints which probes ran"))] | first // "none")
+      else "none" end;
+  {model: .model, answers: (.questions | with_entries(.key as $k | .value as $q | .value =
+     (if $q.type == "noul" then {type: "noul", noul: nv($k; $q.instructions)}
+      elif $q.type == "score" then {type: "score", confidence: 0.8, score:
+        (if $k == "clarity" then 1.9 elif $k == "complexity" then (if $mode == "complex" then 2.6 else 0.5 end)
+         elif $k == "risk" then (if $mode == "complex" then 1.5 else 0.1 end) else 0.5 end)}
+      else pick($k; $q) as $ch | {type: "choice", choice: $ch, confidence: 0.9, probabilities: {($ch): 0.9}} end))),
+   usage: {input_tokens: 1000, output_tokens: 10}}' "$data" >"$out"
 printf 200
-EOF
+CURLSTUB
 chmod +x "$STUB/bin/curl"
 _iso=$(mktemp -d)
-mkdir -p "$_iso/u" "$_iso/p"
-printf '%s\n' '{"preferred_backends":["claude"]}' >"$_iso/p/settings.json"
+mkdir -p "$_iso/u" "$_iso/p" "$_iso/cache"
+_fp_settings() { printf '%s\n' "{\"preferred_backends\":[\"claude\"],\"fast_path\":$1}" >"$_iso/p/settings.json"; }
 run_fp() {
   env -i HOME="$HOME" PATH="$STUB_PATH" STUB_LOG="$STUB_LOG" STUB_FIXTURE="$STUB_FIXTURE" \
     PROMPT_IMPROVER_CONFIG_DIR="$_iso/u" PROMPT_IMPROVER_PROJECT_CONFIG_DIR="$_iso/p" \
-    PROMPT_IMPROVER_HOST=claude TYPESAFE_API_KEY=stub-secret-key-value "$@"
+    PROMPT_IMPROVER_CACHE_DIR="$_iso/cache" PROMPT_IMPROVER_HOST=claude TYPESAFE_API_KEY=stub-secret-key-value "$@"
 }
-_fp_reset() { rm -f "$STUB/log/"*; }
+_fp_reset() { rm -f "$STUB/log/"*; rm -rf "$_iso/cache"; mkdir -p "$_iso/cache"; }
+_jev_calls() { ls "$STUB/log"/jev.req.* 2>/dev/null | wc -l | tr -d ' '; }
+_R06="add a --verbose flag to gather-context.sh that prints which probes ran"
 
-_fp_reset
+_fp_reset; _fp_settings '{}'
 set +e
 run_fp bash scripts/generate-prompt.sh --raw-input "fix the crash on empty config" >"$T/g.out" 2>"$T/g.err"; _rc=$?
 set -e
@@ -1044,83 +1056,129 @@ else
   bad "fast_path default rc=$_rc, curl called: $(test -e "$STUB/log/curl.argv" && echo yes)"
 fi
 
-_fp_reset
+# Tier A: the request fits the library cell, so the spec is compiled with no LLM.
+_fp_reset; _fp_settings '{"mode":"auto","allow_unreviewed":true}'
 set +e
-run_fp PROMPT_IMPROVER_FAST_PATH=compose bash scripts/generate-prompt.sh --raw-input "fix the crash on empty config" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+run_fp bash scripts/generate-prompt.sh --raw-input "$_R06" >"$T/g.out" 2>"$T/g.err"; _rc=$?
 set -e
-if [ "$_rc" -eq 0 ] && grep -q 'name="fix-defect"' "$T/g.out" && [ ! -e "$STUB/log/argv.claude" ] \
-  && grep -q 'fast-path: compose' "$T/g.err"; then
-  ok "compose: confident Jev decision → template prompt, no LLM call"
+if [ "$_rc" -eq 0 ] && grep -q 'name="add-verbose-flag"' "$T/g.out" && [ ! -e "$STUB/log/argv.claude" ] \
+  && grep -q 'fast-path: tier A' "$T/g.err"; then
+  ok "tier A: a fitting request is compiled from the library with no LLM call"
 else
-  bad "compose rc=$_rc: $(grep -E 'fast-path|Trying' "$T/g.err" | head -3)"
+  bad "tier A rc=$_rc: $(grep -E 'fast-path|Trying' "$T/g.err" | head -4)"
 fi
-if [ "$(ls "$STUB/log"/jev.req.* 2>/dev/null | wc -l | tr -d ' ')" -eq 2 ]; then
-  ok "compose makes exactly two Jev calls (decide + judge)"
+if bash scripts/validate-prompt.sh "$T/g.out" >/dev/null 2>&1; then
+  ok "the compiled spec passes validate-prompt.sh"
 else
-  bad "expected 2 Jev calls, got $(ls "$STUB/log"/jev.req.* 2>/dev/null | wc -l)"
+  bad "compiled spec fails validation: $(bash scripts/validate-prompt.sh "$T/g.out" 2>&1 | grep FAIL | head -2)"
 fi
+if grep -q 'bash skills/prompt-improver/scripts/gather-context.sh --verbose' "$T/g.out" \
+  && grep -q '`hit`, `miss`' "$T/g.out" && ! grep -q 'Each attempt is reported' "$T/g.out"; then
+  ok "slots come from the request and repo; guards pick the lookup vocabulary"
+else
+  bad "tier A content: $(grep -c 'gather-context' "$T/g.out") target mentions"
+fi
+[ "$(_jev_calls)" -eq 3 ] && ok "tier A makes three Jev calls (L1, repo prior, L1b)" || bad "expected 3 Jev calls, got $(_jev_calls)"
 if ! grep -q 'stub-secret-key-value' "$STUB/log/curl.argv"; then
   ok "API key never appears on curl's argv"
 else
   bad "API key leaked onto argv"
 fi
-
-_fp_reset
+cp "$T/g.out" "$T/g.first"
+rm -f "$STUB/log/"*
 set +e
-run_fp PROMPT_IMPROVER_FAST_PATH=auto bash scripts/generate-prompt.sh --raw-input-file - >"$T/g.out" 2>"$T/g.err" <<'REQ'
-fix login; my key is sk-abcdefghijklmnopqrstuvwxyz and API_TOKEN=supersecret123
-REQ
-_rc=$?
+run_fp bash scripts/generate-prompt.sh --raw-input "$_R06" >"$T/g.out" 2>"$T/g.err"; _rc=$?
 set -e
-if [ "$_rc" -eq 0 ] && ! grep -qE 'sk-abcdefghijklmnopqrstuvwxyz|supersecret123' "$STUB/log"/jev.req.* && grep -q 'fix login' "$STUB/log"/jev.req.0; then
-  ok "credentials are redacted before the request leaves the machine"
+if [ "$_rc" -eq 0 ] && [ "$(_jev_calls)" -eq 0 ] && cmp -s "$T/g.out" "$T/g.first"; then
+  ok "a repeated request replays cached Jev answers: no calls, identical spec"
 else
-  bad "redaction rc=$_rc: $(grep -oE 'sk-[a-z]*|supersecret123' "$STUB/log"/jev.req.* | head -2)"
+  bad "cache replay rc=$_rc calls=$(_jev_calls) identical=$(cmp -s "$T/g.out" "$T/g.first" && echo yes || echo no)"
 fi
 
+# Guards: attempts vocabulary, required arguments and no positional arguments.
 _fp_reset
 set +e
-run_fp PROMPT_IMPROVER_FAST_PATH=auto STUB_JEV_MODE=complex bash scripts/generate-prompt.sh --raw-input "x" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+run_fp STUB_JEV_MODE=attempts bash scripts/generate-prompt.sh --raw-input "$_R06" >"$T/g.out" 2>"$T/g.err"; _rc=$?
 set -e
-if [ "$_rc" -eq 0 ] && grep -q 'compose declined' "$T/g.err" && grep -qx 'opus' "$STUB/log/argv.claude"; then
-  ok "auto + complex request → LLM path on the high tier (opus)"
+if [ "$_rc" -eq 0 ] && grep -q 'Each attempt is reported in order' "$T/g.out" && ! grep -q '`hit`, `miss`' "$T/g.out" \
+  && grep -q 'smallest valid arguments' "$T/g.out" && ! grep -q 'diff <(' "$T/g.out" \
+  && grep -q 'can appear anywhere among the existing options' "$T/g.out"; then
+  ok "guards swap items: attempt vocabulary, argument-aware verification, no positional wording"
 else
-  bad "complex auto rc=$_rc: $(grep -E 'fast-path|Trying' "$T/g.err" | head -3)"
+  bad "guard swap rc=$_rc: $(grep -E 'fast-path' "$T/g.err" | head -3)"
 fi
 
-_fp_reset
+# Unreviewed cells are not served unless allowed; tier C adds the grounding block.
+_fp_reset; _fp_settings '{"mode":"auto"}'
 set +e
-run_fp PROMPT_IMPROVER_FAST_PATH=auto STUB_JEV_MODE=lowconf bash scripts/generate-prompt.sh --raw-input "x" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+run_fp bash scripts/generate-prompt.sh --raw-input "$_R06" >"$T/g.out" 2>"$T/g.err"; _rc=$?
 set -e
-if [ "$_rc" -eq 0 ] && grep -qx 'sonnet' "$STUB/log/argv.claude" && ! grep -q '=== PROMPT CHAINING ===' "$STUB/log/argv.claude"; then
-  ok "auto + low-confidence simple request → sonnet tier with pruned references"
+_gen_in=$(cat "$STUB/log/argv.claude" "$STUB/log/stdin.claude" 2>/dev/null || true)
+if [ "$_rc" -eq 0 ] && grep -q 'not reviewed' "$T/g.err" && [[ "$_gen_in" == *"=== JEV GROUNDING"* ]] \
+  && [[ "$_gen_in" == *"Bash 3.2"* ]]; then
+  ok "unreviewed cell → tier C: full generation with the Jev grounding block"
 else
-  bad "route low tier rc=$_rc: $(grep -E 'fast-path|Trying' "$T/g.err" | head -3)"
+  bad "tier C rc=$_rc: $(grep -E 'fast-path' "$T/g.err" | head -3)"
 fi
 
+# Tier B: an escalation guard hands the approach section to the LLM.
+_fp_reset; _fp_settings '{"mode":"auto","allow_unreviewed":true}'
+set +e
+run_fp STUB_JEV_MODE=escalate STUB_MODE=gap bash scripts/generate-prompt.sh --raw-input "$_R06" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+set -e
+_gen_in=$(cat "$STUB/log/argv.claude" "$STUB/log/stdin.claude" 2>/dev/null || true)
+if [ "$_rc" -eq 0 ] && grep -q 'tier B merged' "$T/g.err" && grep -q 'stub gap bullet naming run_headless_once' "$T/g.out" \
+  && ! grep -q '<task id="9">' "$T/g.out" && ! grep -q 'GAP:' "$T/g.out" && [[ "$_gen_in" == *"<!-- GAP:approach -->"* ]] \
+  && grep -qx 'sonnet' "$STUB/log/models.claude"; then
+  ok "tier B: sonnet writes only the gap; structural tags in its output are dropped"
+else
+  bad "tier B rc=$_rc: $(grep -E 'fast-path|Trying' "$T/g.err" | head -4)"
+fi
 _fp_reset
 set +e
-run_fp PROMPT_IMPROVER_FAST_PATH=auto STUB_JEV_MODE=lowconf bash scripts/generate-prompt.sh --model opus --raw-input "x" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+run_fp STUB_JEV_MODE=escalate bash scripts/generate-prompt.sh --raw-input "$_R06" >"$T/g.out" 2>"$T/g.err"; _rc=$?
 set -e
-if [ "$_rc" -eq 0 ] && grep -qx 'opus' "$STUB/log/argv.claude"; then
-  ok "an explicit model: always beats the route tier"
+if [ "$_rc" -eq 0 ] && grep -q 'tier B output was incomplete' "$T/g.err" && diff -q "$T/g.out" "$STUB_FIXTURE" >/dev/null \
+  && [ "$(wc -l <"$STUB/log/models.claude" | tr -d ' ')" -eq 2 ]; then
+  ok "tier B with unusable gap output → full generation fallback"
 else
-  bad "explicit model vs route rc=$_rc"
+  bad "tier B fallback rc=$_rc: $(grep -E 'fast-path' "$T/g.err" | head -3)"
 fi
 
+# Multi-part or high-risk requests are never compiled; they go to the high tier.
 _fp_reset
 set +e
-run_fp PROMPT_IMPROVER_FAST_PATH=auto STUB_JEV_MODE=judge_fail bash scripts/generate-prompt.sh --raw-input "x" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+run_fp STUB_JEV_MODE=complex bash scripts/generate-prompt.sh --raw-input "$_R06" >"$T/g.out" 2>"$T/g.err"; _rc=$?
 set -e
-if [ "$_rc" -eq 0 ] && grep -q 'judge: faithful' "$T/g.err" && [ -e "$STUB/log/argv.claude" ]; then
-  ok "a failed Jev judge rejects the composed prompt → LLM path"
+if [ "$_rc" -eq 0 ] && grep -q 'tier C' "$T/g.err" && grep -qx 'opus' "$STUB/log/models.claude"; then
+  ok "multi-part request → tier C on the high tier (opus)"
 else
-  bad "judge_fail rc=$_rc: $(grep -E 'fast-path' "$T/g.err" | head -3)"
+  bad "complex rc=$_rc: $(grep -E 'fast-path|Trying' "$T/g.err" | head -3)"
+fi
+_fp_reset
+set +e
+run_fp STUB_JEV_MODE=complex bash scripts/generate-prompt.sh --model sonnet --raw-input "$_R06" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+set -e
+if [ "$_rc" -eq 0 ] && grep -qx 'sonnet' "$STUB/log/models.claude"; then
+  ok "an explicit model always beats the fast-path tier"
+else
+  bad "explicit model vs tier rc=$_rc"
 fi
 
-_fp_reset
+# ground mode never serves.
+_fp_reset; _fp_settings '{"mode":"ground","allow_unreviewed":true}'
 set +e
-run_fp PROMPT_IMPROVER_FAST_PATH=compose STUB_JEV_MODE=ready bash scripts/generate-prompt.sh --raw-input-file "$STUB_FIXTURE" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+run_fp bash scripts/generate-prompt.sh --raw-input "$_R06" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+set -e
+if [ "$_rc" -eq 0 ] && grep -q 'tier C' "$T/g.err" && [ -e "$STUB/log/argv.claude" ]; then
+  ok "ground mode never serves a compiled spec"
+else
+  bad "ground mode rc=$_rc: $(grep -E 'fast-path' "$T/g.err" | head -3)"
+fi
+
+_fp_reset; _fp_settings '{"mode":"auto","allow_unreviewed":true}'
+set +e
+run_fp STUB_JEV_MODE=ready bash scripts/generate-prompt.sh --raw-input-file "$STUB_FIXTURE" >"$T/g.out" 2>"$T/g.err"; _rc=$?
 set -e
 if [ "$_rc" -eq 0 ] && diff -q "$T/g.out" "$STUB_FIXTURE" >/dev/null && [ ! -e "$STUB/log/argv.claude" ]; then
   ok "an execution-ready spec is passed through untouched"
@@ -1128,47 +1186,77 @@ else
   bad "ready passthrough rc=$_rc"
 fi
 
+_fp_reset
+set +e
+run_fp bash scripts/generate-prompt.sh --raw-input-file - >"$T/g.out" 2>"$T/g.err" <<'REQ'
+fix login; my key is sk-abcdefghijklmnopqrstuvwxyz and API_TOKEN=supersecret123
+REQ
+_rc=$?
+set -e
+if [ "$_rc" -eq 0 ] && [ "$(_jev_calls)" -gt 0 ] && ! grep -qE 'sk-abcdefghijklmnopqrstuvwxyz|supersecret123' "$STUB/log"/jev.req.* \
+  && grep -q 'fix login' "$STUB/log"/jev.req.*; then
+  ok "credentials are redacted before the request leaves the machine"
+else
+  bad "redaction rc=$_rc: $(grep -ohE 'sk-[a-z]*|supersecret123' "$STUB/log"/jev.req.* | head -2)"
+fi
+
 for _m in http401 malformed timeout; do
   _fp_reset
   _t0=$(date +%s)
   set +e
-  run_fp PROMPT_IMPROVER_FAST_PATH=auto STUB_JEV_MODE=$_m PROMPT_IMPROVER_JEV_TIMEOUT_MS=1000 \
+  run_fp STUB_JEV_MODE=$_m PROMPT_IMPROVER_JEV_TIMEOUT_MS=1000 \
     bash scripts/generate-prompt.sh --raw-input "x" >"$T/g.out" 2>"$T/g.err"; _rc=$?
   set -e
   _dt=$(( $(date +%s) - _t0 ))
-  if [ "$_rc" -eq 0 ] && grep -q 'jev unavailable or failed' "$T/g.err" && [ -e "$STUB/log/argv.claude" ] && [ "$_dt" -lt 15 ]; then
+  if [ "$_rc" -eq 0 ] && grep -q 'jev unavailable or failed' "$T/g.err" && [ -e "$STUB/log/argv.claude" ] && [ "$_dt" -lt 20 ]; then
     ok "Jev $_m → silent fallback to the LLM path (${_dt}s)"
   else
     bad "Jev $_m rc=$_rc after ${_dt}s: $(grep -E 'fast-path|jev' "$T/g.err" | head -3)"
   fi
 done
 
-# Every archetype template composes into a prompt that validates.
-_dec="$T/dec.json"
-printf 'Fix the <b>crash</b> & keep {{REQUEST}} literal\n' >"$T/fp-raw.txt"
-bash scripts/gather-context.sh . >"$T/fp-ctx.txt" 2>/dev/null || true
-_tpl_bad=""
-for _f in assets/fast-templates/*.xml; do
-  _a=$(basename "$_f" .xml)
-  [ "$_a" = base ] && continue
-  jq -n --arg a "$_a" '{ms:1, answers:{archetype:{choice:$a,confidence:0.9}, needs_research:{noul:0.9}, ui:{noul:0.9}, autonomous:{noul:0.9}}}' >"$_dec"
-  if ! bash scripts/fast-compose.sh "$_dec" "$T/fp-raw.txt" "$T/fp-ctx.txt" >"$T/fp.xml" 2>/dev/null \
-    || ! bash scripts/validate-prompt.sh "$T/fp.xml" >/dev/null 2>&1; then
-    _tpl_bad="$_tpl_bad $_a"
-  fi
-done
-if [ -z "$_tpl_bad" ]; then
-  ok "every fast-path template composes into a valid prompt"
+# Library integrity: every cell is well-formed and every {slot} it uses resolves.
+_lib_bad=$(jq -r -n '
+  ["tool_path","tool_name","runner","tool_summary","syntax_check","test_file","test_cmd","typecheck_cmd","lint_cmd","build_cmd","changelog","project","callers"] as $builtin
+  | ["description","current","desired","approach","example","verification","companion","constraint","out_of_scope","escape","check"] as $secs
+  | inputs | . as $c | ($c.slots // {} | keys) as $slots
+  | (if ($c.id // "") == "" or ($c.match // "") == "" or ($c.items | type) != "array" then "\(input_filename): missing id, match or items" else empty end),
+    ($c.items[] | . as $it
+      | (if ($it.section | startswith("requirements.")) or ($secs | index([$it.section])) then empty else "\($c.id)/\($it.id): bad section \($it.section)" end),
+        ([$it.text, $it.input, $it.output, $it.reasoning, $it.file] | map(select(. != null)) | join(" ")
+          | [scan("\\{([a-z_]+)\\}") | .[0]] | .[] | select(. as $n | ($slots + $builtin) | index([$n]) | not) | "\($c.id)/\($it.id): unknown slot {\(.)}"),
+        (($it.guards // [])[] | select((.fact == null) and ((.q // "") == "" or (.min == null and .max == null))) | "\($c.id)/\($it.id): guard \(.id) needs q and min or max"),
+        (if $it.section == "example" and ($it.input == null or $it.output == null or $it.reasoning == null) then "\($c.id)/\($it.id): example needs input, output, reasoning" else empty end))
+' $(ls assets/library/*.json | grep -v '/_') 2>&1 || echo "jq failed")
+[ -z "$_lib_bad" ] && ok "every library cell is well-formed" || bad "library: $(printf '%s' "$_lib_bad" | head -3 | tr '\n' ' ')"
+
+# gapfill merge fails closed when the LLM skipped a marker.
+printf '%s\n' '{"skeleton":"<approach>\n  <!-- GAP:approach -->\n</approach>\n<verification>\n  <!-- GAP:verification -->\n</verification>","gaps":[{"section":"approach"},{"section":"verification"}]}' >"$T/gf.json"
+printf '<gap name="approach">\n- one\n</gap>\n' >"$T/gf.out"
+if ! bash scripts/compile/gapfill.sh merge "$T/gf.json" "$T/gf.out" >/dev/null 2>&1; then
+  ok "gapfill merge fails when a gap section is missing"
 else
-  bad "templates failing validation:$_tpl_bad"
+  bad "gapfill merge accepted output with a missing gap"
 fi
-if grep -q '&lt;b&gt;crash&lt;/b&gt; &amp; keep {{REQUEST}} literal' "$T/fp.xml"; then
-  ok "request text is XML-escaped and never re-expanded as a placeholder"
+
+# Candidates and target facts work outside a git repository too.
+_ng=$(mktemp -d)
+printf 'add a --json flag to tool.sh reading MY_ENV_VAR\n' >"$_ng/req.txt"
+printf '#!/usr/bin/env bash\n# tool.sh\n# Prints a report.\n# Usage: bash tool.sh [dir]\nDIR="${1:-.}"\n' >"$_ng/tool.sh"
+_cand=$(PROMPT_IMPROVER_CACHE_DIR="$_ng/cache" bash scripts/compile/candidates.sh "$_ng" "$_ng/req.txt" 2>/dev/null || true)
+if [ "$(jq -r '[.entities[] | .kind + ":" + .text] | join(",")' <<<"$_cand" 2>/dev/null)" = "flag:--json,env:MY_ENV_VAR,file:tool.sh" ]; then
+  ok "candidates: flag, env var and file entities outside git"
 else
-  bad "request embedding: $(grep -A1 '<user-request>' "$T/fp.xml" | tail -1)"
+  bad "candidates outside git: $(jq -c '.entities' <<<"$_cand" 2>/dev/null | head -c 200)"
 fi
-_q_bad=$(jq -r --arg d assets/fast-templates '.decide.archetype.criteria | keys[]' assets/fast-templates/questions.json | while read -r _a; do [ -f "assets/fast-templates/$_a.xml" ] || echo "$_a"; done)
-[ -z "$_q_bad" ] && ok "every Jev archetype option has a template" || bad "archetypes without templates: $_q_bad"
+_tgt=$(bash scripts/compile/target.sh "$_ng" tool.sh 2>/dev/null || true)
+if [ "$(jq -r '.runner + "|" + .syntax_check + "|" + .summary' <<<"$_tgt" 2>/dev/null)" = "bash|bash -n tool.sh|prints a report" ] \
+  && [[ "$(jq -r '.usage' <<<"$_tgt")" == *"Usage: bash tool.sh [dir]"* ]]; then
+  ok "target facts: runner, syntax check, summary and usage read without executing"
+else
+  bad "target facts: $(jq -c '{runner, syntax_check, summary}' <<<"$_tgt" 2>/dev/null)"
+fi
+rm -rf "$_ng"
 
 # Parity: fast path defaults to off with and without jq; no jq means off even if asked.
 if [ "$(jq -r '.fast_path.mode' config/runtime-defaults.json)" = "off" ] && [ "$(jq -r '.fast_path.mode' config/settings.default.json)" = "off" ]; then

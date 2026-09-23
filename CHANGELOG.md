@@ -8,14 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added (experimental)
-- **Jev fast path** (`fast_path.mode`: `off` by default, or `route` | `compose` | `auto`).
-  - Uses TypeSafe's Jev decision model to classify a request in one parallel call, typically 70–500 ms.
-  - Simple, single-task, low-risk requests are composed from archetype templates with no LLM call, then checked by a second Jev call and by `validate-prompt.sh`.
-  - Other requests go to the LLM path with a Jev-chosen model tier, and pruned references for simple tasks. An explicit `model:` always wins.
-  - Already-structured specs pass through unchanged.
-  - Needs `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`, `curl` and `jq`. Any Jev failure falls back silently.
-  - Credentials are redacted before the request leaves the machine, and the API key is never on argv.
-  - See `docs/investigations/jev-fast-path.md`. The benchmark harness is in `bench/jev/`.
+- **Jev fast path, v2** (`fast_path.mode`: `off` by default, or `auto` | `ground`).
+  - Specs are compiled from a reviewed library of cells (`assets/library/`). Jev, TypeSafe's decision model, only picks: the cell, the slot values among verbatim candidates from the request and the repository, the project rules that apply, and whether each item's guard passes. It never writes text.
+  - Tier A serves the compiled spec with no LLM call (about 1.3 s on a cold cache). Tier B keeps the compiled spec and has a fast model write only the sections the library could not fill, such as code-specific approach notes (about 14 s instead of 35 s). Tier C adds the facts Jev selected (target usage text, callers, rules, test command and file) to the full generation prompt.
+  - Guards make serving auditable: an item that does not fit the request is dropped, and every decision is traced (`PROMPT_IMPROVER_FAST_TRACE_DIR`).
+  - Deterministic replay: every Jev answer is cached by a hash of its request, and the model is pinned (`jev-1.13.0`).
+  - `ground` mode never serves a compiled spec; it only adds grounding and a model tier. The v1 names `compose` and `route` map to `auto` and `ground`.
+  - Unreviewed cells are served only with `fast_path.allow_unreviewed`. Already-structured specs pass through unchanged. An explicit `model:` always wins.
+  - Needs `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`, `curl` and `jq`. Any Jev failure falls back silently. Credentials are redacted before anything leaves the machine, and the API key is never on argv.
+  - See `docs/investigations/jev-v2-architecture.md` (v1 results: `docs/investigations/jev-fast-path.md`). The benchmark harness is in `bench/jev/`.
 
 ## [1.1.0] — 2026-09-23
 
