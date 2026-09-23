@@ -66,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - CI also runs on `macos-latest` under the stock `/bin/bash` 3.2.
 
 ### Fixed
+- `validate-prompt.sh` no longer warns "UI-related task missing visual verification" on specs that merely contain "build", "require", "guide" or "linux": the UI words are now matched as whole words.
 - **About 1 in 3 generated specs failed the skill's own validator (exit 4).**
   The generator prompt told the model to put `<verification_commands>` in
   each task, but `validate-prompt.sh` only counted `<verification>`.

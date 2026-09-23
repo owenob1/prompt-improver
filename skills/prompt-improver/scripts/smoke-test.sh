@@ -565,6 +565,25 @@ else
 fi
 rm -f "$_rw"
 
+# The UI warning needs a UI word, not "ui" inside "build" or "ux" inside "linux".
+_ui=$(mktemp)
+sed 's#</check>#  - Confirm the build still runs on linux and macOS\n</check>#' examples/fixtures/valid-prompt.xml >"$_ui"
+_uiout=$(bash scripts/validate-prompt.sh "$_ui" 2>&1 || true)
+if [[ "$_uiout" == *UI-related* ]]; then
+  bad "UI warning fired on build/linux wording"
+else
+  ok "UI warning ignores ui/ux inside other words"
+fi
+printf '%s\n' '<task name="t"><description>Make the settings page layout responsive</description><verification>npm test</verification></task>' \
+  '<check>Re-read every changed file. Run npm test. Report status for each requirement.</check>' >"$_ui"
+_uiout=$(bash scripts/validate-prompt.sh "$_ui" 2>&1 || true)
+if [[ "$_uiout" == *UI-related* ]]; then
+  ok "UI warning still fires for a page layout task"
+else
+  bad "UI warning missing for a page layout task"
+fi
+rm -f "$_ui"; unset _uiout
+
 # Large prompt with the <check> block near the top (SIGPIPE regression).
 {
   cat examples/fixtures/valid-prompt.xml

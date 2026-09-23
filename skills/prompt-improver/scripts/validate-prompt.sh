@@ -228,8 +228,9 @@ if [ "$LINE_COUNT" -gt 120 ]; then
   fi
 fi
 
-# 13. UI tasks should mention visual verification
-if _in "$PROMPT" -qiE '(component|page|ui|ux|layout|responsive|css|tailwind|frontend)'; then
+# 13. UI tasks should mention visual verification. Whole words only: "ui" inside
+# "build" or "require", or "ux" inside "linux", is not a UI task.
+if _in "$PROMPT" -qiE '(^|[^[:alnum:]_])(components?|pages?|ui|ux|layout|responsive|css|tailwind|frontend)([^[:alnum:]_]|$)'; then
   if ! _in "$PROMPT" -qiE '(chrome|browser|screenshot|visual.*verif|viewport|breakpoint)'; then
     warn "UI-related task missing visual verification requirement"
   fi
