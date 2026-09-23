@@ -16,6 +16,8 @@ add form validation to the signup page
   <scope>src/app/signup/page.tsx, src/lib/validation.ts</scope>
 </context>
 
+<done>Empty, invalid, and short signup fields show the inline errors in the examples, npm test exits 0, and npx tsc --noEmit exits 0.</done>
+
 <task id="1" name="signup-validation">
   <description>
     Add client-side and server-side validation to the signup form with inline error messages.
@@ -67,9 +69,14 @@ add form validation to the signup page
     - Use Zod for schema definition — share between client and server
     - Do not add new dependencies beyond Zod (already installed)
   </constraints>
+  <stops>
+    - If a step needs no input, keep going. Put status in the same message as the next action.
+    - Stop only when blocked on the user, or before deleting data, force-pushing, or writing outside this repository.
+    - Do not end the turn by asking whether to continue.
+  </stops>
   <escape>
-    If the existing form structure makes inline errors difficult to implement,
-    flag the structural issue rather than using toast notifications as a workaround.
+    If the existing form cannot show an inline error, name that once and continue with the schema and the server check.
+    Do not switch to toast notifications as a workaround.
   </escape>
 </execution>
 
@@ -77,7 +84,13 @@ add form validation to the signup page
   - Re-read all changed files — verify no placeholders or empty handlers
   - Run npx tsc --noEmit
   - Run npm test
+  - Review the diff. List only merge-blocking problems: file, line, why it is wrong, how to show it fails.
   - Report status for each validation rule
+  - Report:
+    Blocked on me:
+    Changed:
+    Found:
+    Unconfirmed:
 </check>
 ```
 
@@ -116,12 +129,11 @@ refactor the auth middleware to use JWT instead of sessions, but keep backward c
   </description>
 
   <approach>
-    Before implementing, reason through:
-    - How to detect whether an incoming request uses JWT or session auth
-    - Where to store JWT secret (env var, config)
-    - Token expiry and refresh strategy
-    - How long the backward-compatibility period should last
-    Select an approach and commit to it.
+    Commit before editing:
+    - Detection: an Authorization Bearer header is JWT. No bearer header falls back to the existing session cookie.
+    - Secret: JWT_SECRET from the environment.
+    - Tokens: 1 hour access, 7 day refresh.
+    - Sessions stay until a later removal task. This task does not delete them.
   </approach>
 
   <requirements>
@@ -195,12 +207,10 @@ add caching to the API responses
   </description>
 
   <approach>
-    Before implementing, reason through:
-    - Which caching layer: HTTP headers only, Redis cache, or both?
-    - Which routes benefit from caching (GET endpoints returning stable data)?
-    - Cache invalidation strategy: TTL-based, event-based, or manual purge?
-    - Criteria: latency reduction, cache hit rate, staleness tolerance.
-    Select an approach and commit to it. Avoid revisiting unless new info contradicts your reasoning.
+    Commit before editing:
+    - Layer: Redis, the client already in src/lib/redis.ts. Not a second client.
+    - Scope: GET routes that return stable data, opt-in per route.
+    - Invalidation: TTL 60 seconds, and PUT, POST, or DELETE clears the GET keys for that path.
   </approach>
 
   <requirements>
@@ -240,7 +250,7 @@ add caching to the API responses
 </check>
 ```
 
-**Pattern shown**: The `<approach>` block directs Claude to reason through the caching strategy before writing code, then commit to a decision. This replaces the old `<evaluate>` pattern and prevents the common failure of starting implementation before the design is settled.
+**Pattern shown**: `<approach>` states the caching choice. It does not ask the agent to reason through the options.
 
 ---
 
@@ -383,11 +393,9 @@ add rate limiting to the API
   </description>
 
   <approach>
-    Before implementing, reason through:
-    - Which storage backend: Workers KV (eventual consistency), Durable Objects (strong consistency), or Redis?
-    - Criteria: latency, accuracy, cost, existing infrastructure.
-    - Algorithm: fixed window, sliding window, or token bucket?
-    Select an approach and commit to it.
+    Commit before editing:
+    - Store: the Redis or KV connection already in the repo. Not an in-memory map.
+    - Algorithm: sliding window. Login uses a fixed window.
   </approach>
 
   <examples>
