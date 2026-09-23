@@ -24,7 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - `ground` mode never serves a compiled spec; it only adds grounding and a model tier. The v1 names `compose` and `route` map to `auto` and `ground`.
   - Unreviewed cells are served only with `fast_path.allow_unreviewed`. Already-structured specs pass through unchanged. An explicit `model:` always wins.
   - Needs `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`, `curl` and `jq`. Any Jev failure falls back silently. Credentials are redacted before anything leaves the machine, and the API key is never on argv.
-  - See `docs/investigations/jev-v2-architecture.md` (v1 results: `docs/investigations/jev-fast-path.md`). The benchmark harness is in `bench/jev/`.
+  - **Not recommended.** In a blind benchmark against opus alone (40 requests, judged in both orders), compiled specs lost every comparison (tier A 0/0/6, tier B 0/0/20). Tier C lost 37 of 52. Keep `fast_path.mode` at `off`.
+  - See `docs/investigations/jev-v2-architecture.md` (v1 results: `docs/investigations/jev-fast-path.md`). The benchmark harness is in `bench/jev/`, and the authoring loop for library cells is in `bench/jev/authoring/`.
 
 ## [1.1.0] — 2026-09-23
 

@@ -1,6 +1,6 @@
 # Jev v2: compile-time LLM, run-time Jev
 
-*Branch `claude/jev-fast-path-investigation` · 2026-09-23 · status: research complete, design proposed, awaiting go-ahead*
+*Branch `claude/jev-fast-path-investigation` · 2026-09-23 · status: v2 built and benchmarked; it does not reach opus quality (see §10)*
 *Every number below comes from live calls to `jev-1.13.0` and the real `claude` CLI. The probes are reproducible from [`bench/jev/probes/`](../../bench/jev/probes).*
 
 ## 1. Verdict on v1
@@ -134,8 +134,47 @@ L5  Cache raw answers (re-threshold without calls) + trace; pin jev-1.13.0; fail
 5. **Corpus + calibration:** grow to 100+ requests across several repos; autoresearch loop; thresholds in the gap.
 6. **Ship opt-in.** Default `off` until the judge numbers hold.
 
-## 9. Decisions needed
+## 9. Decisions taken
 
-1. **Deterministic repo index in the fast path:** `git ls-files` cards, plus `git grep -n -F` on extracted identifiers, *reading* the target's usage text. CLAUDE.md currently restricts context to fixed-path probes. The index is reproducible for a given tree (cached by HEAD). *Recommendation: allow it for the fast path only.*
-2. **Offline opus authoring of the library,** with human review before any item ships. *Recommendation: yes; it is the quality engine.*
-3. **Tier B uses an LLM on the request path for gaps only.** *Recommendation: yes. Tier A alone cannot cover code-specific requests at parity, and Experiment B proves it.*
+1. The deterministic repo index (`git ls-files` cards, `git grep -F`) is allowed on the fast path only; `gather-context.sh` stays fixed-path.
+2. Opus authors the library offline (`bench/jev/authoring/`). All 9 cells are still unreviewed (`provenance.reviewed_by: null`).
+3. Tier B uses an LLM on the request path for gap sections only.
+
+## 10. What was built and what it measured
+
+**Built:** the L0–L5 engine in `skills/prompt-improver/scripts/compile/`, tiers A, B and C in `generate-prompt.sh`, 9 guarded cells, and the authoring loop (author, validate, calibrate, revise).
+
+Engine lessons from calibration:
+- **The L0 target is a guess from file names.** Jev's file relevance overrides a clear miss, for example "the link to docs/X.md in the README".
+- **One broad multi-task question fired at 0.62–0.79 on single-task requests.** Two narrower questions, combined by taking the larger answer, separate them.
+- **Role slots (`{desired}` etc.) often do not resolve.** So cells declare `key_slots`, and every required section has an item that needs only those slots.
+
+**Calibration:** 29 requests about this repo, distinct from the corpus, run after one revision round.
+- The right cell was picked for 23 of 23 fitting requests.
+- All 6 near-misses were rejected.
+- Tiers: 9 A, 13 B, 1 C.
+
+**Benchmark:** the 40-request corpus with live `jev-1.13.0`. The opus baseline was regenerated under the Opus 5.5 XML rules. Every pair was judged blind by opus in both orders, so each request gives two verdicts.
+
+| mode | path | n | p50 | p95 | valid | win/tie/loss vs opus |
+|---|---|---|---|---|---|---|
+| opus alone | llm | 40 | 34.2 s | 46.9 s | 40/40 | – |
+| v2 auto | all | 40 | 31.5 s | 64.9 s | 40/40 | 15/0/65 |
+| v2 auto | A (compiled, no LLM) | 3 | 2.0 s | 2.0 s | 3/3 | 0/0/6 |
+| v2 auto | B (compiled + LLM gaps) | 10 | 13.3 s | 78.7 s | 10/10 | 0/0/20 |
+| v2 auto | C (opus + Jev grounding) | 26 | 33.9 s | 45.4 s | 26/26 | 15/0/37 |
+| v2 auto | passthrough | 1 | 2.3 s | 2.3 s | 1/1 | 0/0/2 |
+
+Two tier-B runs were slow because of a single sonnet call writing one section: 170 s (r04, 25 KB prompt) and 79 s (r37, 56 KB prompt).
+
+**Why v2 loses** (the judge's own reasons on r06, r08 and r02):
+- **Compiled specs read as filled templates.** Examples: "probes items", duplicated lines, a JSON "format" with no schema, and verification that is generic or omits a documented argument. Opus writes concrete example lines and names the repo's traps from CLAUDE.md. Guards stop wrong items from being emitted, but they cannot add the request-specific content that decides these comparisons.
+- **Tier C grounding hurts requests that are not about this repository.** An auth bug in some other application got this repo's Bash rules, test suite and changelog. Opus alone asked which codebase was meant.
+- **The baseline moved.** Under the Opus 5.5 XML rules, opus specs went from 25/40 to 40/40 valid, so structural validity no longer favours v2.
+
+**Verdict:** v2 cuts latency only where it cuts quality. On this corpus there is no tier at which it matches opus. v2 stays opt-in and off, and is not recommended.
+
+**What would have to change for another attempt** (not planned):
+- Ground tier C only when the request resolves to a real target in the repository.
+- Treat compiled output as grounding for the LLM rather than as the spec itself.
+- Measure that change on a corpus drawn from real use of the repository, not a mixed one.
