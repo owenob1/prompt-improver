@@ -53,6 +53,8 @@ _pi_settings_files_ordered() {
 }
 
 # Same files, highest priority first.
+# Loops that `return` early read producers via <<<"$(…)", never < <(…): an
+# abandoned process substitution SIGPIPEs its writer ("echo: write error").
 _pi_settings_files_priority() {
   local f
   for f in "$PROJECT_SETTINGS" "$USER_SETTINGS" "$DEFAULT_SETTINGS" "$RUNTIME_DEFAULTS"; do
@@ -88,7 +90,7 @@ _pi_first_array_json() {
         echo "$val"
         return 0
       fi
-    done < <(_pi_settings_files_priority)
+    done <<<"$(_pi_settings_files_priority)"
   fi
   echo "[]"
 }
@@ -109,7 +111,7 @@ get_setting() {
         echo "$val"
         return 0
       fi
-    done < <(_pi_settings_files_priority)
+    done <<<"$(_pi_settings_files_priority)"
   else
     for file in "$PROJECT_SETTINGS" "$USER_SETTINGS" "$DEFAULT_SETTINGS" "$RUNTIME_DEFAULTS"; do
       [ -f "$file" ] || continue
@@ -426,7 +428,7 @@ infer_backend_for_model() {
           echo "$backend"
           return 0
         fi
-      done < <(jq -r ".[$i].patterns[]?" <<<"$patterns_json")
+      done <<<"$(jq -r ".[$i].patterns[]?" <<<"$patterns_json")"
     done
     if [ "$count" -gt 0 ]; then
       echo ""
@@ -463,7 +465,7 @@ get_model_fallback_chain() {
           matched=true
           break
         fi
-      done < <(jq -r ".[$i].patterns[]?" <<<"$chains_json")
+      done <<<"$(jq -r ".[$i].patterns[]?" <<<"$chains_json")"
       if [ "$matched" = true ]; then
         while IFS= read -r item; do
           [ -z "$item" ] && continue
@@ -590,7 +592,7 @@ pi_backend_binary() {
       echo "$bin"
       return 0
     fi
-  done < <(_pi_backend_binaries "$1")
+  done <<<"$(_pi_backend_binaries "$1")"
   return 1
 }
 
@@ -649,8 +651,8 @@ _pi_host_from_env() {
           echo "$backend"
           return 0
         fi
-      done < <(jq -r --arg b "$backend" '.[$b] // empty | .[]?' <<<"$markers" 2>/dev/null)
-    done < <(_pi_supported_backends_list)
+      done <<<"$(jq -r --arg b "$backend" '.[$b] // empty | .[]?' <<<"$markers" 2>/dev/null)"
+    done <<<"$(_pi_supported_backends_list)"
     return 1
   fi
   if [ -n "${CLAUDECODE:-}" ] || [ -n "${CLAUDE_CODE_ENTRYPOINT:-}" ] || \
@@ -689,8 +691,8 @@ _pi_backend_for_process_names() {
             return 0
           fi
         done
-      done < <(jq -r --arg b "$backend" '.[$b] // empty | .[]?' <<<"$proc_patterns" 2>/dev/null)
-    done < <(_pi_supported_backends_list)
+      done <<<"$(jq -r --arg b "$backend" '.[$b] // empty | .[]?' <<<"$proc_patterns" 2>/dev/null)"
+    done <<<"$(_pi_supported_backends_list)"
     return 1
   fi
   for name in "$@"; do
@@ -784,7 +786,7 @@ detect_backend() {
         echo "$scan"
         return 0
       fi
-    done < <(_pi_first_array_json "cascade_scan_order" | jq -r '.[]?')
+    done <<<"$(_pi_first_array_json "cascade_scan_order" | jq -r '.[]?')"
   fi
 
   for b in $_PI_BUILTIN_SUPPORTED_BACKENDS; do

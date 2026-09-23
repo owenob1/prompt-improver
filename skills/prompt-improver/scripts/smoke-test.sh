@@ -428,6 +428,14 @@ else
 fi
 unset PROMPT_IMPROVER_PROJECT_CONFIG_DIR
 rm -rf "$_tmp_settings"
+# Early-returning lookups must not SIGPIPE their producers (seen on macOS as
+# "echo: write error: Broken pipe" from abandoned process substitutions).
+_sp_err=$(bash -c 'source scripts/lib/settings.sh; for i in 1 2 3 4 5 6; do load_settings; get_default_model_for_backend claude; detect_backend claude; done' 2>&1 >/dev/null || true)
+if [[ "$_sp_err" == *"write error"* ]] || [[ "$_sp_err" == *"Broken pipe"* ]]; then
+  bad "settings lookups SIGPIPE their producers: $(head -2 <<<"$_sp_err")"
+else
+  ok "settings lookups are SIGPIPE-clean"
+fi
 
 # 14. generation customisation + deterministic context (no agent explore)
 echo ""
