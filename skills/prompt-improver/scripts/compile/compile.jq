@@ -140,9 +140,10 @@ def ind($n): ([range(0; $n)] | map(" ") | join(""));
       "  </user-request>",
       "</context>",
       "",
+      (sec("desired") | if length > 0 then "<done>" + .[0].text + "</done>", "" else empty end),
       "<task id=\"1\" name=\"\($task_name)\">",
       "  <description>" + (sec("description") | map(.text) | join(" ")) + (if has_gap("description") then " <!-- GAP:description -->" else "" end) + "</description>",
-      (sec("approach") | if length > 0 or has_gap("approach") then "", "  <approach>", "    Before implementing, reason through:", bullets(.; 4), gap("approach"; 4), "  </approach>" else empty end),
+      (sec("approach") | if length > 0 or has_gap("approach") then "", "  <approach>", "    Commit before editing:", bullets(.; 4), gap("approach"; 4), "  </approach>" else empty end),
       (if ($groups | length) > 0 or has_gap("requirements") then
          "", "  <requirements>",
          ($groups[] as $g | "    <group name=\"\($g)\">", bullets(sec("requirements." + $g); 6), "    </group>"),
@@ -179,6 +180,11 @@ def ind($n): ([range(0; $n)] | map(" ") | join(""));
       "  <strategy>" + (if ($comp | length) > 0 then "Sequential: task 2 depends on task 1." else "Single task; finish it completely before reporting." end) + "</strategy>",
       (sec("constraint") | if length > 0 or has_gap("constraint") then "  <constraints>", bullets(.; 4), gap("constraint"; 4), "  </constraints>" else empty end),
       (sec("out_of_scope") | if length > 0 then "  <out-of-scope>", bullets(.; 4), "  </out-of-scope>" else empty end),
+      "  <stops>",
+      "    - If a step needs no input, keep going. Put status in the same message as the next action.",
+      "    - Stop only when blocked on the user, or before deleting data, force-pushing, or writing outside this repository.",
+      "    - Do not end the turn by asking whether to continue.",
+      "  </stops>",
       "  <escape>",
       (sec("escape")[] | "    " + .text),
       gap("escape"; 4),
@@ -193,7 +199,13 @@ def ind($n): ([range(0; $n)] | map(" ") | join(""));
        then "  - Re-read every changed file and confirm each project rule listed under conventions still holds."
        else "  - Re-read every changed file and confirm nothing outside the requested change was altered." end),
       (if $vals.test_cmd != null then "  - Run `\($vals.test_cmd)` and confirm it passes." else empty end),
+      "  - Review the diff against the base. List only merge-blocking problems: file, line, why it is wrong, how to show it fails. Fix those and re-run the commands above.",
       "  - Compare the result against every point in the user request; report done / partial / skipped for each requirement.",
+      "  - Report:",
+      "    Blocked on me:",
+      "    Changed:",
+      "    Found:",
+      "    Unconfirmed:",
       "</check>"
     ] | map(select(. != null)) | join("\n")
   ) as $xml

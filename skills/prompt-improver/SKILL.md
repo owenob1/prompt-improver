@@ -156,9 +156,9 @@ printf '%s\n' "$IMPROVED" | bash <skill-root>/scripts/validate-prompt.sh
 1. Brief plan for the user (2–3 sentences). **Do not show the full XML.**
 2. Feature branch if not already on one.
 3. Deterministic work first (git, tests, shell). Reasoning/coding via the host agent only where needed.
-4. Multi-task: parallelize independent tasks when safe; otherwise sequential.
+4. Multi-task: parallelize independent tasks when safe; otherwise sequential. More than three tasks, or an audit or migration: keep the checklist in TASKS.md and check a subagent's evidence before accepting it. Do not stop to ask whether to continue.
 5. Verify each task with the commands in the prompt.
-6. Final check: re-read changed files, run relevant tests/smoke, report status and caveats.
+6. Final check: re-read changed files, review the diff for merge-blocking problems, run the commands in the prompt. End with Blocked on me, Changed, Found, Unconfirmed.
 
 ### Plan
 

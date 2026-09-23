@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- Generated XML follows the Opus 5.5 run rules without naming the product the agent is running in.
+- `<done>` is the observable finish line. `<approach>` states a committed choice and is omitted when there is nothing to choose. It no longer says to reason through the decision.
+- `<stops>` says to keep going, and to pause only when blocked or before a destructive action. `<escape>` names a contradiction once and continues.
+- `<check>` reviews the diff for merge-blocking problems and reports Blocked on me, Changed, Found, Unconfirmed.
+- Long runs tell the agent to keep the checklist in `TASKS.md` and to check a subagent's evidence before accepting it.
+- `validate-prompt.sh` warns on a missing `<done>` or `<stops>`, and on "think step by step", "think hard", or "reason through".
+
 ### Added (experimental)
 - **Jev fast path, v2** (`fast_path.mode`: `off` by default, or `auto` | `ground`).
   - Specs are compiled from a reviewed library of cells (`assets/library/`). Jev, TypeSafe's decision model, only picks: the cell, the slot values among verbatim candidates from the request and the repository, the project rules that apply, and whether each item's guard passes. It never writes text.
@@ -77,6 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - CI also runs on `macos-latest` under the stock `/bin/bash` 3.2.
 
 ### Fixed
+- `validate-prompt.sh` no longer warns "UI-related task missing visual verification" on specs that merely contain "build", "require", "guide" or "linux": the UI words are now matched as whole words.
 - **About 1 in 3 generated specs failed the skill's own validator (exit 4).**
   The generator prompt told the model to put `<verification_commands>` in
   each task, but `validate-prompt.sh` only counted `<verification>`.

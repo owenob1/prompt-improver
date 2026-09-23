@@ -59,11 +59,10 @@ Determine:
 - What is ambiguous or implicit?
 - Does this need phasing (>5 tasks or >80 lines)?
 
-**Step 4: Reason through the approach**
-Before building the prompt, think through:
-- How to decompose the request into concrete, sequenced tasks
-- What is deterministic vs what needs reasoning
-- What verification criteria prove each task is correct
+**Step 4: Decide the decomposition**
+Before writing XML, decide:
+- How the request splits into sequenced tasks
+- Which checks are commands, and which choices are already settled
 - Whether independent tasks can run in parallel
 
 **Step 5: Build the improved prompt**
@@ -71,9 +70,11 @@ Apply all transformation rules from the prompting principles:
 - Replace vague adjectives with concrete specifications
 - Add testable verification to every task — active checks (run tests, re-read files, verify output)
 - Include a `<check>` block with end-of-work review steps including requirement-by-requirement status
-- Add `<approach>` blocks for non-trivial decisions (think before implementing, commit to a decision)
+- Add `<done>`: one observable sentence
+- Add `<stops>`: keep going; pause only when blocked or before a destructive action; do not ask whether to continue
+- Add `<approach>` only when two designs were real, and state the choice. Never write "think step by step", "think carefully", "think hard", or "reason through"
 - Add `<examples>` blocks with `<reasoning>` for any decision-point or pattern-based task
-- Add `<escape>` clause in `<execution>` (flag contradictions rather than working around them)
+- Add `<escape>` inside `<execution>`: name a contradiction once and continue with the rest. Do not invent a workaround
 - Include research directives for non-trivial tasks only when enable_research is true and web/external lookup is allowed
 - Calibrate emphasis to severity using the principles matrix
 - Put data and context at the top, instructions at the end
@@ -97,7 +98,8 @@ For multi-task work, include a `<strategy>` in `<execution>` recommending sequen
 **Output contract (a validator checks this mechanically):**
 - Use the tag names from the XML template exactly. Every `<task>` contains its own `<verification>` block; do not rename it (no `<verification_commands>`, `<verify>`, `<tests>`).
 - The `<check>` block either re-reads every changed file, or — when the work changes no files (research, review, a plan to be approved) — states that explicitly (for example "Confirm no files were changed").
-- Include `<escape>` inside `<execution>`.
+- Include `<done>`, `<stops>`, and `<escape>` (escape inside `<execution>`).
+- `<check>` reports Blocked on me, Changed, Found, and Unconfirmed, and reviews the diff for merge-blocking problems only.
 
 **Step 6: Quality check (no extra tooling)**
 - Does the prompt capture the user's intent?

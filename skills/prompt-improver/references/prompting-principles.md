@@ -8,8 +8,8 @@ From highest to lowest leverage:
 
 1. **Verification + self-check** — Claude performs dramatically better when it checks its own work. Every task needs `<verification>`, every prompt needs a `<check>` block.
 2. **Few-shot examples with reasoning** — The single most effective steering tool. Include `<examples>` with `<reasoning>` blocks for any task involving patterns, decisions, or format choices. An instruction with a worked example is more powerful than the same instruction with CRITICAL capitalisation but no example.
-3. **Think-then-answer structure** — `<approach>` blocks for reasoning through decisions before implementing. Evidence-first grounding prevents hallucination and over-correction.
-4. **Escape clauses** — Give Claude permission to flag contradictions, say "I don't know", or report infeasible requirements. Prevents hallucinated workarounds and silent failures.
+3. **A committed choice** — `<approach>` states the decision when two designs were real. Do not ask the agent to reason through it. An open question is worse than no block.
+4. **Escape and stops** — `<escape>` names a contradiction once and continues. `<stops>` says to keep going, and to pause only when blocked or before a destructive action.
 5. **Research directives** — Search online and explore the codebase before coding. The cost of verifying is near-zero; the cost of stale assumptions is high.
 6. **Task decomposition** — One task per block, sequenced with dependencies.
 7. **Concrete specifications** — Numbers, formats, breakpoints, file paths.
@@ -286,16 +286,15 @@ When to include examples:
 - Decision points where Claude must choose between approaches
 - Any task where showing is clearer than telling
 
-### Add approach blocks for think-then-answer
+### Add approach blocks only to commit a choice
 
-Replace the old `<evaluate>` pattern with `<approach>`. The key difference: commit to a decision rather than leaving it open-ended.
+Replace the old `<evaluate>` pattern with `<approach>`. State the choice. Do not ask the agent to reason, and do not leave the choice open. Omit the block when there is nothing to choose.
 
 ```xml
 <approach>
-  Before implementing, reason through:
-  - Which state management approach fits (React context, Zustand, URL state)?
-  - Criteria: minimal re-renders, deep-linkable, predictable updates.
-  Select an approach and commit to it. Avoid revisiting unless new info contradicts your reasoning.
+  Commit before editing:
+  - State: URL search params. Not Zustand, and not React context.
+  - Reason: the view has to be shareable. Re-renders are not the constraint.
 </approach>
 ```
 
@@ -304,13 +303,19 @@ Replace the old `<evaluate>` pattern with `<approach>`. The key difference: comm
 Every `<execution>` block should include an escape clause:
 
 ```xml
+<stops>
+  - If a step needs no input, keep going. Put status in the same message as the next action.
+  - Stop only when blocked on the user, or before deleting data, force-pushing, or writing outside this repository.
+  - Do not end the turn by asking whether to continue.
+</stops>
+
 <escape>
-  If any requirement seems contradictory, infeasible, or would degrade
-  existing functionality — flag it and ask rather than working around it.
+  If a requirement is contradictory or infeasible, name it once and continue
+  with every part that is not blocked. Do not invent a workaround.
 </escape>
 ```
 
-This prevents the common failure mode where Claude silently works around a problem by producing hallucinated or degraded output rather than admitting the constraint is unfeasible.
+`<stops>` is the pause rule. `<escape>` is the contradiction rule. Naming the block and then inventing a workaround is the failure this prevents. The emitted prompt does not name the product the agent is running in.
 
 ### Calibrate emphasis to model and severity
 
@@ -483,6 +488,18 @@ Both modes:
 | Generic constraint dumps (same boilerplate in every prompt) | Dilutes task instructions. Write constraints specific to the task's failure modes |
 | Mandatory ceremony for simple tasks (TeamCreate for one file) | Adds overhead without value. Match ceremony to scope |
 | Emphasis saturation (>20% of rules at CRITICAL/NEVER) | Signal dilutes. Reserve top tiers for genuine consequences |
+
+
+## Opus 5.5
+
+Applied on top of the rules above. The emitted XML stays the same schema.
+
+- Name what done looks like in `<done>`, one sentence an observer can check, then let the run continue.
+- Do not write think step by step, think carefully, think hard, or reason through. Those lines do not add thinking.
+- Review the diff. Report only merge-blocking problems: file, line, why it is wrong, how to show it fails.
+- End the run with Blocked on me, Changed, Found, Unconfirmed. Unconfirmed includes where you looked.
+- More than three tasks, or an audit or migration: one subagent per independent unit, check its evidence, and keep the checklist in TASKS.md because older turns get summarized.
+- Name a visual style to leave out only when the user named it.
 
 ## Claude 4.6 specifics
 

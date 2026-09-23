@@ -3,6 +3,14 @@
   <scope>scripts/ and documentation</scope>
 </context>
 
+<done>scripts/backends remain discoverable after sourcing settings, and bash scripts/smoke-test.sh exits 0.</done>
+
+<stops>
+  - If a step needs no input, keep going. Put status in the same message as the next action.
+  - Stop only when blocked on the user, or before deleting data, force-pushing, or writing outside this repository.
+  - Do not end the turn by asking whether to continue.
+</stops>
+
 <approach>
   Confirm path resolution for SCRIPT_DIR after sourcing settings, then fix backend discovery.
 </approach>
@@ -37,4 +45,5 @@
   Run smoke tests: bash scripts/smoke-test.sh
   No typecheck applicable (shell/markdown skill repo); use bash -n + validate-prompt.
   Report status for each requirement from the original request.
+  Report: Blocked on me / Changed / Found / Unconfirmed
 </check>
