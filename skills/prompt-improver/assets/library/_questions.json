@@ -1,0 +1,94 @@
+{
+  "//": "Fixed questions of the Jev v2 fast path (files starting with _ are not cells). Phrase questions positively: Jev handles negation poorly. The core wordings were measured on the 40-request corpus.",
+  "core": {
+    "triage": {
+      "type": "choice",
+      "instructions": "How much specification work does the request need before a coding agent can carry it out well?",
+      "criteria": {
+        "trivial": "A tiny, unambiguous edit such as a typo, a rename, or a one-line change",
+        "ready": "Already a detailed, structured specification with tasks and verification steps",
+        "rough": "An informal or brief request that benefits from being turned into a structured specification"
+      }
+    },
+    "complexity": {
+      "type": "score",
+      "instructions": "How much work does the request involve?",
+      "criteria": [
+        "A single small change in one place",
+        "A focused change touching a few closely related places",
+        "Several coordinated changes, or a design decision to make first",
+        "Large or cross-cutting work that needs to be split into phases"
+      ]
+    },
+    "risk": {
+      "type": "score",
+      "instructions": "How much damage could a mistake in this change cause?",
+      "criteria": [
+        "Low: easy to undo, with no effect on data, security, or public interfaces",
+        "Moderate: touches shared code, public interfaces, or configuration",
+        "High: involves data migration, security, authentication, payments, deletion, or production infrastructure"
+      ]
+    },
+    "clarity": {
+      "type": "score",
+      "instructions": "How clearly does the request define the work?",
+      "criteria": [
+        "Unclear: the goal or the target is missing",
+        "Partly clear: the goal is stated but key details are missing",
+        "Clear: the goal and the target are both stated"
+      ]
+    },
+    "multi_task": {
+      "type": "noul",
+      "instructions": "Does the request ask for two or more separate pieces of work that should each be checked on their own?"
+    },
+    "needs_research": {
+      "type": "noul",
+      "instructions": "Does carrying out the request require reading external documentation or learning an unfamiliar library or API?"
+    },
+    "ui": {
+      "type": "noul",
+      "instructions": "Does the request change something a person sees or clicks in a graphical or web interface?"
+    },
+    "autonomous": {
+      "type": "noul",
+      "instructions": "Is the request about building or instructing an agent that acts on its own, processes untrusted content with tools, or delegates work to sub-agents?"
+    },
+    "needs_test": {
+      "type": "noul",
+      "instructions": "Should the change come with a new or updated automated test?"
+    },
+    "user_facing": {
+      "type": "noul",
+      "instructions": "Does the change add or alter something a user of the project types, configures or reads, such as a command-line option, a setting, an environment variable or an output format?"
+    }
+  },
+  "cell": "Which of these describes the work the request asks for?",
+  "cell_none": "None of these describes the work the request asks for",
+  "roles": {
+    "target": "Which words name the existing file, component, command, function or system that must be changed?",
+    "new_element": "Which words name the new thing to add (a flag, option, feature, file, endpoint or test)?",
+    "desired": "Which words describe how things should behave once the work is done?",
+    "symptom": "Which words describe the current wrong behaviour or error?",
+    "constraint": "Which words state a limit or rule the change must respect?",
+    "metric": "Which words give a measured number, amount or duration?"
+  },
+  "role_none": "Nothing in the request plays this role",
+  "file": "Would carrying out the request require editing this file? File: ",
+  "rule": "Would an engineer carrying out the request need to follow this project rule while changing the code? Rule: ",
+  "slot_none": "None of these",
+  "target_rule": "Would an engineer changing the file `target.path` to carry out the request need to follow this project rule? Rule: ",
+  "test_file": "Would the automated tests for the requested change belong in this test file? File: ",
+  "prior_request": "Make a small change to this project's code.",
+  "command_role": {
+    "instructions": "What does this command do? Command: ",
+    "criteria": {
+      "test": "Runs the project's automated tests",
+      "lint": "Runs a linter or static analysis",
+      "typecheck": "Runs a type checker",
+      "build": "Builds or compiles the project",
+      "format": "Formats the code",
+      "other": "Something else, such as running one tool or an example"
+    }
+  }
+}

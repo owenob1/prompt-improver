@@ -1,0 +1,14 @@
+{
+  "//": "Tier B: what the LLM is asked to write for each gap section. A cell's escalate entry may override one with its own \"prompt\".",
+  "sections": {
+    "approach": "3 to 6 bullets, each starting with \"- \", naming the concrete functions, loops, branches and exit paths in the target file that this change must handle (cite function names or line numbers from the file), and the one design decision to settle before editing. Do not repeat the bullets already in the approach.",
+    "verification": "2 to 5 bullets, each starting with \"- \", each a runnable command followed by its expected result, specific to this request and this code.",
+    "requirements": "2 to 6 bullets, each starting with \"- \", each one testable requirement specific to this request that the specification does not already state.",
+    "example": "1 or 2 examples, each written as <example><input>…</input><output>…</output><reasoning>…</reasoning></example>.",
+    "constraint": "1 to 4 bullets, each starting with \"- \", each a constraint that prevents a likely mistake in this specific change.",
+    "check": "1 to 3 bullets, each starting with \"- \", each a final self-check specific to this change.",
+    "escape": "1 or 2 sentences saying when to stop and ask instead of working around a problem in this specific change.",
+    "description": "One sentence describing what the change accomplishes.",
+    "desired": "One or two sentences describing the behaviour once the change is done."
+  }
+}

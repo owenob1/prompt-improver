@@ -46,11 +46,17 @@ TMP_OUT=""
 TMP_ERR=""
 TMP_BODY=""
 TMP_HINTS=""
+TMP_CTX2=""
+FAST_GAPFILL=""
+FAST_GROUNDING=""
+_FAST_GAPFILL_FILE=""
 
 _cleanup() {
   local rc=$?
   rm -f ${TMP_PROMPT:+"$TMP_PROMPT"} ${TMP_CTX:+"$TMP_CTX"} ${TMP_RAW:+"$TMP_RAW"} \
-    ${TMP_OUT:+"$TMP_OUT"} ${TMP_ERR:+"$TMP_ERR"} ${TMP_BODY:+"$TMP_BODY"} ${TMP_HINTS:+"$TMP_HINTS"}
+    ${TMP_OUT:+"$TMP_OUT"} ${TMP_ERR:+"$TMP_ERR"} ${TMP_BODY:+"$TMP_BODY"} ${TMP_HINTS:+"$TMP_HINTS"} \
+    ${TMP_CTX2:+"$TMP_CTX2"} ${FAST_GROUNDING:+"$FAST_GROUNDING"} \
+    ${_FAST_GAPFILL_FILE:+"$_FAST_GAPFILL_FILE" "$_FAST_GAPFILL_FILE.skeleton.xml"}
   # Keep the exit-code contract: unexpected failures (126 E2BIG, 127, 141 SIGPIPE,
   # jq errors, …) become 2. Ctrl-C stays 130.
   case "$rc" in
@@ -233,13 +239,14 @@ LAST_FAILURE_KIND="error"   # rate_limit | error
 FAST_TIER=""
 
 # --- EXPERIMENTAL Jev fast path (settings fast_path.mode; default off) ---
-# Jev only makes typed decisions (~70-500 ms). compose/auto may serve the request
-# from templates with no LLM; route/auto otherwise hands back a model tier and
-# reference pruning for the LLM path below. Any failure falls through unchanged.
+# compile/pipeline.sh, via fast-path.sh. Tier A serves a spec compiled from the
+# reviewed library with no LLM. Tier B returns a compiled skeleton whose gap
+# sections a fast model writes below. Tier C returns repo facts for the full
+# generation prompt plus a model tier. Any failure falls through unchanged.
 if [ "${FAST_PATH_MODE:-off}" != "off" ] && [ -z "$CUSTOM_COMMAND" ]; then
   TMP_HINTS=$(mktemp -t prompt-improver-hints.XXXXXX)
   _fp_rc=0
-  bash "$SCRIPT_DIR/fast-path.sh" "$FAST_PATH_MODE" "$TMP_RAW" "${TMP_CTX:-}" "$TMP_HINTS" \
+  bash "$SCRIPT_DIR/fast-path.sh" "$FAST_PATH_MODE" "$TMP_RAW" "$CWD" "$TMP_HINTS" \
     >"$TMP_OUT" 2>"$TMP_ERR" </dev/null || _fp_rc=$?
   [ -s "$TMP_ERR" ] && cat "$TMP_ERR" >&2
   if [ "$_fp_rc" -eq 0 ] && [ -s "$TMP_OUT" ]; then
@@ -250,17 +257,27 @@ if [ "${FAST_PATH_MODE:-off}" != "off" ] && [ -z "$CUSTOM_COMMAND" ]; then
     while IFS='=' read -r _hk _hv; do
       case "$_hk" in
         FAST_TIER) FAST_TIER="$_hv" ;;
-        FAST_PRUNE)
-          if [ "$_hv" = "true" ]; then
-            export PROMPT_IMPROVER_GEN_INCLUDE_CHAINING=false PROMPT_IMPROVER_GEN_INCLUDE_EXAMPLES=false
-          fi
-          ;;
+        FAST_GAPFILL) [ -f "$_hv" ] && FAST_GAPFILL="$_hv" && _FAST_GAPFILL_FILE="$_hv" ;;
+        FAST_GROUNDING) [ -f "$_hv" ] && FAST_GROUNDING="$_hv" ;;
       esac
     done <"$TMP_HINTS"
   fi
 fi
 
-if [ "$_generation_ok" != true ]; then
+# Tier C: the facts Jev selected sit next to the deterministic context.
+if [ -n "$FAST_GROUNDING" ]; then
+  TMP_CTX2=$(mktemp -t prompt-improver-ctx2.XXXXXX)
+  {
+    if [ -n "${PROMPT_IMPROVER_PROJECT_CONTEXT_FILE:-}" ] && [ -f "$PROMPT_IMPROVER_PROJECT_CONTEXT_FILE" ]; then
+      cat "$PROMPT_IMPROVER_PROJECT_CONTEXT_FILE"
+      echo ""
+    fi
+    cat "$FAST_GROUNDING"
+  } >"$TMP_CTX2"
+  export PROMPT_IMPROVER_PROJECT_CONTEXT_FILE="$TMP_CTX2"
+fi
+
+_pi_build_full_prompt() {
 {
   printf 'You are running in mode: %s\n' "$MODE"
   printf 'Working directory context: %s\n\n' "$CWD"
@@ -289,6 +306,17 @@ if [ "$_generation_ok" != true ]; then
     bash "$SCRIPT_DIR/assemble-generation-prompt.sh" --raw-input-file "$TMP_RAW" "${PROMPT_IMPROVER_PROJECT_CONTEXT_FILE:-}"
   fi
 } > "$TMP_PROMPT"
+}
+
+if [ "$_generation_ok" != true ]; then
+  # Tier B: the LLM writes only the sections the compiled skeleton could not fill.
+  if [ -n "$FAST_GAPFILL" ] && bash "$SCRIPT_DIR/compile/gapfill.sh" prompt "$FAST_GAPFILL" >"$TMP_PROMPT" 2>/dev/null \
+    && [ -s "$TMP_PROMPT" ]; then
+    echo "fast-path: tier B prompt is $(wc -c <"$TMP_PROMPT" | tr -d ' ') bytes; the LLM writes only the gap sections." >&2
+  else
+    FAST_GAPFILL=""
+    _pi_build_full_prompt
+  fi
 fi
 
 # --- Custom command override ---
@@ -314,7 +342,7 @@ if [ -n "$CUSTOM_COMMAND" ] && [ "$_generation_ok" != true ]; then
   unset _diag
 fi
 
-if [ "$_generation_ok" != true ] && [ -z "$CUSTOM_COMMAND" ]; then
+_pi_run_backends() {
 
 # --- Model first (so we can route backend cross-CLI) ---
 # Explicit --model / model: token wins; then env/settings.model
@@ -547,6 +575,24 @@ for BACKEND_TRY in "${_backend_try_list[@]}"; do
   echo "Trying next available generator CLI…" >&2
 done
 
+}
+
+if [ "$_generation_ok" != true ] && [ -z "$CUSTOM_COMMAND" ]; then
+  _pi_run_backends
+  if [ "$_generation_ok" = true ] && [ -n "$FAST_GAPFILL" ]; then
+    printf '%s\n' "$GENERATED" >"$TMP_OUT"
+    if _merged=$(bash "$SCRIPT_DIR/compile/gapfill.sh" merge "$FAST_GAPFILL" "$TMP_OUT") && [ -n "$_merged" ]; then
+      GENERATED="$_merged"
+      echo "fast-path: tier B merged the gap sections into the compiled spec." >&2
+    else
+      echo "fast-path: tier B output was incomplete; running full generation." >&2
+      FAST_GAPFILL=""
+      _generation_ok=false
+      _pi_build_full_prompt
+      _pi_run_backends
+    fi
+    unset _merged
+  fi
 fi  # end built-in backends
 
 if [ "$_generation_ok" != true ]; then

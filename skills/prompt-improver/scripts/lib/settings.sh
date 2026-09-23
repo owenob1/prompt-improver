@@ -359,7 +359,9 @@ load_settings() {
   fi
   FAST_PATH_MODE=$(printf '%s' "$FAST_PATH_MODE" | tr '[:upper:]' '[:lower:]')
   case "$FAST_PATH_MODE" in
-    off|route|compose|auto) ;;
+    off|auto|ground) ;;
+    compose) FAST_PATH_MODE="auto" ;;
+    route) FAST_PATH_MODE="ground" ;;
     *) echo "WARNING: unknown fast_path mode '$FAST_PATH_MODE'; using off." >&2; FAST_PATH_MODE="off" ;;
   esac
 

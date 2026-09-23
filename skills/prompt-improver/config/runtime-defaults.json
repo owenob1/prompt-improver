@@ -499,19 +499,34 @@
     ]
   },
   "fast_path": {
-    "//": "EXPERIMENTAL. Jev (TypeSafe System One) fast path: typed decisions in ~70-500 ms, no text generation. mode: off | route | compose | auto. Sends the redacted request and trimmed repo facts to TypeSafe/OpenRouter — opt-in only. Needs curl, jq and TYPESAFE_API_KEY or OPENROUTER_API_KEY. Env: PROMPT_IMPROVER_FAST_PATH.",
+    "//": "EXPERIMENTAL Jev (TypeSafe System One) fast path, v2: the spec is compiled from a reviewed library (assets/library) using Jev decisions, with an LLM only for gaps (tier B) or as a grounded fallback (tier C). mode: off | auto | ground (never serve; grounding + model tier only). Sends the redacted request and repo facts (file cards, rule sentences, the target's header) to TypeSafe/OpenRouter, so it is opt-in. Needs curl, jq and TYPESAFE_API_KEY or OPENROUTER_API_KEY. Env: PROMPT_IMPROVER_FAST_PATH. See docs/investigations/jev-v2-architecture.md.",
     "mode": "off",
-    "timeout_ms": 2000,
-    "judge": true,
+    "jev_model": "jev-1.13.0",
+    "timeout_ms": 4000,
+    "cache": true,
+    "guard_margin": 0.05,
+    "allow_unreviewed": false,
+    "tiers": {
+      "a": true,
+      "b": true
+    },
     "thresholds": {
-      "ready_confidence": 0.8,
-      "archetype_confidence": 0.6,
-      "max_complexity": 1.0,
-      "max_risk": 0.5,
-      "max_multi_task": 0.25,
-      "min_clarity": 1.0,
-      "min_faithful": 0.7,
-      "min_fit": 1.5
+      "cell_min": 0.5,
+      "slot_min": 0.5,
+      "rule_min": 0.75,
+      "rule_max": 6,
+      "rule_floor": 0.45,
+      "command_min": 0.6,
+      "test_min": 0.5,
+      "target_min": 0.6,
+      "target_margin": 0.15,
+      "ready_min": 0.8,
+      "max_multi_task": 0.35,
+      "min_clarity": 1.2,
+      "max_risk": 1.2,
+      "max_complexity": 2.2,
+      "low_tier_complexity": 1.0,
+      "low_tier_risk": 0.5
     },
     "route_models": {
       "claude": {
@@ -530,7 +545,6 @@
         "low": "gemini-3.8-flash",
         "high": "gemini-3.1-pro-preview"
       }
-    },
-    "route_prune_references": true
+    }
   }
 }

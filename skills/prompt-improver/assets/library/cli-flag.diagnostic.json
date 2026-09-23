@@ -2,32 +2,42 @@
   "id": "cli-flag.diagnostic",
   "schema": 1,
   "provenance": {
-    "authored_by": "claude (investigation session), from blind-judge critiques of opus specs",
+    "authored_by": "claude (investigation session), from blind-judge critiques of opus specs; guards calibrated live on five flag requests",
     "reviewed_by": null,
     "created": "2026-09-23"
   },
   "match": "Add a command-line flag to an existing tool or script that makes it print extra diagnostic, trace, debug or progress information",
+  "task_name": "add-{flag}-flag",
   "fit": [
     { "id": "adds_flag", "q": "Does the request add a new command-line flag or option to an existing tool or script?", "min": 0.6 },
     { "id": "reports_info", "q": "Is the purpose of the new flag to make the tool print extra information about what it is doing?", "min": 0.6 }
   ],
+  "requires": [
+    { "id": "g_library", "q": "Is the file described in `target.usage` a library that other scripts load, rather than a command people run directly?", "max": 0.35 }
+  ],
+  "escalate": [
+    { "id": "g_internal", "q": "To add the new flag well, does an engineer first need to understand branching or fallback logic inside the tool?", "min": 0.6, "gap": "approach" }
+  ],
   "slots": {
-    "tool": { "kind": "entity", "accept": ["file", "path", "identifier", "word"], "q": "Which candidate names the existing tool or script that gets the new flag?" },
+    "tool": { "kind": "entity", "accept": ["file", "path", "code", "identifier", "word"], "q": "Which candidate names the existing tool or script that gets the new flag?" },
     "flag": { "kind": "entity", "accept": ["flag"], "q": "Which candidate is the new flag, exactly as it should be typed?" },
     "desired": { "kind": "role", "role": "desired" },
     "reported": { "kind": "word", "q": "Which single word names the things the new flag reports on?" }
   },
   "items": [
     { "id": "desc", "section": "description", "text": "Add `{flag}` to `{tool}` so that it {desired}." },
-    { "id": "current", "section": "current", "text": "`{tool}` — {tool_summary}. It has no `{flag}` option today." },
+    { "id": "current", "section": "current", "text": "`{tool_path}`: {tool_summary}. It has no `{flag}` option today.",
+      "guards": [ { "id": "f_flag_absent", "fact": "target_lacks", "text": "{flag}" } ] },
+    { "id": "current-has", "section": "current", "text": "`{tool_path}`: {tool_summary}. The text `{flag}` already appears in it; find out what it does today before adding anything.",
+      "guards": [ { "id": "f_flag_present", "fact": "target_has", "text": "{flag}" } ] },
     { "id": "desired", "section": "desired", "text": "`{tool} {flag}` {desired}; without `{flag}` the output and exit codes are unchanged." },
 
     { "id": "appr-sites", "section": "approach",
-      "text": "Before editing, read `{tool}` end to end and list every place the flag must report on, including ones inside helpers, loops and command substitutions.",
+      "text": "Before editing, read `{tool_path}` end to end and list every place the flag must report on, including ones inside helpers, loops and command substitutions.",
       "guards": [ { "id": "g_sites", "q": "Does the new flag report on fixed checks or steps written in the code, each of which runs or is skipped?", "min": 0.6 } ] },
     { "id": "appr-attempts", "section": "approach",
-      "text": "Before editing, trace every path through `{tool}` that makes an attempt the flag must report, including retries, fallbacks and early exits, so that no attempt goes unreported.",
-      "guards": [ { "id": "g_attempts", "q": "Does the new flag report on a sequence of attempts, where each attempt can succeed or fail?", "min": 0.55 } ] },
+      "text": "Before editing, trace every path through `{tool_path}` that makes an attempt the flag must report, including retries, fallbacks and early exits, so that no attempt goes unreported.",
+      "guards": [ { "id": "g_attempts", "q": "Does the new flag report on a sequence of attempts, where each attempt can succeed or fail?", "min": 0.6 } ] },
     { "id": "appr-design", "section": "approach",
       "text": "Choose one design and commit to it: a single logging helper called at each reporting point (preferred when the points are scattered), or wrapping an existing helper those points already share. Criteria: every point covered, smallest diff, default output untouched." },
 
@@ -43,7 +53,7 @@
         { "id": "g_attempts", "q": "Does the new flag report on a sequence of attempts, where each attempt can succeed or fail?", "max": 0.55 } ] },
     { "id": "fmt-attempts", "section": "requirements.format",
       "text": "Each attempt is reported in order with what was tried and how it ended (for example `ok`, `retry (<reason>)`, `limit (<reason>)`, `error (<exit code>)`), including attempts that were skipped.",
-      "guards": [ { "id": "g_attempts", "q": "Does the new flag report on a sequence of attempts, where each attempt can succeed or fail?", "min": 0.55 } ] },
+      "guards": [ { "id": "g_attempts", "q": "Does the new flag report on a sequence of attempts, where each attempt can succeed or fail?", "min": 0.6 } ] },
     { "id": "fmt-summary", "section": "requirements.format", "text": "Finish with one summary line on stderr giving the totals: how many {reported} were reported and how each ended." },
 
     { "id": "if-positional", "section": "requirements.interface",
@@ -55,40 +65,48 @@
     { "id": "if-help", "section": "requirements.interface", "text": "`{flag}` is listed in the usage/help text in the existing format, with a one-line description." },
 
     { "id": "ex-normal", "section": "example",
-      "input": "`{runner} {tool_path} {flag}` in a normal project",
-      "output": "stderr has one `[{tool_name}]` line per {reported} plus the summary line; stdout is unchanged",
-      "reasoning": "Diagnostics are the feature; keeping them off stdout protects every consumer of the normal output.",
-      "guards": [ { "id": "g_bare_run", "q": "Can the tool described in `target.usage` produce its normal output when run with no arguments at all?", "min": 0.6 } ] },
+      "input": "a normal run of `{tool}` with `{flag}`",
+      "output": "stderr has one `[{tool_name}]` line for each of the {reported}, then the summary line; stdout is unchanged",
+      "reasoning": "Diagnostics are the feature; keeping them off stdout protects every consumer of the normal output." },
     { "id": "ex-skipped", "section": "example",
-      "input": "`{runner} {tool_path} {flag}` where one of the {reported} cannot run",
+      "input": "a run of `{tool}` with `{flag}` where one of the {reported} cannot run",
       "output": "that one is reported as `skipped (<reason>)`",
       "reasoning": "Something that never ran must still be visible, or users cannot tell \"not checked\" from \"absent\".",
-      "guards": [
-        { "id": "g_sites", "q": "Does the new flag report on fixed checks or steps written in the code, each of which runs or is skipped?", "min": 0.6 },
-        { "id": "g_bare_run", "q": "Can the tool described in `target.usage` produce its normal output when run with no arguments at all?", "min": 0.6 } ] },
+      "guards": [ { "id": "g_sites", "q": "Does the new flag report on fixed checks or steps written in the code, each of which runs or is skipped?", "min": 0.6 } ] },
     { "id": "ex-default", "section": "example",
-      "input": "`{runner} {tool_path}` without `{flag}`",
-      "output": "no `[{tool_name}]` lines on stderr; stdout identical to before the change",
-      "reasoning": "The default path must not change at all.",
-      "guards": [ { "id": "g_bare_run", "q": "Can the tool described in `target.usage` produce its normal output when run with no arguments at all?", "min": 0.6 } ] },
+      "input": "the same run of `{tool}` without `{flag}`",
+      "output": "no `[{tool_name}]` lines on stderr; stdout and the exit code identical to before the change",
+      "reasoning": "The default path must not change at all." },
     { "id": "ex-recovered", "section": "example",
-      "input": "a run where the first attempt fails and a later one succeeds, with `{flag}`",
+      "input": "a run with `{flag}` where the first attempt fails and a later one succeeds",
       "output": "stderr shows one line per attempt, in order, each with its outcome, then the summary; stdout carries the normal result",
       "reasoning": "The trace exists to explain what happened across attempts, including the failures that were recovered from.",
-      "guards": [ { "id": "g_attempts", "q": "Does the new flag report on a sequence of attempts, where each attempt can succeed or fail?", "min": 0.55 } ] },
+      "guards": [ { "id": "g_attempts", "q": "Does the new flag report on a sequence of attempts, where each attempt can succeed or fail?", "min": 0.6 } ] },
 
     { "id": "ver-diff", "section": "verification",
       "text": "`diff <({runner} {tool_path} 2>/dev/null) <({runner} {tool_path} {flag} 2>/dev/null)` produces no output.",
-      "guards": [ { "id": "g_bare_run", "q": "Can the tool described in `target.usage` produce its normal output when run with no arguments at all?", "min": 0.6 } ] },
+      "guards": [
+        { "id": "g_required_args", "q": "Does the tool described in `target.usage` require at least one argument or option to be given?", "max": 0.35 },
+        { "id": "g_stdin", "q": "Does the tool described in `target.usage` read its input from standard input when no file argument is given?", "max": 0.35 } ] },
     { "id": "ver-lines", "section": "verification",
       "text": "`{runner} {tool_path} {flag} 2>&1 >/dev/null` prints one or more `[{tool_name}]` lines and the summary line.",
-      "guards": [ { "id": "g_bare_run", "q": "Can the tool described in `target.usage` produce its normal output when run with no arguments at all?", "min": 0.6 } ] },
+      "guards": [
+        { "id": "g_required_args", "q": "Does the tool described in `target.usage` require at least one argument or option to be given?", "max": 0.35 },
+        { "id": "g_stdin", "q": "Does the tool described in `target.usage` read its input from standard input when no file argument is given?", "max": 0.35 } ] },
     { "id": "ver-nolines", "section": "verification",
       "text": "`{runner} {tool_path} 2>&1 >/dev/null` prints no `[{tool_name}]` lines.",
-      "guards": [ { "id": "g_bare_run", "q": "Can the tool described in `target.usage` produce its normal output when run with no arguments at all?", "min": 0.6 } ] },
+      "guards": [
+        { "id": "g_required_args", "q": "Does the tool described in `target.usage` require at least one argument or option to be given?", "max": 0.35 },
+        { "id": "g_stdin", "q": "Does the tool described in `target.usage` read its input from standard input when no file argument is given?", "max": 0.35 } ] },
     { "id": "ver-args", "section": "verification",
-      "text": "Run `{tool}` with the smallest valid arguments from its usage text, once with and once without `{flag}`: stdout and the exit code are identical, and only the flagged run prints `[{tool_name}]` lines on stderr.",
-      "guards": [ { "id": "g_bare_run", "q": "Can the tool described in `target.usage` produce its normal output when run with no arguments at all?", "max": 0.4 } ] },
+      "text": "Run `{tool_path}` with the smallest valid arguments from its usage text, once with and once without `{flag}`: stdout and the exit code are identical, and only the flagged run prints `[{tool_name}]` lines on stderr.",
+      "guards": [ { "id": "g_required_args", "q": "Does the tool described in `target.usage` require at least one argument or option to be given?", "min": 0.65 } ] },
+    { "id": "ver-stdin", "section": "verification",
+      "text": "Pipe the same small valid input into `{runner} {tool_path}` once with and once without `{flag}`: stdout and the exit code are identical, and only the flagged run prints `[{tool_name}]` lines on stderr.",
+      "guards": [
+        { "id": "g_stdin", "q": "Does the tool described in `target.usage` read its input from standard input when no file argument is given?", "min": 0.65 },
+        { "id": "g_required_args", "q": "Does the tool described in `target.usage` require at least one argument or option to be given?", "max": 0.35 } ] },
+    { "id": "ver-help", "section": "verification", "text": "The usage/help text of `{tool}` lists `{flag}`." },
     { "id": "ver-syntax", "section": "verification", "text": "`{syntax_check}` succeeds." },
 
     { "id": "comp-test", "section": "companion", "file": "{test_file}",
@@ -111,10 +129,10 @@
       "guards": [ { "id": "g_sites", "q": "Does the new flag report on fixed checks or steps written in the code, each of which runs or is skipped?", "min": 0.6 } ] },
     { "id": "esc-paths", "section": "escape",
       "text": "If some attempt paths (for example early exits or fallbacks) cannot be reported without changing their behaviour, list them and ask instead of reshaping the control flow.",
-      "guards": [ { "id": "g_attempts", "q": "Does the new flag report on a sequence of attempts, where each attempt can succeed or fail?", "min": 0.55 } ] },
+      "guards": [ { "id": "g_attempts", "q": "Does the new flag report on a sequence of attempts, where each attempt can succeed or fail?", "min": 0.6 } ] },
     { "id": "esc-generic", "section": "escape", "text": "If the request is ambiguous, contradicts what the code shows, or would change the default output, stop and ask rather than guessing or working around it." },
 
-    { "id": "chk-covered", "section": "check", "text": "Re-read `{tool}` and confirm every one of the {reported} is reported, and that all diagnostics go to stderr." }
+    { "id": "chk-covered", "section": "check", "text": "Re-read `{tool_path}` and confirm every one of the {reported} is reported, and that all diagnostics go to stderr." }
   ],
-  "required": ["description", "verification", "check", "escape"]
+  "required": { "description": 1, "desired": 1, "approach": 2, "verification": 3, "check": 1, "escape": 1 }
 }
