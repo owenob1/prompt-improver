@@ -1,0 +1,43 @@
+<context>
+  <project>{{PROJECT}}</project>
+  <scope>{{SCOPE}}</scope>
+{{CONVENTIONS}}  <user-request>
+{{REQUEST}}
+  </user-request>
+</context>
+{{RESEARCH}}
+<task id="1" name="{{TASK_NAME}}">
+  <description>{{DESCRIPTION}}</description>
+
+  <requirements>
+{{REQUIREMENTS}}
+  </requirements>
+
+  <approach>
+{{APPROACH}}
+  </approach>
+
+  <verification>
+{{VERIFICATION}}
+  </verification>
+</task>
+
+<execution>
+  <strategy>sequential</strategy>
+  <constraints>
+{{CONSTRAINTS}}
+  </constraints>
+  <out-of-scope>
+{{OUT_OF_SCOPE}}
+  </out-of-scope>
+  <escape>
+    If the request is ambiguous, contradicts what the code shows, or would degrade existing behaviour, stop and ask rather than guessing or working around it.
+  </escape>
+</execution>
+{{TRUST}}
+<check>
+  Before reporting completion:
+{{CHECK}}
+  - Compare the result against every point in the user request above
+  - Report status for each requirement: done / partial / skipped
+</check>

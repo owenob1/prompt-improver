@@ -1,0 +1,20 @@
+@@name
+performance
+@@description
+Improve the performance characteristic named in the user request, proven by measurement, without changing results.
+@@requirements
+    - Measure a baseline before changing anything, with a repeatable command or benchmark
+    - Profile to find where the time or memory actually goes before optimising
+    - Report before and after numbers from the same measurement
+@@approach
+    Before optimising, reason through:
+    - What the profile shows as the dominant cost
+    - Which change addresses that cost with the least added complexity
+    Commit to the change and re-measure.
+@@verification
+    - Re-run the baseline measurement and confirm the improvement, with identical output
+@@constraints
+    - Outputs and behaviour stay identical; tests keep passing
+    - No micro-optimisations that do not show up in the measurement
+@@out-of-scope
+    - Optimising code paths the profile does not implicate

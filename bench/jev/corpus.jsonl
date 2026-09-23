@@ -1,0 +1,40 @@
+{"id": "r01", "kind": "bugfix", "request": "Fix the crash when the config file is empty"}
+{"id": "r02", "kind": "bugfix", "request": "users get logged out randomly after about 5 minutes, fix it"}
+{"id": "r03", "kind": "bugfix", "request": "The date picker shows yesterday's date for users in Australia"}
+{"id": "r04", "kind": "bugfix", "request": "validate-prompt.sh says 'no check block found' on big prompts even though there is one"}
+{"id": "r05", "kind": "bugfix", "request": "gather-context.sh fails in a directory with no git repo, make it degrade gracefully"}
+{"id": "r06", "kind": "feature", "request": "add a --verbose flag to gather-context.sh that prints which probes ran"}
+{"id": "r07", "kind": "feature", "request": "Add CSV export to the reports page"}
+{"id": "r08", "kind": "feature", "request": "add a --json output option to validate-prompt.sh so CI can parse the results"}
+{"id": "r09", "kind": "feature", "request": "support a PROMPT_IMPROVER_LOG_FILE env var that appends every run's backend, model and exit code to a log"}
+{"id": "r10", "kind": "feature", "request": "Add rate limiting to the public API: 100 requests per minute per API key, return 429 with Retry-After"}
+{"id": "r11", "kind": "refactor", "request": "rename normalize_model_id to pi_normalize_model_id everywhere"}
+{"id": "r12", "kind": "refactor", "request": "split lib/settings.sh into settings.sh and routing.sh without changing behaviour"}
+{"id": "r13", "kind": "refactor", "request": "Extract the retry logic in the payment client into a reusable helper"}
+{"id": "r14", "kind": "tests", "request": "the auth tests are flaky on CI, fix them"}
+{"id": "r15", "kind": "tests", "request": "add tests for the bash fallback in _builtin_normalize_model_id"}
+{"id": "r16", "kind": "tests", "request": "Increase test coverage for the invoice calculator to cover discounts and tax rounding"}
+{"id": "r17", "kind": "docs", "request": "fix the typo in the README install section"}
+{"id": "r18", "kind": "docs", "request": "document the fast_path settings in docs/CUSTOM-BACKENDS.md"}
+{"id": "r19", "kind": "docs", "request": "Update the CONTRIBUTING guide to explain how to run the smoke tests on macOS"}
+{"id": "r20", "kind": "config", "request": "bump actions/checkout to v5 in CI"}
+{"id": "r21", "kind": "config", "request": "Upgrade React from 18 to 19"}
+{"id": "r22", "kind": "config", "request": "add shellcheck to the CI workflow and fix whatever it flags"}
+{"id": "r23", "kind": "perf", "request": "make assemble-generation-prompt.sh faster, it takes 400ms"}
+{"id": "r24", "kind": "perf", "request": "The dashboard query takes 8 seconds, speed it up"}
+{"id": "r25", "kind": "research", "request": "how does the model fallback chain work when claude hits a weekly limit?"}
+{"id": "r26", "kind": "research", "request": "Compare our retry strategy with what the Stripe SDK recommends"}
+{"id": "r27", "kind": "research", "request": "which backends can run fully read-only, and how is that enforced?"}
+{"id": "r28", "kind": "ui", "request": "make the settings page work on mobile"}
+{"id": "r29", "kind": "ui", "request": "The primary button colour has too little contrast in dark mode, fix it"}
+{"id": "r30", "kind": "multi", "request": "Add OAuth login with Google and GitHub, migrate existing password users, and add an admin page to manage sessions"}
+{"id": "r31", "kind": "multi", "request": "refactor the backends into a plugin system, add a new backend for Zed, and write migration docs"}
+{"id": "r32", "kind": "vague", "request": "make it better"}
+{"id": "r33", "kind": "vague", "request": "clean up the code"}
+{"id": "r34", "kind": "risky", "request": "write a migration that deletes inactive user accounts older than two years"}
+{"id": "r35", "kind": "risky", "request": "rotate the production database credentials and update all services"}
+{"id": "r36", "kind": "i18n", "request": "corrige el error que aparece cuando el archivo de configuración está vacío"}
+{"id": "r37", "kind": "i18n", "request": "設定ファイルが空のときにクラッシュするバグを修正して"}
+{"id": "r38", "kind": "shell", "request": "make `generate-prompt.sh` handle requests containing $(rm -rf /) literally and never execute them"}
+{"id": "r39", "kind": "agent", "request": "build a subagent that reads GitHub issues and opens PRs to fix them automatically"}
+{"id": "r40", "kind": "ready", "request": "<context>\n  <project>prompt-improver skill (bash scripts, markdown references)</project>\n  <scope>scripts/ and documentation</scope>\n</context>\n\n<approach>\n  Confirm path resolution for SCRIPT_DIR after sourcing settings, then fix backend discovery.\n</approach>\n\n<escape>\n  If the host environment has no coding CLI installed, fall back to manual prompt assembly and do not invent CLI flags.\n</escape>\n\n<task name=\"fix-settings-path-leak\">\n  <description>\n    Ensure scripts/lib/settings.sh does not overwrite the caller's SCRIPT_DIR so\n    scripts/backends/*.sh remain discoverable.\n  </description>\n  <verification>\n    bash -n scripts/lib/settings.sh\n    bash scripts/smoke-test.sh\n  </verification>\n</task>\n\n<task name=\"validate-prompt-soft-typecheck\">\n  <description>\n    Typecheck should warn for non-typed repos, not hard-fail, unless\n    PROMPT_IMPROVER_REQUIRE_TYPECHECK=1.\n  </description>\n  <verification>\n    bash scripts/validate-prompt.sh examples/fixtures/valid-prompt.xml\n  </verification>\n</task>\n\n<check>\n  Re-read every changed file under scripts/ and config/.\n  Run smoke tests: bash scripts/smoke-test.sh\n  No typecheck applicable (shell/markdown skill repo); use bash -n + validate-prompt.\n  Report status for each requirement from the original request.\n</check>"}

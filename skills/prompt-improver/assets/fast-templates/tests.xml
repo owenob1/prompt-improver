@@ -1,0 +1,20 @@
+@@name
+tests
+@@description
+Add, fix or stabilise the automated tests described in the user request so they reliably check the intended behaviour.
+@@requirements
+    - Each test asserts observable behaviour, not implementation details
+    - For flaky tests: identify the source of nondeterminism (timing, ordering, shared state, network) before changing anything
+    - Tests are independent of execution order and of each other
+@@approach
+    Before editing, reason through:
+    - What behaviour each test must prove, and what failure it should catch
+    - For flakiness: run the test repeatedly to confirm the flake and its trigger
+    Select the fix that removes the nondeterminism and commit to it.
+@@verification
+    - Run the affected tests at least five times in a row and confirm they pass every time
+@@constraints
+    - Do not change production code unless the request asks for it or a genuine bug is found (report it)
+    - No arbitrary sleeps or retries to hide flakiness
+@@out-of-scope
+    - Rewriting unrelated tests

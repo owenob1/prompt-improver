@@ -497,5 +497,40 @@
       "kiro-cli",
       "kiro"
     ]
+  },
+  "fast_path": {
+    "//": "EXPERIMENTAL. Jev (TypeSafe System One) fast path: typed decisions in ~70-500 ms, no text generation. mode: off | route | compose | auto. Sends the redacted request and trimmed repo facts to TypeSafe/OpenRouter — opt-in only. Needs curl, jq and TYPESAFE_API_KEY or OPENROUTER_API_KEY. Env: PROMPT_IMPROVER_FAST_PATH.",
+    "mode": "off",
+    "timeout_ms": 2000,
+    "judge": true,
+    "thresholds": {
+      "ready_confidence": 0.8,
+      "archetype_confidence": 0.6,
+      "max_complexity": 1.0,
+      "max_risk": 0.5,
+      "max_multi_task": 0.25,
+      "max_vague": 0.3,
+      "min_faithful": 0.7,
+      "min_fit": 1.5
+    },
+    "route_models": {
+      "claude": {
+        "low": "sonnet",
+        "high": "opus"
+      },
+      "codex": {
+        "low": "gpt-6-luna",
+        "high": "gpt-6-sol"
+      },
+      "grok": {
+        "low": "grok-4.7",
+        "high": "grok-4.7"
+      },
+      "gemini": {
+        "low": "gemini-3.8-flash",
+        "high": "gemini-3.1-pro-preview"
+      }
+    },
+    "route_prune_references": true
   }
 }

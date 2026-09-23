@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (experimental)
+- **Jev fast path** (`fast_path.mode`: `off` by default, or `route` | `compose` | `auto`).
+  - Uses TypeSafe's Jev decision model to classify a request in one parallel call, typically 70–500 ms.
+  - Simple, single-task, low-risk requests are composed from archetype templates with no LLM call, then checked by a second Jev call and by `validate-prompt.sh`.
+  - Other requests go to the LLM path with a Jev-chosen model tier, and pruned references for simple tasks. An explicit `model:` always wins.
+  - Already-structured specs pass through unchanged.
+  - Needs `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`, `curl` and `jq`. Any Jev failure falls back silently.
+  - Credentials are redacted before the request leaves the machine, and the API key is never on argv.
+  - See `docs/investigations/jev-fast-path.md`. The benchmark harness is in `bench/jev/`.
+
 ## [1.1.0] — 2026-09-23
 
 ### Changed

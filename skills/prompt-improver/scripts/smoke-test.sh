@@ -942,6 +942,214 @@ else
 fi
 rm -rf "$_iso"
 
+echo ""
+echo "[25] EXPERIMENTAL Jev fast path (stub /systemone API)"
+# A `curl` stub that answers like POST /v1/systemone. STUB_JEV_MODE:
+#   ok | complex | lowconf | ready | judge_fail | http401 | malformed | timeout
+cat >"$STUB/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+log="$STUB_LOG"
+printf '%s\n' "$@" >>"$log/curl.argv"
+out=""; data=""; maxt=""; prev=""
+for a in "$@"; do
+  case "$prev" in
+    -o) out="$a" ;;
+    --data-binary) data="${a#@}" ;;
+    --max-time) maxt="$a" ;;
+  esac
+  prev="$a"
+done
+n=$(ls "$log"/jev.req.* 2>/dev/null | wc -l | tr -d ' ')
+cp "$data" "$log/jev.req.$n"
+mode="${STUB_JEV_MODE:-ok}"
+judge=$(jq -r 'if .questions.faithful then "yes" else "no" end' "$data")
+body() { printf '%s' "$1" >"$out"; }
+case "$mode" in
+  http401) body '{"detail":{"error_type":"authentication_error"}}'; printf 401; exit 0 ;;
+  malformed) body '<html>oops</html>'; printf 200; exit 0 ;;
+  timeout) sleep "${maxt:-1}"; printf 000; exit 28 ;;
+esac
+if [ "$judge" = yes ]; then
+  f=0.93; [ "$mode" = judge_fail ] && f=0.2
+  body '{"model":"jev-1.13.0","answers":{"faithful":{"type":"noul","noul":'"$f"'},"fit":{"type":"score","score":1.9,"confidence":0.8}},"usage":{"input_tokens":900,"output_tokens":20}}'
+  printf 200; exit 0
+fi
+tri=rough; tc=0.9; ac=0.88; cx=0.4; rk=0.1; mt=0.05; vg=0.05
+case "$mode" in
+  complex) cx=2.6; mt=0.85; rk=1.2 ;;
+  lowconf) ac=0.3 ;;
+  ready) tri=ready; tc=0.95 ;;
+esac
+body '{"model":"jev-1.13.0","answers":{
+ "triage":{"type":"choice","choice":"'"$tri"'","confidence":'"$tc"'},
+ "archetype":{"type":"choice","choice":"bugfix","confidence":'"$ac"'},
+ "complexity":{"type":"score","score":'"$cx"',"confidence":0.7},
+ "risk":{"type":"score","score":'"$rk"',"confidence":0.7},
+ "multi_task":{"type":"noul","noul":'"$mt"'},
+ "vague":{"type":"noul","noul":'"$vg"'},
+ "needs_research":{"type":"noul","noul":0.1},
+ "ui":{"type":"noul","noul":0.1},
+ "autonomous":{"type":"noul","noul":0.0}},
+ "usage":{"input_tokens":1200,"output_tokens":40}}'
+printf 200
+EOF
+chmod +x "$STUB/bin/curl"
+_iso=$(mktemp -d)
+mkdir -p "$_iso/u" "$_iso/p"
+printf '%s\n' '{"preferred_backends":["claude"]}' >"$_iso/p/settings.json"
+run_fp() {
+  env -i HOME="$HOME" PATH="$STUB_PATH" STUB_LOG="$STUB_LOG" STUB_FIXTURE="$STUB_FIXTURE" \
+    PROMPT_IMPROVER_CONFIG_DIR="$_iso/u" PROMPT_IMPROVER_PROJECT_CONFIG_DIR="$_iso/p" \
+    PROMPT_IMPROVER_HOST=claude TYPESAFE_API_KEY=stub-secret-key-value "$@"
+}
+_fp_reset() { rm -f "$STUB/log/"*; }
+
+_fp_reset
+set +e
+run_fp bash scripts/generate-prompt.sh --raw-input "fix the crash on empty config" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+set -e
+if [ "$_rc" -eq 0 ] && [ ! -e "$STUB/log/curl.argv" ]; then
+  ok "fast_path off by default: Jev is never called"
+else
+  bad "fast_path default rc=$_rc, curl called: $(test -e "$STUB/log/curl.argv" && echo yes)"
+fi
+
+_fp_reset
+set +e
+run_fp PROMPT_IMPROVER_FAST_PATH=compose bash scripts/generate-prompt.sh --raw-input "fix the crash on empty config" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+set -e
+if [ "$_rc" -eq 0 ] && grep -q 'name="fix-defect"' "$T/g.out" && [ ! -e "$STUB/log/argv.claude" ] \
+  && grep -q 'fast-path: compose' "$T/g.err"; then
+  ok "compose: confident Jev decision → template prompt, no LLM call"
+else
+  bad "compose rc=$_rc: $(grep -E 'fast-path|Trying' "$T/g.err" | head -3)"
+fi
+if [ "$(ls "$STUB/log"/jev.req.* 2>/dev/null | wc -l | tr -d ' ')" -eq 2 ]; then
+  ok "compose makes exactly two Jev calls (decide + judge)"
+else
+  bad "expected 2 Jev calls, got $(ls "$STUB/log"/jev.req.* 2>/dev/null | wc -l)"
+fi
+if ! grep -q 'stub-secret-key-value' "$STUB/log/curl.argv"; then
+  ok "API key never appears on curl's argv"
+else
+  bad "API key leaked onto argv"
+fi
+
+_fp_reset
+set +e
+run_fp PROMPT_IMPROVER_FAST_PATH=auto bash scripts/generate-prompt.sh --raw-input-file - >"$T/g.out" 2>"$T/g.err" <<'REQ'
+fix login; my key is sk-abcdefghijklmnopqrstuvwxyz and API_TOKEN=supersecret123
+REQ
+_rc=$?
+set -e
+if [ "$_rc" -eq 0 ] && ! grep -qE 'sk-abcdefghijklmnopqrstuvwxyz|supersecret123' "$STUB/log"/jev.req.* && grep -q 'fix login' "$STUB/log"/jev.req.0; then
+  ok "credentials are redacted before the request leaves the machine"
+else
+  bad "redaction rc=$_rc: $(grep -oE 'sk-[a-z]*|supersecret123' "$STUB/log"/jev.req.* | head -2)"
+fi
+
+_fp_reset
+set +e
+run_fp PROMPT_IMPROVER_FAST_PATH=auto STUB_JEV_MODE=complex bash scripts/generate-prompt.sh --raw-input "x" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+set -e
+if [ "$_rc" -eq 0 ] && grep -q 'compose declined' "$T/g.err" && grep -qx 'opus' "$STUB/log/argv.claude"; then
+  ok "auto + complex request → LLM path on the high tier (opus)"
+else
+  bad "complex auto rc=$_rc: $(grep -E 'fast-path|Trying' "$T/g.err" | head -3)"
+fi
+
+_fp_reset
+set +e
+run_fp PROMPT_IMPROVER_FAST_PATH=auto STUB_JEV_MODE=lowconf bash scripts/generate-prompt.sh --raw-input "x" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+set -e
+if [ "$_rc" -eq 0 ] && grep -qx 'sonnet' "$STUB/log/argv.claude" && ! grep -q '=== PROMPT CHAINING ===' "$STUB/log/argv.claude"; then
+  ok "auto + low-confidence simple request → sonnet tier with pruned references"
+else
+  bad "route low tier rc=$_rc: $(grep -E 'fast-path|Trying' "$T/g.err" | head -3)"
+fi
+
+_fp_reset
+set +e
+run_fp PROMPT_IMPROVER_FAST_PATH=auto STUB_JEV_MODE=lowconf bash scripts/generate-prompt.sh --model opus --raw-input "x" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+set -e
+if [ "$_rc" -eq 0 ] && grep -qx 'opus' "$STUB/log/argv.claude"; then
+  ok "an explicit model: always beats the route tier"
+else
+  bad "explicit model vs route rc=$_rc"
+fi
+
+_fp_reset
+set +e
+run_fp PROMPT_IMPROVER_FAST_PATH=auto STUB_JEV_MODE=judge_fail bash scripts/generate-prompt.sh --raw-input "x" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+set -e
+if [ "$_rc" -eq 0 ] && grep -q 'judge: faithful' "$T/g.err" && [ -e "$STUB/log/argv.claude" ]; then
+  ok "a failed Jev judge rejects the composed prompt → LLM path"
+else
+  bad "judge_fail rc=$_rc: $(grep -E 'fast-path' "$T/g.err" | head -3)"
+fi
+
+_fp_reset
+set +e
+run_fp PROMPT_IMPROVER_FAST_PATH=compose STUB_JEV_MODE=ready bash scripts/generate-prompt.sh --raw-input-file "$STUB_FIXTURE" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+set -e
+if [ "$_rc" -eq 0 ] && diff -q "$T/g.out" "$STUB_FIXTURE" >/dev/null && [ ! -e "$STUB/log/argv.claude" ]; then
+  ok "an execution-ready spec is passed through untouched"
+else
+  bad "ready passthrough rc=$_rc"
+fi
+
+for _m in http401 malformed timeout; do
+  _fp_reset
+  _t0=$(date +%s)
+  set +e
+  run_fp PROMPT_IMPROVER_FAST_PATH=auto STUB_JEV_MODE=$_m PROMPT_IMPROVER_JEV_TIMEOUT_MS=1000 \
+    bash scripts/generate-prompt.sh --raw-input "x" >"$T/g.out" 2>"$T/g.err"; _rc=$?
+  set -e
+  _dt=$(( $(date +%s) - _t0 ))
+  if [ "$_rc" -eq 0 ] && grep -q 'jev unavailable or failed' "$T/g.err" && [ -e "$STUB/log/argv.claude" ] && [ "$_dt" -lt 15 ]; then
+    ok "Jev $_m → silent fallback to the LLM path (${_dt}s)"
+  else
+    bad "Jev $_m rc=$_rc after ${_dt}s: $(grep -E 'fast-path|jev' "$T/g.err" | head -3)"
+  fi
+done
+
+# Every archetype template composes into a prompt that validates.
+_dec="$T/dec.json"
+printf 'Fix the <b>crash</b> & keep {{REQUEST}} literal\n' >"$T/fp-raw.txt"
+bash scripts/gather-context.sh . >"$T/fp-ctx.txt" 2>/dev/null || true
+_tpl_bad=""
+for _f in assets/fast-templates/*.xml; do
+  _a=$(basename "$_f" .xml)
+  [ "$_a" = base ] && continue
+  jq -n --arg a "$_a" '{ms:1, answers:{archetype:{choice:$a,confidence:0.9}, needs_research:{noul:0.9}, ui:{noul:0.9}, autonomous:{noul:0.9}}}' >"$_dec"
+  if ! bash scripts/fast-compose.sh "$_dec" "$T/fp-raw.txt" "$T/fp-ctx.txt" >"$T/fp.xml" 2>/dev/null \
+    || ! bash scripts/validate-prompt.sh "$T/fp.xml" >/dev/null 2>&1; then
+    _tpl_bad="$_tpl_bad $_a"
+  fi
+done
+if [ -z "$_tpl_bad" ]; then
+  ok "every fast-path template composes into a valid prompt"
+else
+  bad "templates failing validation:$_tpl_bad"
+fi
+if grep -q '&lt;b&gt;crash&lt;/b&gt; &amp; keep {{REQUEST}} literal' "$T/fp.xml"; then
+  ok "request text is XML-escaped and never re-expanded as a placeholder"
+else
+  bad "request embedding: $(grep -A1 '<user-request>' "$T/fp.xml" | tail -1)"
+fi
+_q_bad=$(jq -r --arg d assets/fast-templates '.decide.archetype.criteria | keys[]' assets/fast-templates/questions.json | while read -r _a; do [ -f "assets/fast-templates/$_a.xml" ] || echo "$_a"; done)
+[ -z "$_q_bad" ] && ok "every Jev archetype option has a template" || bad "archetypes without templates: $_q_bad"
+
+# Parity: fast path defaults to off with and without jq; no jq means off even if asked.
+if [ "$(jq -r '.fast_path.mode' config/runtime-defaults.json)" = "off" ] && [ "$(jq -r '.fast_path.mode' config/settings.default.json)" = "off" ]; then
+  ok "fast_path.mode ships as off"
+else
+  bad "fast_path.mode is not off by default"
+fi
+_nojq_mode=$(env -i HOME="$HOME" PATH="$_nojq" PROMPT_IMPROVER_FAST_PATH=auto bash -c 'source scripts/lib/settings.sh; load_settings; echo "$FAST_PATH_MODE"' 2>/dev/null)
+[ "$_nojq_mode" = "off" ] && ok "no jq → fast path off" || bad "no-jq fast path mode: $_nojq_mode"
+rm -rf "$_iso"
+
 # Optional: gather-context should not crash
 echo ""
 echo "[extra] gather-context.sh"

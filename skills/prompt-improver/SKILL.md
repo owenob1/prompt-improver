@@ -192,6 +192,7 @@ A malformed settings file is skipped with a warning.
 | `backend_invocation` | `scripts` (default), `commands` (templates only), or `auto` (template when you override `backend_commands`) |
 | Runtime tables in `config/runtime-defaults.json` | Override: `model_aliases`, cascades, `backend_commands`, `generation` (materials + deterministic context), host detection, limit regexes |
 | `generation.context_mode` | `deterministic` (default): shell `gather-context.sh` only — headless must not grep/glob/search |
+| `fast_path.mode` / `PROMPT_IMPROVER_FAST_PATH` | **Experimental**, default `off`. `route` / `compose` / `auto` use Jev (TypeSafe System One, needs `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`) to decide in ~0.1–0.5 s: simple requests are composed from templates with no LLM call, others get a model tier. Sends the redacted request and trimmed repo facts to TypeSafe/OpenRouter. Any Jev failure falls back silently. The host flow and exit codes are unchanged. |
 
 Per-prompt `model:…` always wins for that run (unless `custom_command` is set — then encode the model in your command).
 

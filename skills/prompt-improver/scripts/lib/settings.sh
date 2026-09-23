@@ -286,7 +286,7 @@ load_settings() {
   SKIP_VALIDATE=$(get_setting "skip_validate" "false")
   BACKEND_INVOCATION=$(get_setting "backend_invocation" "scripts")
 
-  local _backend_timeout="" _grok_timeout="" _grok_turns=""
+  local _backend_timeout="" _grok_timeout="" _grok_turns="" _jev_timeout=""
 
   # Generation materials / output (nested generation object, with flat env overrides)
   if _pi_have_jq; then
@@ -311,6 +311,9 @@ load_settings() {
     _backend_timeout=$(jq -r 'if .backend_timeout_secs == null then empty else .backend_timeout_secs end' <<<"$_gen")
     _grok_timeout=$(jq -r 'if .grok_timeout_secs == null then empty else .grok_timeout_secs end' <<<"$_gen")
     _grok_turns=$(jq -r 'if .grok_max_turns == null then empty else .grok_max_turns end' <<<"$_gen")
+    FAST_PATH_JSON=$(_pi_merged_object_json "fast_path")
+    FAST_PATH_MODE=$(jq -r 'if .mode == null then "off" else .mode end' <<<"$FAST_PATH_JSON")
+    _jev_timeout=$(jq -r 'if .timeout_ms == null then empty else .timeout_ms end' <<<"$FAST_PATH_JSON")
   else
     CONTEXT_MODE="deterministic"
     GEN_INCLUDE_XML="true"
@@ -330,6 +333,9 @@ load_settings() {
     _backend_timeout=300
     _grok_timeout=180
     _grok_turns=3
+    # The Jev fast path needs jq for its JSON; without it the mode is always off.
+    FAST_PATH_JSON="{}"
+    FAST_PATH_MODE="off"
   fi
 
   BACKEND="${PROMPT_IMPROVER_BACKEND:-$BACKEND}"
@@ -345,6 +351,17 @@ load_settings() {
   SKIP_VALIDATE="${PROMPT_IMPROVER_SKIP_VALIDATE:-$SKIP_VALIDATE}"
   BACKEND_INVOCATION="${PROMPT_IMPROVER_BACKEND_INVOCATION:-$BACKEND_INVOCATION}"
   CONTEXT_MODE="${PROMPT_IMPROVER_CONTEXT_MODE:-$CONTEXT_MODE}"
+  # Per-run material overrides (the fast path's route mode prunes references).
+  GEN_INCLUDE_CHAINING="${PROMPT_IMPROVER_GEN_INCLUDE_CHAINING:-$GEN_INCLUDE_CHAINING}"
+  GEN_INCLUDE_EXAMPLES="${PROMPT_IMPROVER_GEN_INCLUDE_EXAMPLES:-$GEN_INCLUDE_EXAMPLES}"
+  if _pi_have_jq; then
+    FAST_PATH_MODE="${PROMPT_IMPROVER_FAST_PATH:-$FAST_PATH_MODE}"
+  fi
+  FAST_PATH_MODE=$(printf '%s' "$FAST_PATH_MODE" | tr '[:upper:]' '[:lower:]')
+  case "$FAST_PATH_MODE" in
+    off|route|compose|auto) ;;
+    *) echo "WARNING: unknown fast_path mode '$FAST_PATH_MODE'; using off." >&2; FAST_PATH_MODE="off" ;;
+  esac
 
   if [ "$MODEL" = "null" ]; then MODEL=""; fi
   if [ "$CUSTOM_COMMAND" = "null" ]; then CUSTOM_COMMAND=""; fi
@@ -367,6 +384,10 @@ load_settings() {
   if [ -n "$_grok_turns" ]; then
     export PROMPT_IMPROVER_GROK_MAX_TURNS="${PROMPT_IMPROVER_GROK_MAX_TURNS:-$_grok_turns}"
   fi
+  if [ -n "$_jev_timeout" ]; then
+    export PROMPT_IMPROVER_JEV_TIMEOUT_MS="${PROMPT_IMPROVER_JEV_TIMEOUT_MS:-$_jev_timeout}"
+  fi
+  export FAST_PATH_MODE FAST_PATH_JSON
   return 0
 }
 
@@ -382,6 +403,16 @@ _pi_resolve_skill_path() {
     /*) echo "$p" ;;
     *) echo "$root/$p" ;;
   esac
+}
+
+# Model for a backend at a fast-path route tier (low | high); empty when unset.
+pi_route_model() {
+  local backend="$1" tier="$2"
+  local json="${FAST_PATH_JSON:-}"
+  [ -n "$tier" ] || return 0
+  _pi_have_jq || return 0
+  [ -n "$json" ] || json='{}'
+  jq -r --arg b "$backend" --arg t "$tier" '.route_models[$b][$t] // empty' <<<"$json" 2>/dev/null || true
 }
 
 resolve_generator_model() {
@@ -953,4 +984,4 @@ export -f load_settings get_setting detect_backend detect_host_backend is_suppor
   get_default_model_for_backend resolve_generator_model normalize_model_id infer_backend_for_model \
   prefer_backend_if_available get_model_fallback_chain is_model_retryable_failure \
   is_account_limit_failure is_rate_limit_message_only _pi_resolve_skill_path \
-  pi_set_project_dir pi_is_safe_model_id pi_backend_binary pi_backend_available
+  pi_set_project_dir pi_is_safe_model_id pi_backend_binary pi_backend_available pi_route_model

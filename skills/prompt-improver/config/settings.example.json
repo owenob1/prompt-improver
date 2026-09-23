@@ -102,5 +102,9 @@
     "grok_timeout_secs": 180,
     "grok_max_turns": 3
   },
-  "//generation": "Customise generation materials and deterministic context. Full defaults: config/runtime-defaults.json → generation"
+  "//generation": "Customise generation materials and deterministic context. Full defaults: config/runtime-defaults.json → generation",
+  "//fast_path": "EXPERIMENTAL Jev fast path (off | route | compose | auto). Opt-in: sends the redacted request and trimmed repo facts to TypeSafe/OpenRouter. Full options: config/runtime-defaults.json → fast_path. Env: PROMPT_IMPROVER_FAST_PATH",
+  "fast_path": {
+    "mode": "off"
+  }
 }

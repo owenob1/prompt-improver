@@ -45,11 +45,12 @@ TMP_RAW=""
 TMP_OUT=""
 TMP_ERR=""
 TMP_BODY=""
+TMP_HINTS=""
 
 _cleanup() {
   local rc=$?
   rm -f ${TMP_PROMPT:+"$TMP_PROMPT"} ${TMP_CTX:+"$TMP_CTX"} ${TMP_RAW:+"$TMP_RAW"} \
-    ${TMP_OUT:+"$TMP_OUT"} ${TMP_ERR:+"$TMP_ERR"} ${TMP_BODY:+"$TMP_BODY"}
+    ${TMP_OUT:+"$TMP_OUT"} ${TMP_ERR:+"$TMP_ERR"} ${TMP_BODY:+"$TMP_BODY"} ${TMP_HINTS:+"$TMP_HINTS"}
   # Keep the exit-code contract: unexpected failures (126 E2BIG, 127, 141 SIGPIPE,
   # jq errors, …) become 2. Ctrl-C stays 130.
   case "$rc" in
@@ -225,6 +226,41 @@ else
   export PROMPT_IMPROVER_PROJECT_CONTEXT_FILE="$TMP_CTX"
 fi
 
+GENERATED=""
+_generation_ok=false
+TRIED_ATTEMPTS=""
+LAST_FAILURE_KIND="error"   # rate_limit | error
+FAST_TIER=""
+
+# --- EXPERIMENTAL Jev fast path (settings fast_path.mode; default off) ---
+# Jev only makes typed decisions (~70-500 ms). compose/auto may serve the request
+# from templates with no LLM; route/auto otherwise hands back a model tier and
+# reference pruning for the LLM path below. Any failure falls through unchanged.
+if [ "${FAST_PATH_MODE:-off}" != "off" ] && [ -z "$CUSTOM_COMMAND" ]; then
+  TMP_HINTS=$(mktemp -t prompt-improver-hints.XXXXXX)
+  _fp_rc=0
+  bash "$SCRIPT_DIR/fast-path.sh" "$FAST_PATH_MODE" "$TMP_RAW" "${TMP_CTX:-}" "$TMP_HINTS" \
+    >"$TMP_OUT" 2>"$TMP_ERR" </dev/null || _fp_rc=$?
+  [ -s "$TMP_ERR" ] && cat "$TMP_ERR" >&2
+  if [ "$_fp_rc" -eq 0 ] && [ -s "$TMP_OUT" ]; then
+    GENERATED=$(cat "$TMP_OUT")
+    _generation_ok=true
+    TRIED_ATTEMPTS="fast-path"
+  else
+    while IFS='=' read -r _hk _hv; do
+      case "$_hk" in
+        FAST_TIER) FAST_TIER="$_hv" ;;
+        FAST_PRUNE)
+          if [ "$_hv" = "true" ]; then
+            export PROMPT_IMPROVER_GEN_INCLUDE_CHAINING=false PROMPT_IMPROVER_GEN_INCLUDE_EXAMPLES=false
+          fi
+          ;;
+      esac
+    done <"$TMP_HINTS"
+  fi
+fi
+
+if [ "$_generation_ok" != true ]; then
 {
   printf 'You are running in mode: %s\n' "$MODE"
   printf 'Working directory context: %s\n\n' "$CWD"
@@ -253,14 +289,10 @@ fi
     bash "$SCRIPT_DIR/assemble-generation-prompt.sh" --raw-input-file "$TMP_RAW" "${PROMPT_IMPROVER_PROJECT_CONTEXT_FILE:-}"
   fi
 } > "$TMP_PROMPT"
-
-GENERATED=""
-_generation_ok=false
-TRIED_ATTEMPTS=""
-LAST_FAILURE_KIND="error"   # rate_limit | error
+fi
 
 # --- Custom command override ---
-if [ -n "$CUSTOM_COMMAND" ]; then
+if [ -n "$CUSTOM_COMMAND" ] && [ "$_generation_ok" != true ]; then
   echo "Using custom_command from settings" >&2
   # The prompt arrives on stdin; its path is also exported for commands that want a file.
   export PROMPT_IMPROVER_PROMPT_FILE="$TMP_PROMPT"
@@ -372,6 +404,14 @@ _model_for_backend() {
     fi
     if [ "$b" = "$PRIMARY_BACKEND" ]; then
       echo "WARNING: '$EXPLICIT_MODEL' is not a $b model; using $b's default." >&2
+    fi
+  fi
+  # Fast-path route tier (only when the user did not pick a model).
+  if [ -z "$EXPLICIT_MODEL" ] && [ -n "$FAST_TIER" ]; then
+    local routed
+    routed=$(pi_route_model "$b" "$FAST_TIER")
+    if [ -n "$routed" ]; then
+      echo "$routed"; return 0
     fi
   fi
   get_default_model_for_backend "$b"

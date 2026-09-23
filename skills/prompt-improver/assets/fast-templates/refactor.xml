@@ -1,0 +1,20 @@
+@@name
+refactor
+@@description
+Restructure the code named in the user request without changing its observable behaviour.
+@@requirements
+    - Establish a behavioural baseline first: run the relevant tests and record the results
+    - Update every caller and reference, including tests, docs and configuration
+    - Behaviour after the change is identical to the baseline
+@@approach
+    Before editing, reason through:
+    - The full set of call sites and references (search the repository for each renamed or moved symbol)
+    - An order of small, individually verifiable steps
+    Commit to that order and verify after each step.
+@@verification
+    - Search the repository for the old names or paths and confirm no stale references remain
+@@constraints
+    - No behaviour changes, bug fixes or new features mixed into the refactor
+    - Do not change public interfaces unless the request explicitly asks for it
+@@out-of-scope
+    - Performance tuning or style changes beyond what the request names
