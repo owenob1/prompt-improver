@@ -37,6 +37,8 @@ Each phase prompt is self-contained — it includes everything needed to execute
   </prior-phase-output>
 </context>
 
+<done>{observable finish line for this phase. One sentence.}</done>
+
 <task id="1" name="{task-name}">
   <description>{what this task accomplishes}</description>
   <requirements>
@@ -48,13 +50,22 @@ Each phase prompt is self-contained — it includes everything needed to execute
 </task>
 
 <execution>
-  <strategy>{how to work through this phase}</strategy>
+  <strategy>
+    {sequential or parallel}
+    Keep the checklist in TASKS.md. Tick each item. Add findings there.
+    One subagent per independent unit. Check its evidence before accepting it.
+  </strategy>
   <constraints>
     - {phase-specific constraints}
   </constraints>
+  <stops>
+    - If a step needs no input, keep going. Put status in the same message as the next action.
+    - Stop only when blocked on the user, or before deleting data, force-pushing, or writing outside this repository.
+    - Do not end the turn by asking whether to continue.
+  </stops>
   <escape>
-    If any requirement seems contradictory or infeasible, flag it and ask
-    rather than working around it.
+    If a requirement is contradictory or infeasible, name it once and continue
+    with the rest of this phase. Do not invent a workaround.
   </escape>
   <next-phase>
     Phase {N+1} will cover: {brief description of what comes next}
@@ -65,7 +76,9 @@ Each phase prompt is self-contained — it includes everything needed to execute
   - Re-read changed files — verify no placeholders or empty functions
   - Run {typecheck command}
   - Run {test command}
+  - Review the diff. List only merge-blocking problems: file, line, why, how to show it fails.
   - Report status for each requirement
+  - Report: Blocked on me / Changed / Found / Unconfirmed
 </check>
 ```
 
