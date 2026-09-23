@@ -29,19 +29,27 @@ Env overrides (when set) win over the JSON keys of the same name:
 ## Built-in backends
 
 These names work with `"backend": "…"` and as **host-matched** generators.  
-**Default pick is not “first CLI on PATH.”** Auto mode uses the **host** agent (Claude session → `claude` + `sonnet`, Grok → `grok` + composer, …).  
-`preferred_backends` is only the order to try **other** CLIs after rate limits.
+**Default pick is not “first CLI on PATH.”** Auto mode uses the **host** agent (Claude session → `claude` + `opus`, Codex → `codex` + `gpt-6-sol`, Grok → `grok` + `grok-4.7`, …).  
+`preferred_backends` is only the order to try **other** CLIs after the primary fails; each fallback CLI uses its own default model.
 
 | Name | Typical CLI | Notes |
 |------|-------------|--------|
-| `claude` | `claude` | Default model: `sonnet` |
-| `grok` | `grok` | Default model: `grok-composer-2.5-fast` |
-| `gemini` | `gemini` | Default model: `gemini-2.5-pro` |
-| `codex` | `codex` | Default model: `gpt-5.5` (`openai` aliases to `codex`) |
-| `cline` | `cline` | Headless flags as wired in `settings.sh` |
-| `opencode` | `opencode` | Built-in command template |
-| `kimi` | `kimi` | Built-in command template |
-| `kiro` | `kiro` | Built-in command template |
+| `claude` | `claude` | Default model: `opus`. Runs `claude -p` with `--tools ""` and `--permission-mode dontAsk` |
+| `codex` | `codex` | Default model: `gpt-6-sol` (`openai` aliases to `codex`). `codex exec --sandbox read-only --ephemeral` |
+| `grok` | `grok` | Default model: `grok-4.7`. Bounded by `grok_timeout_secs` (hang workaround) |
+| `gemini` | `gemini` | Default model: `gemini-3.8-flash`. Paid API keys / Code Assist only since 2026-06-18 |
+| `agy` | `agy` | Antigravity CLI — Gemini for personal Google accounts. CLI default model |
+| `copilot` | `copilot` | GitHub Copilot CLI, `-p -s --no-ask-user`, shell/write denied |
+| `cursor` | `cursor-agent` / `agent` | Cursor CLI, `-p --mode ask` (read-only) |
+| `opencode` | `opencode` | `opencode run`, `-m provider/model` |
+| `cline` | `cline` | `cline --plan -y`, `-m provider/model` |
+| `qwen` | `qwen` | Qwen Code, `-p --approval-mode default` |
+| `droid` | `droid` | Factory Droid, `droid exec -f <file>` (read-only autonomy) |
+| `amp` | `amp` | `amp -x`, prompt on stdin; no model flag |
+| `kimi` | `kimi` | `kimi -p` auto-approves tools, so it is not in the default fallback list |
+| `kiro` | `kiro-cli` / `kiro` | `kiro-cli chat --no-interactive` (tools not pre-trusted) |
+
+Every built-in backend is bounded by `generation.backend_timeout_secs` (default 300; env `PROMPT_IMPROVER_BACKEND_TIMEOUT`, `0` disables). Prompts too large for one argv string (~120 KB) go through stdin or a file where the CLI supports it; otherwise that backend is skipped.
 
 Force one:
 
@@ -85,14 +93,16 @@ When `custom_command` is set (settings or `PROMPT_IMPROVER_CUSTOM_COMMAND`), hea
 1. Assembles the improver prompt as usual  
 2. **Skips** built-in backend detection, model flags, and fallback cascades  
 3. Runs your command with the full prompt on **stdin**  
-4. Treats **stdout** as the improved prompt (XML / text)  
-5. Exits non-zero if your command exits non-zero  
+4. Treats **stdout** as the improved prompt; stderr is shown as diagnostics only  
+5. Validates the output like any backend (exit `4` on failure). A non-zero exit or a limit message bounces to the host (exit `3`), or exits `2` with `fallback_strategy=error`  
+
+The command runs under `bash -c`, bounded by `generation.backend_timeout_secs`. The prompt file path is also exported as `PROMPT_IMPROVER_PROMPT_FILE`.
 
 ### Minimal example
 
 ```json
 {
-  "custom_command": "cat >/tmp/pi-in.txt && my-cli --prompt-file /tmp/pi-in.txt"
+  "custom_command": "my-cli --prompt-file \"$PROMPT_IMPROVER_PROMPT_FILE\""
 }
 ```
 
@@ -166,7 +176,7 @@ Beyond scalars (`backend`, `model`, `custom_command`, …), **runtime tables** s
 | `model_fallback_chains` | Pattern → ordered model cascade (`$primary` = requested id) — **replaces** table when set |
 | `model_backend_patterns` | Pattern → generator CLI (`codex`, `claude`, …) |
 | `default_models` | Per-backend default when `model` is null |
-| `backend_commands` | CLI templates with `{prompt_file}` `{model}` `{model_args}` `{max_tokens}` |
+| `backend_commands` | CLI templates with `{prompt_file}` `{model}` `{model_args}` `{max_tokens}` (`{model}` is shell-quoted; templates run via `bash -c`) |
 | `backend_model_flags` | How to pass model id per backend (`-m {model}`, …) |
 | `backend_invocation` | `scripts` \| `commands` \| `auto` |
 | `supported_backends` | Host-match allowlist |
@@ -203,13 +213,13 @@ Beyond scalars (`backend`, `model`, `custom_command`, …), **runtime tables** s
 {
   "model_aliases": {
     "cheap": "haiku",
-    "codex": "gpt-5.5"
+    "codex": "gpt-6-luna"
   },
   "model_fallback_chains": [
     { "patterns": ["*sonnet*", "sonnet"], "chain": ["$primary", "haiku"] }
   ],
   "backend_commands": {
-    "mycli": "mycli --prompt-file {prompt_file} --model {model}"
+    "mycli": "mycli --prompt-file \"{prompt_file}\" --model {model} </dev/null"
   },
   "supported_backends": ["claude", "grok", "gemini", "codex", "mycli"],
   "default_models": {

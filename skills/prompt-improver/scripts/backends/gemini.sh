@@ -1,25 +1,31 @@
 #!/usr/bin/env bash
 # scripts/backends/gemini.sh
-# Adapter for Gemini CLI headless prompt improvement.
-# Honors PROMPT_IMPROVER_MODEL when set.
+# Google Gemini CLI headless (`gemini -p`). Honors PROMPT_IMPROVER_MODEL.
+#
+# Since 2026-06-18 Gemini CLI serves only paid Gemini API keys, Enterprise Agent
+# Platform keys and Code Assist Standard/Enterprise. Personal Google accounts
+# should use the `agy` (Antigravity CLI) backend instead.
+# `--approval-mode default` means tools that need approval are unavailable in
+# headless mode, so the generator cannot edit files or run shell commands.
 
 set -euo pipefail
 
-PROMPT_FILE="${1:-}"
+# shellcheck source=../lib/backend-common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/backend-common.sh"
+pi_backend_init "${1:-}"
+pi_require_cli "Install: npm install -g @google/gemini-cli (personal accounts: use the agy backend)" gemini
 
-if [ -z "$PROMPT_FILE" ] || [ ! -f "$PROMPT_FILE" ]; then
-  echo "Usage: $0 <prompt-file>" >&2
-  exit 1
-fi
-
-if ! command -v gemini >/dev/null 2>&1; then
-  echo "gemini CLI not found. Install: npm install -g @google/gemini-cli" >&2
-  exit 127
-fi
-
-MODEL_ARGS=()
+ARGS=(--output-format text --approval-mode default)
 if [ -n "${PROMPT_IMPROVER_MODEL:-}" ]; then
-  MODEL_ARGS=(-m "$PROMPT_IMPROVER_MODEL")
+  ARGS+=(-m "$PROMPT_IMPROVER_MODEL")
 fi
 
-exec gemini -p "$(cat "$PROMPT_FILE")" "${MODEL_ARGS[@]}"
+code=0
+if pi_prompt_fits_argv; then
+  pi_run_bounded "$PI_OUT_FILE" "$PI_ERR_FILE" gemini -p "$(cat "$PI_PROMPT_FILE")" "${ARGS[@]}" || code=$?
+else
+  # Gemini CLI appends piped stdin to the -p prompt.
+  echo "Prompt is $(pi_prompt_size) bytes; passing via stdin." >&2
+  pi_run_bounded_stdin "$PI_OUT_FILE" "$PI_ERR_FILE" gemini -p "Follow the instructions provided on stdin." "${ARGS[@]}" || code=$?
+fi
+pi_finish gemini "$code"

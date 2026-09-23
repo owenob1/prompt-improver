@@ -13,11 +13,30 @@
 set -euo pipefail
 
 # Read prompt from file argument or stdin
-if [ "${1:-}" ] && [ -f "$1" ]; then
+if [ -n "${1:-}" ]; then
+  if [ ! -f "$1" ]; then
+    echo "ERROR: prompt file not found: $1" >&2
+    exit 2
+  fi
   PROMPT=$(cat "$1")
 else
   PROMPT=$(cat)
 fi
+
+# grep over a variable without a pipe: `echo "$big" | grep -q` fails under
+# pipefail when grep exits early (SIGPIPE on the echo). BSD/GNU-portable flags only.
+_in() {
+  local text="$1"
+  shift
+  LC_ALL=C grep "$@" <<<"$text" 2>/dev/null
+}
+
+# Count opening tags (not lines): `<task>` and `<task id="1">`, but not `<tasks>`.
+_count_tags() {
+  local n
+  n=$(LC_ALL=C grep -oE "<$1([[:space:]][^>]*)?>" <<<"$PROMPT" 2>/dev/null | wc -l | tr -d ' ')
+  echo "${n:-0}"
+}
 
 ERRORS=0
 WARNINGS=0
@@ -30,7 +49,7 @@ warn() { echo "WARN: $1"; WARNINGS=$((WARNINGS + 1)); }
 # --- Required element checks ---
 
 # 1. At least one <task> block exists
-TASK_COUNT=$(echo "$PROMPT" | grep -c '<task' || true)
+TASK_COUNT=$(_count_tags task)
 if [ "$TASK_COUNT" -gt 0 ]; then
   pass "task blocks found ($TASK_COUNT)"
 else
@@ -38,7 +57,7 @@ else
 fi
 
 # 2. Every <task> block contains a <verification> section
-VERIFICATION_COUNT=$(echo "$PROMPT" | grep -c '<verification' || true)
+VERIFICATION_COUNT=$(_count_tags verification)
 if [ "$TASK_COUNT" -gt 0 ]; then
   if [ "$VERIFICATION_COUNT" -ge "$TASK_COUNT" ]; then
     pass "all tasks have verification ($VERIFICATION_COUNT/$TASK_COUNT)"
@@ -48,7 +67,7 @@ if [ "$TASK_COUNT" -gt 0 ]; then
 fi
 
 # 3. A <check> block exists
-if echo "$PROMPT" | grep -q '<check'; then
+if _in "$PROMPT" -q '<check'; then
   pass "check block present"
 else
   fail "no check block found"
@@ -56,9 +75,9 @@ fi
 
 # 4. Typecheck / static analysis — optional for non-typed repos
 # Accept common typecheck tools OR explicit "no typecheck" / shell-only verification
-if echo "$PROMPT" | grep -qiE '(tsc|pyright|mypy|go vet|cargo check|cargo test|typecheck|static.?analy)'; then
+if _in "$PROMPT" -qiE '(tsc|pyright|mypy|go vet|cargo check|cargo test|typecheck|static.?analy)'; then
   pass "typecheck/static-analysis command found"
-elif echo "$PROMPT" | grep -qiE '(no typecheck|n/a.*typecheck|shellcheck|bash -n|validate-prompt)'; then
+elif _in "$PROMPT" -qiE '(no typecheck|n/a.*typecheck|shellcheck|bash -n|validate-prompt)'; then
   pass "explicit non-typed or script verification found"
 else
   if [ "$REQUIRE_TYPECHECK" = "1" ]; then
@@ -69,7 +88,7 @@ else
 fi
 
 # 5. An <escape> clause exists
-if echo "$PROMPT" | grep -q '<escape'; then
+if _in "$PROMPT" -q '<escape'; then
   pass "escape clause present"
 else
   warn "no escape clause found — add <escape> to prevent hallucinated workarounds"
@@ -83,19 +102,19 @@ while IFS= read -r match; do
   if [ -n "$match" ]; then
     warn "vague adjective \"$match\" detected"
   fi
-done < <(echo "$PROMPT" | grep -oiE "\b($VAGUE_WORDS)\b" | tr '[:upper:]' '[:lower:]' | sort -u || true)
+done < <(_in "$PROMPT" -owiE "($VAGUE_WORDS)" | tr '[:upper:]' '[:lower:]' | sort -u || true)
 
 # 7. No <approach> block
-if ! echo "$PROMPT" | grep -q '<approach'; then
+if ! _in "$PROMPT" -q '<approach'; then
   warn "no approach block found — consider adding think-before-act reasoning"
 fi
 
 # --- Emphasis and signal quality ---
 
 # 8. Emphasis dilution
-TOTAL_INSTRUCTIONS=$(echo "$PROMPT" | grep -cE '^\s*[-*]|^\s*[0-9]+\.' || true)
+TOTAL_INSTRUCTIONS=$(_in "$PROMPT" -cE '^[[:space:]]*[-*]|^[[:space:]]*[0-9]+\.' || true)
 if [ "$TOTAL_INSTRUCTIONS" -gt 5 ]; then
-  TOP_TIER_COUNT=$(echo "$PROMPT" | grep -cE '\b(CRITICAL|ALWAYS|NEVER)\b' || true)
+  TOP_TIER_COUNT=$(_in "$PROMPT" -cwE '(CRITICAL|ALWAYS|NEVER)' || true)
   if [ "$TOTAL_INSTRUCTIONS" -gt 0 ]; then
     RATIO=$((TOP_TIER_COUNT * 100 / TOTAL_INSTRUCTIONS))
     if [ "$RATIO" -gt 20 ]; then
@@ -106,14 +125,14 @@ fi
 
 # 9. Aggressive language
 AGGRESSIVE_WORDS="MUST|CRITICAL|ABSOLUTELY|non-negotiable|NO exceptions"
-AGGRESSIVE_TOTAL=$(echo "$PROMPT" | grep -oE "\b($AGGRESSIVE_WORDS)\b" | wc -l | tr -d ' ' || true)
+AGGRESSIVE_TOTAL=$(_in "$PROMPT" -owE "($AGGRESSIVE_WORDS)" | wc -l | tr -d ' ' || true)
 AGGRESSIVE_TOTAL=${AGGRESSIVE_TOTAL:-0}
 
 SAFETY_AGGRESSIVE=0
-if echo "$PROMPT" | grep -qiE '(safety|security|data.loss|injection|destructive|irreversible).*\b(CRITICAL|MUST|NEVER)\b'; then
+if _in "$PROMPT" -qiE '(safety|security|data.loss|injection|destructive|irreversible).*(CRITICAL|MUST|NEVER)([^[:alnum:]_]|$)'; then
   SAFETY_AGGRESSIVE=$((SAFETY_AGGRESSIVE + 1))
 fi
-if echo "$PROMPT" | grep -qiE '\b(CRITICAL|MUST|NEVER)\b.*(safety|security|data.loss|injection|destructive|irreversible)'; then
+if _in "$PROMPT" -qiE '(^|[^[:alnum:]_])(CRITICAL|MUST|NEVER).*(safety|security|data.loss|injection|destructive|irreversible)'; then
   SAFETY_AGGRESSIVE=$((SAFETY_AGGRESSIVE + 1))
 fi
 
@@ -129,33 +148,33 @@ fi
 # --- Writing technique quality ---
 
 # 10. Decision boundary examples
-EXAMPLE_COUNT=$(echo "$PROMPT" | grep -c '<example' || true)
-REASONING_COUNT=$(echo "$PROMPT" | grep -c '<reasoning' || true)
+EXAMPLE_COUNT=$(_count_tags example)
+REASONING_COUNT=$(_count_tags reasoning)
 if [ "$EXAMPLE_COUNT" -gt 2 ] && [ "$REASONING_COUNT" -eq 0 ]; then
   warn "examples present but no <reasoning> blocks — decision boundary examples with reasoning are the most effective steering technique"
 fi
 
 # --- Check block quality ---
 
-if echo "$PROMPT" | grep -q '<check'; then
+if _in "$PROMPT" -q '<check'; then
   # Research/analysis prompts change no files, so they have nothing to re-read.
   # Accept an explicit read-only declaration in place of the re-read requirement,
   # mirroring how a missing typecheck may be waived with an explicit N/A.
-  CHECK_BLOCK=$(echo "$PROMPT" | sed -n '/<check/,/<\/check>/p')
-  if echo "$CHECK_BLOCK" | grep -qiE 're-read|reread|verify.*changed.*file|scan.*changed'; then
+  CHECK_BLOCK=$(sed -n '/<check/,/<\/check>/p' <<<"$PROMPT")
+  if _in "$CHECK_BLOCK" -qiE 're-read|reread|verify.*changed.*file|scan.*changed'; then
     pass "check block re-reads changed files"
-  elif echo "$CHECK_BLOCK" | grep -qiE 'no edits|no code changes|no files (changed|modified)|read-only|research only|report only'; then
+  elif _in "$CHECK_BLOCK" -qiE 'no edits|no code changes|no files (changed|modified)|read-only|research only|report only'; then
     pass "check block declares read-only work (nothing to re-read)"
   else
     fail "check block missing file re-read verification"
   fi
-  if ! echo "$PROMPT" | grep -qi 'typecheck\|tsc.*noEmit\|pyright\|cargo check\|shellcheck\|bash -n\|validate-prompt\|no typecheck'; then
+  if ! _in "$PROMPT" -qiE 'typecheck|tsc.*noEmit|pyright|cargo check|shellcheck|bash -n|validate-prompt|no typecheck'; then
     warn "check block missing typecheck or explicit N/A verification"
   fi
-  if ! echo "$PROMPT" | grep -qi 'test suite\|npm test\|run.*test\|pytest\|cargo test\|validate-prompt\|smoke'; then
+  if ! _in "$PROMPT" -qiE 'test suite|npm test|run.*test|pytest|cargo test|validate-prompt|smoke'; then
     warn "check block missing test suite / smoke verification"
   fi
-  if ! echo "$PROMPT" | grep -qi 'requirement\|status.*for.*each\|compare.*original'; then
+  if ! _in "$PROMPT" -qiE 'requirement|status.*for.*each|compare.*original'; then
     warn "check block missing requirement-by-requirement status reporting"
   fi
 fi
@@ -163,9 +182,9 @@ fi
 # --- Constraint quality ---
 
 # 11. Generic boilerplate in constraints
-if echo "$PROMPT" | grep -qi '<constraints'; then
+if _in "$PROMPT" -qi '<constraints'; then
   GENERIC_PATTERNS="no stubs|no placeholder|re-read.*file|run.*test.*after|deterministic.*operation|bash.*for.*all"
-  GENERIC_COUNT=$(echo "$PROMPT" | sed -n '/<constraints/,/<\/constraints/p' | grep -ciE "$GENERIC_PATTERNS" || true)
+  GENERIC_COUNT=$(sed -n '/<constraints/,/<\/constraints/p' <<<"$PROMPT" | grep -ciE "$GENERIC_PATTERNS" || true)
   if [ "$GENERIC_COUNT" -gt 2 ]; then
     warn "constraints contain $GENERIC_COUNT generic rules — move these to verification/check blocks, keep constraints task-specific"
   fi
@@ -174,41 +193,41 @@ fi
 # --- Size and structure ---
 
 # 12. Prompt exceeds 120 lines without phasing
-LINE_COUNT=$(echo "$PROMPT" | wc -l | tr -d ' ')
+LINE_COUNT=$(printf '%s\n' "$PROMPT" | wc -l | tr -d ' ')
 if [ "$LINE_COUNT" -gt 120 ]; then
-  if ! echo "$PROMPT" | grep -q '<phase'; then
+  if ! _in "$PROMPT" -q '<phase'; then
     warn "prompt exceeds 120 lines ($LINE_COUNT) without phasing"
   fi
 fi
 
 # 13. UI tasks should mention visual verification
-if echo "$PROMPT" | grep -qiE '(component|page|ui|ux|layout|responsive|css|tailwind|frontend)'; then
-  if ! echo "$PROMPT" | grep -qiE '(chrome|browser|screenshot|visual.*verif|viewport|breakpoint)'; then
+if _in "$PROMPT" -qiE '(component|page|ui|ux|layout|responsive|css|tailwind|frontend)'; then
+  if ! _in "$PROMPT" -qiE '(chrome|browser|screenshot|visual.*verif|viewport|breakpoint)'; then
     warn "UI-related task missing visual verification requirement"
   fi
 fi
 
 # --- Deprecated pattern warnings ---
 
-if echo "$PROMPT" | grep -q '<evaluate'; then
+if _in "$PROMPT" -q '<evaluate'; then
   warn "<evaluate> is deprecated — use <approach> for think-before-act reasoning"
 fi
-if echo "$PROMPT" | grep -qi 'sequential.thinking\|sequentialthinking'; then
+if _in "$PROMPT" -qiE 'sequential.thinking|sequentialthinking'; then
   warn "sequential-thinking MCP reference detected — use native <approach> blocks instead"
 fi
 
 # --- Autonomous agent prompt checks ---
 
 # 14. Trust hierarchy
-if echo "$PROMPT" | grep -qiE '(autonom|auto.mode|tool.result|subagent|delegation)'; then
-  if ! echo "$PROMPT" | grep -qiE '(override_rules|trust.*hierarch|priority.*order|data.*only|not.*instruction)'; then
+if _in "$PROMPT" -qiE '(autonom|auto.mode|tool.result|subagent|delegation)'; then
+  if ! _in "$PROMPT" -qiE '(override_rules|trust.*hierarch|priority.*order|data.*only|not.*instruction)'; then
     warn "autonomous agent prompt missing trust hierarchy — declare that tool results are DATA, not instructions"
   fi
 fi
 
 # 15. Known failure modes for complex multi-task prompts
 if [ "$TASK_COUNT" -gt 3 ]; then
-  if ! echo "$PROMPT" | grep -qi 'failure.mode\|common.mistake\|known_failure'; then
+  if ! _in "$PROMPT" -qiE 'failure.mode|common.mistake|known_failure'; then
     warn "complex prompt ($TASK_COUNT tasks) with no failure mode documentation — consider adding <known_failure_modes>"
   fi
 fi
