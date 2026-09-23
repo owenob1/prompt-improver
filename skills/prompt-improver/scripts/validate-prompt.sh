@@ -48,21 +48,49 @@ warn() { echo "WARN: $1"; WARNINGS=$((WARNINGS + 1)); }
 
 # --- Required element checks ---
 
+# Task structure, parsed once: task count, tasks with runnable verification, and
+# tasks verified only by acceptance criteria / a task-level check.
+# Checked per task, not by comparing totals (two blocks in one task must not hide
+# a missing one in another). `<verification>` is the template's tag; the
+# `<verification_commands>`/`<verification-commands>`/`<verify>` variants that
+# generators produce are accepted too. A task verified only by measurable
+# `<acceptance_criteria>` or a task-level `<check>` (typical for audit/design
+# tasks that change no code) passes with a warning.
+read -r TASK_COUNT VERIFIED_TASKS CRITERIA_TASKS <<<"$(LC_ALL=C awk '
+  BEGIN { RS = "\001" }
+  {
+    rest = $0
+    # Tags quoted in backticks are prose (e.g. a request about `<task>` itself), not structure.
+    gsub(/`[^`\n]*`/, "", rest)
+    while (match(rest, /<task([[:space:]][^>]*)?>/)) {
+      t++
+      rest = substr(rest, RSTART + RLENGTH)
+      end = index(rest, "</task>")
+      body = (end > 0) ? substr(rest, 1, end - 1) : rest
+      nxt = match(body, /<task([[:space:]][^>]*)?>/)
+      if (nxt > 0) body = substr(body, 1, nxt - 1)
+      if (body ~ /<(verification|verification[_-]commands|verify)([[:space:]][^>]*)?>/) v++
+      else if (body ~ /<(acceptance[_-]criteria|check)([[:space:]][^>]*)?>/) a++
+    }
+  }
+  END { print t + 0, v + 0, a + 0 }
+' <<<"$PROMPT")"
 # 1. At least one <task> block exists
-TASK_COUNT=$(_count_tags task)
 if [ "$TASK_COUNT" -gt 0 ]; then
   pass "task blocks found ($TASK_COUNT)"
 else
   fail "no task blocks found"
 fi
 
-# 2. Every <task> block contains a <verification> section
-VERIFICATION_COUNT=$(_count_tags verification)
+# 2. Every <task> block contains its own verification section
 if [ "$TASK_COUNT" -gt 0 ]; then
-  if [ "$VERIFICATION_COUNT" -ge "$TASK_COUNT" ]; then
-    pass "all tasks have verification ($VERIFICATION_COUNT/$TASK_COUNT)"
+  if [ $((VERIFIED_TASKS + CRITERIA_TASKS)) -ge "$TASK_COUNT" ]; then
+    pass "all tasks have verification ($((VERIFIED_TASKS + CRITERIA_TASKS))/$TASK_COUNT)"
+    if [ "$CRITERIA_TASKS" -gt 0 ]; then
+      warn "$CRITERIA_TASKS task(s) are verified only by acceptance criteria or a task-level check — add runnable <verification> commands where the task changes code"
+    fi
   else
-    fail "not all tasks have verification ($VERIFICATION_COUNT/$TASK_COUNT)"
+    fail "not all tasks have verification ($((VERIFIED_TASKS + CRITERIA_TASKS))/$TASK_COUNT)"
   fi
 fi
 
@@ -161,9 +189,9 @@ if _in "$PROMPT" -q '<check'; then
   # Accept an explicit read-only declaration in place of the re-read requirement,
   # mirroring how a missing typecheck may be waived with an explicit N/A.
   CHECK_BLOCK=$(sed -n '/<check/,/<\/check>/p' <<<"$PROMPT")
-  if _in "$CHECK_BLOCK" -qiE 're-read|reread|verify.*changed.*file|scan.*changed'; then
+  if _in "$CHECK_BLOCK" -qiE 're-?read|re-?open|re-?inspect|re-?checked (against|with)|read back|verify.*changed.*file|scan.*changed'; then
     pass "check block re-reads changed files"
-  elif _in "$CHECK_BLOCK" -qiE 'no edits|no code changes|no files (changed|modified)|read-only|research only|report only'; then
+  elif _in "$CHECK_BLOCK" -qiE 'no edits|no code changes|no files (were |are )?(changed|modified|edited|touched)|read-only|research only|report only|git status( --porcelain)?`? (is empty|is clean|shows no)|before (presenting|reporting|showing) the plan'; then
     pass "check block declares read-only work (nothing to re-read)"
   else
     fail "check block missing file re-read verification"

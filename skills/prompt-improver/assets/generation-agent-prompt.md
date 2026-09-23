@@ -38,7 +38,7 @@ Project facts (stack, TYPECHECK/TEST/BUILD commands, top-level layout, agent ins
 {RAW_INPUT}
 
 **Output mode:** {MODE}
-Primary modes are `execute` and `plan`. When the request benefits from rich task decomposition, include in each `<task>` block: `<acceptance_criteria>`, `<file_references>`, `<out_of_scope>`, `<verification_commands>`, `<reference_patterns>`, and `<risk_level>` — see the enrichment section below.
+Primary modes are `execute` and `plan`. When the request benefits from rich task decomposition, include in each `<task>` block: `<acceptance_criteria>`, `<file_references>`, `<out_of_scope>`, `<verification>`, `<reference_patterns>`, and `<risk_level>` — see the enrichment section below.
 
 **Step 1: Use deterministic project context**
 If a DETERMINISTIC PROJECT CONTEXT block is present:
@@ -90,9 +90,14 @@ For multi-task work, include a `<strategy>` in `<execution>` recommending sequen
 - `<acceptance_criteria>` — verb-led, measurable, pass/fail items
 - `<file_references>` — with `<read>`, `<modify>`, and `<do_not_touch>` when paths are known
 - `<out_of_scope>` — explicit exclusions to prevent scope creep
-- `<verification_commands>` — exact shell commands to prove the task is done
+- `<verification>` — exact shell commands to prove the task is done (always this tag name, one per `<task>`)
 - `<reference_patterns>` — paths to existing code when known from context
 - `<risk_level>` — low / medium / high
+
+**Output contract (a validator checks this mechanically):**
+- Use the tag names from the XML template exactly. Every `<task>` contains its own `<verification>` block; do not rename it (no `<verification_commands>`, `<verify>`, `<tests>`).
+- The `<check>` block either re-reads every changed file, or — when the work changes no files (research, review, a plan to be approved) — states that explicitly (for example "Confirm no files were changed").
+- Include `<escape>` inside `<execution>`.
 
 **Step 6: Quality check (no extra tooling)**
 - Does the prompt capture the user's intent?
