@@ -1,5 +1,5 @@
 {
-  "//": "Fixed questions of the Jev v2 fast path (files starting with _ are not cells). Phrase questions positively: Jev handles negation poorly. The core wordings were measured on the 40-request corpus.",
+  "//": "Fixed questions of the Jev v2 fast path (files starting with _ are not cells). Phrase questions positively: Jev handles negation poorly. The core wordings were measured on the 40-request corpus. multi_task is the larger of multi_unrelated and multi_deliverables: the single broad question fired on single-task requests (0.62 to 0.79).",
   "core": {
     "triage": {
       "type": "choice",
@@ -38,9 +38,13 @@
         "Clear: the goal and the target are both stated"
       ]
     },
-    "multi_task": {
+    "multi_unrelated": {
       "type": "noul",
-      "instructions": "Does the request ask for two or more separate pieces of work that should each be checked on their own?"
+      "instructions": "Does the request combine two or more unrelated changes that could each be done and reviewed on their own?"
+    },
+    "multi_deliverables": {
+      "type": "noul",
+      "instructions": "Does the request list several distinct deliverables joined by and, such as a feature plus a migration plus documentation?"
     },
     "needs_research": {
       "type": "noul",
@@ -90,5 +94,6 @@
       "format": "Formats the code",
       "other": "Something else, such as running one tool or an example"
     }
-  }
+  },
+  "no_target": "(no single file was identified)"
 }

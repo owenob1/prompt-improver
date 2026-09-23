@@ -159,8 +159,12 @@ jq -n --slurpfile c "$W/cands.json" --slurpfile lib "$W/lib.json" --slurpfile q 
   --arg model "$MODEL" -f "$HERE/l1.jq" >"$W/l1.req.json"
 jq -n --slurpfile c "$W/cands.json" --slurpfile q "$QUESTIONS" --arg model "$MODEL" -f "$HERE/prior.jq" >"$W/prior.req.json"
 
-_l1b_build() {  # <target-path>
-  bash "$HERE/target.sh" "$REPO" "$1" >"$W/target.json" 2>"$W/target.err" || return 1
+_l1b_build() {  # [target-path]; with no path the guards are asked about the request alone
+  if [ -n "${1:-}" ]; then
+    bash "$HERE/target.sh" "$REPO" "$1" >"$W/target.json" 2>"$W/target.err" || return 1
+  else
+    jq -n --slurpfile q "$QUESTIONS" '{path: $q[0].no_target, name: "", stem: "", summary: "", usage: "", lines: [], refs: [], callers: [], none: true}' >"$W/target.json"
+  fi
   jq -n --slurpfile c "$W/cands.json" --slurpfile lib "$W/lib.json" --slurpfile q "$QUESTIONS" \
     --slurpfile t "$W/target.json" --argjson cells "$(jq -c '[range(0; length)]' "$W/lib.json")" \
     --arg model "$MODEL" -f "$HERE/l1b.jq" >"$W/l1b.req.json"
@@ -183,25 +187,36 @@ fi
 rc=0; wait "$P_PRIOR" || rc=$?
 [ "$rc" -eq 0 ] || echo '{"answers":{}}' >"$W/prior.json"
 
+# Jev's file relevance: the clear favourite, if any, and the score of the L0 target.
+read -r REL_TOP REL_TARGET_P <<<"$(jq -r --slurpfile c "$W/cands.json" --arg cur "$TARGET" \
+  --argjson tmin "$(_t target_min)" --argjson tmar "$(_t target_margin)" '
+  [.answers | to_entries[] | select(.key | startswith("file_")) | {path: $c[0].files[(.key | ltrimstr("file_") | tonumber)].path, p: .value.noul}]
+  | sort_by(-.p) as $r
+  | (if ($r | length) > 0 and $r[0].p >= $tmin and ($r[0].p - (($r[1].p) // 0)) >= $tmar then $r[0].path else "-" end) as $top
+  | ([$r[] | select(.path == $cur) | .p] | first // 0) as $curp
+  | "\($top) \($curp)"' "$W/l1.json" 2>/dev/null || echo "- 0")"
+
+# The L0 target is only a guess from the request's file names ("the broken link
+# to docs/X.md in the README" names both); Jev's relevance overrides a clear miss.
+if [ -n "$TARGET" ] && [ "$REL_TOP" != "-" ] && [ "$REL_TOP" != "$TARGET" ] \
+  && awk -v a="$REL_TARGET_P" -v m="$(_t target_margin)" 'BEGIN { exit !(a < 0.5 - m) }'; then
+  rc=0; wait "$P_L1B" || rc=$?
+  log "target corrected by relevance: $TARGET -> $REL_TOP"
+  TARGET="$REL_TOP"
+  _l1b_build "$TARGET" || { TARGET=""; _l1b_build ""; }
+  _jev "$W/l1b.req.json" "$W/l1b.json" & P_L1B=$!
+fi
+
 # Target from relevance when L0 could not resolve it.
 if [ -z "$TARGET" ]; then
-  TARGET=$(jq -r --slurpfile c "$W/cands.json" --argjson tmin "$(_t target_min)" --argjson tmar "$(_t target_margin)" '
-    [.answers | to_entries[] | select(.key | startswith("file_")) | {i: (.key | ltrimstr("file_") | tonumber), p: .value.noul}]
-    | sort_by(-.p) | if length == 0 then empty
-      elif .[0].p >= $tmin and (.[0].p - ((.[1].p) // 0)) >= $tmar then $c[0].files[.[0].i].path else empty end' "$W/l1.json")
-  if [ -n "$TARGET" ] && _l1b_build "$TARGET"; then
-    _jev "$W/l1b.req.json" "$W/l1b.json" & P_L1B=$!
-  else
-    TARGET=""
-  fi
+  [ "$REL_TOP" != "-" ] && TARGET="$REL_TOP"
+  [ -n "$TARGET" ] && _l1b_build "$TARGET" || { TARGET=""; _l1b_build ""; }
+  _jev "$W/l1b.req.json" "$W/l1b.json" & P_L1B=$!
 fi
-if [ -n "$P_L1B" ]; then
-  rc=0; wait "$P_L1B" || rc=$?
-  [ "$rc" -eq 0 ] || { echo '{"answers":{}}' >"$W/l1b.json"; log "jev L1b call failed; guards will fail closed"; }
-else
-  echo '{"answers":{}}' >"$W/l1b.json"
-  echo '{}' >"$W/target.json"
-fi
+rc=0; wait "$P_L1B" || rc=$?
+[ "$rc" -eq 0 ] || { echo '{"answers":{}}' >"$W/l1b.json"; log "jev L1b call failed; guards will fail closed"; }
+# The stub target used for request-only guards is not a real file.
+if [ -z "$TARGET" ]; then mv "$W/target.json" "$W/target.l1b.json"; echo '{}' >"$W/target.json"; fi
 JEV_MS=$(( $(_now_ms) - START - L0_MS ))
 
 jq -n --slurpfile c "$W/cands.json" --slurpfile lib "$W/lib.json" --slurpfile a1 "$W/l1.json" \
@@ -211,6 +226,24 @@ jq -n --slurpfile c "$W/cands.json" --slurpfile lib "$W/lib.json" --slurpfile a1
 _u() { jq -r "$1 // empty" "$W/understanding.json" 2>/dev/null || true; }
 _le() { [ -n "$1" ] && awk -v a="$1" -v b="$2" 'BEGIN { exit !(a <= b) }'; }
 _ge() { [ -n "$1" ] && awk -v a="$1" -v b="$2" 'BEGIN { exit !(a >= b) }'; }
+
+# A cell may name the slot that locates its target (tests.add: the code under
+# test, not the test file). The target is then the file defining that entity.
+_TF=$(jq -r --argjson ci "$(_u '.cell.index // -1')" 'if $ci >= 0 then (.[$ci].target_from // empty) else empty end' "$W/lib.json" 2>/dev/null || true)
+if [ -n "$_TF" ]; then
+  _NT=$(jq -r --arg s "$_TF" --slurpfile c "$W/cands.json" -f "$HERE/target-from.jq" "$W/understanding.json" 2>"$W/target-from.err" || true)
+  if [ -n "$_NT" ] && [ "$_NT" != "$TARGET" ] && [ -f "$REPO/$_NT" ] && _l1b_build "$_NT"; then
+    log "target from slot $_TF: $_NT"
+    TARGET="$_NT"
+    if _jev "$W/l1b.req.json" "$W/l1b.json"; then
+      jq -n --slurpfile c "$W/cands.json" --slurpfile lib "$W/lib.json" --slurpfile a1 "$W/l1.json" \
+        --slurpfile ap "$W/prior.json" --slurpfile ab "$W/l1b.json" --slurpfile t "$W/target.json" \
+        --argjson cfg "$T_JSON" -f "$HERE/understand.jq" >"$W/understanding.json"
+    else
+      echo '{"answers":{}}' >"$W/l1b.json"
+    fi
+  fi
+fi
 
 TRIAGE=$(_u '.core.triage.choice'); TRIAGE_P=$(_u '.core.triage.p')
 MULTI=$(_u '.core.multi_task'); CLARITY=$(_u '.core.clarity'); RISK=$(_u '.core.risk'); CPLX=$(_u '.core.complexity')
@@ -258,6 +291,9 @@ else
   REASON="${REASON:-no library cell matches}"
 fi
 
+# Tier B only completes a cell that fits: the description and desired behaviour
+# must be compiled, and at most two required sections may be left to the LLM.
+FILL_OK='[.gaps[] | select(.mode == "fill")] | (map(.section) | (index("description") == null and index("desired") == null)) and length <= 2'
 TIER=C
 if [ "$COMPILED" = true ]; then
   C_OK=$(jq -r '.ok' "$W/compiled.json")
@@ -276,8 +312,10 @@ if [ "$COMPILED" = true ]; then
     :
   elif [ "$NGAPS" -eq 0 ] && [ "$VALID" = true ] && [ "$(_cfg tiers.a true)" = true ]; then
     TIER=A
-  elif [ "$NGAPS" -gt 0 ] && [ "$(_cfg tiers.b true)" = true ]; then
+  elif [ "$NGAPS" -gt 0 ] && [ "$(_cfg tiers.b true)" = true ] && [ "$(jq -r "$FILL_OK" "$W/compiled.json")" = true ]; then
     TIER=B
+  elif [ "$NGAPS" -gt 0 ]; then
+    REASON="${REASON:-cell $CELL_ID leaves too much unfilled ($(jq -r '[.gaps[] | select(.mode == "fill") | .section] | join(", ")' "$W/compiled.json"))}"
   else
     REASON="${REASON:-compiled spec failed validation}"
   fi

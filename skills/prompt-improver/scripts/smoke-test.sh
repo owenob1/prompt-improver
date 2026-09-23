@@ -1019,7 +1019,7 @@ jq --arg mode "$mode" '
   def pick($k; $q):
     ($q.criteria | keys) as $opts
     | if $k == "triage" then (if $mode == "ready" then "ready" else "rough" end)
-      elif $k == "cell" then (if $mode == "nocell" then "none" else "c0" end)
+      elif $k == "cell" then (if $mode == "nocell" then "none" else ([$opts[] | select(. != "none" and ($q.criteria[.] | test("diagnostic")))] | first // "none") end)
       elif $k | startswith("cmd_") then (if $q.instructions | test("smoke-test") then "test" else "other" end)
       elif $k | startswith("slot_") then ([$opts[] | select(. != "none" and ($q.criteria[.] | test("\\((flag|file)\\)$")))] + [$opts[] | select(. != "none")] | first // "none")
       elif $k == "role_desired" then ([$opts[] | select(. != "none" and ($q.criteria[.] == "prints which probes ran"))] | first // "none")
@@ -1217,7 +1217,7 @@ done
 
 # Library integrity: every cell is well-formed and every {slot} it uses resolves.
 _lib_bad=$(jq -r -n '
-  ["tool_path","tool_name","runner","tool_summary","syntax_check","test_file","test_cmd","typecheck_cmd","lint_cmd","build_cmd","changelog","project","callers"] as $builtin
+  ["target_path","target_name","target_stem","target_summary","tool_path","tool_name","runner","tool_summary","syntax_check","test_file","test_cmd","typecheck_cmd","lint_cmd","build_cmd","changelog","project","callers"] as $builtin
   | ["description","current","desired","approach","example","verification","companion","constraint","out_of_scope","escape","check"] as $secs
   | inputs | . as $c | ($c.slots // {} | keys) as $slots
   | (if ($c.id // "") == "" or ($c.match // "") == "" or ($c.items | type) != "array" then "\(input_filename): missing id, match or items" else empty end),

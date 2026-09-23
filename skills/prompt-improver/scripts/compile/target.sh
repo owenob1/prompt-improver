@@ -146,7 +146,44 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         }' >"$WORK/refs.tsv" || true
 fi
 
+# Documents and configuration: an outline instead of a comment header.
+case "$EXT" in
+  md|mdx|markdown|rst|txt|adoc)
+    awk '
+      /^[[:space:]]*```/ { f = !f; next }
+      f { next }
+      /^#{1,6}[[:space:]]/ { h = $0; sub(/[[:space:]]+$/, "", h); if (n < 60) o = o (n ? " | " : "") h; n++; next }
+      !title_done && NF && !/^(---|===|\||\[!\[|<)/ { if (length(p) < 300) p = p (p ? " " : "") $0; next }
+      p != "" && !NF { title_done = 1 }
+      END { print "Document outline: " o; if (p != "") print "Opening text: " substr(p, 1, 300) }
+    ' "$REL" >"$WORK/header.txt"
+    : >"$WORK/usage.txt"
+    RUNNER=""; SYNTAX=""
+    ;;
+  yml|yaml)
+    awk '
+      /^[A-Za-z_][A-Za-z0-9_-]*:/ { k = $0; sub(/:.*/, "", k); top = top (top ? ", " : "") k }
+      /^[[:space:]]+-?[[:space:]]*name:/ { n = $0; sub(/^[[:space:]]+-?[[:space:]]*name:[[:space:]]*/, "", n); if (c < 40) names = names (c ? " | " : "") n; c++ }
+      /^  [A-Za-z0-9_-]+:[[:space:]]*$/ && injobs { j = $0; gsub(/[[:space:]:]/, "", j); jobs = jobs (jobs ? ", " : "") j }
+      /^jobs:/ { injobs = 1; next }
+      /^[A-Za-z]/ && !/^jobs:/ { injobs = 0 }
+      END { print "YAML top-level keys: " top; if (jobs != "") print "Jobs: " jobs; if (names != "") print "Named entries: " names }
+    ' "$REL" >"$WORK/header.txt"
+    _yname=$(awk '/^name:[[:space:]]*/ { v = $0; sub(/^name:[[:space:]]*/, "", v); gsub(/["\047]/, "", v); print v; exit }' "$REL")
+    ;;
+  json)
+    jq -r 'if type == "object" then "JSON top-level keys: " + (keys_unsorted | join(", ")) else "JSON " + type end' "$REL" >"$WORK/header.txt" 2>/dev/null || true
+    ;;
+esac
+
 SUMMARY=$(awk 'NF { print; exit }' "$WORK/header.txt" 2>/dev/null || true)
+case "$EXT" in
+  yml|yaml) [ -n "${_yname:-}" ] && SUMMARY="$_yname" ;;
+  md|mdx|markdown|rst|txt|adoc)
+    SUMMARY=$(sed -n 's/^Opening text: //p' "$WORK/header.txt" | head -c 300)
+    [ -n "$SUMMARY" ] || SUMMARY=$(sed -n 's/^Document outline: #* *\([^|]*\).*/\1/p' "$WORK/header.txt")
+    ;;
+esac
 # Skip a first line that only repeats the path or the name.
 if [ -n "$SUMMARY" ] && { [ "$SUMMARY" = "$REL" ] || [ "$SUMMARY" = "$NAME" ] || [[ "$SUMMARY" == *"$NAME" ]]; }; then
   SUMMARY=$(awk 'NF' "$WORK/header.txt" | awk 'NR == 2 { print; exit }' || true)
@@ -169,10 +206,14 @@ jq -n \
   | (rows($refs) | map({path: .[0], n: (.[1] | tonumber? // 0), kind: .[2], text: (.[3:] | join(" "))})) as $refs
   | {
       path: $path, name: $name, stem: $stem, ext: $ext, runner: $runner, syntax_check: $syntax,
-      summary: (if $summary == "" then "" else ($summary[0:1] | ascii_downcase) + $summary[1:] end),
+      summary: (if $summary == "" then ""
+                elif ($summary[0:2] | test("^[A-Z][a-z ]")) then ($summary[0:1] | ascii_downcase) + $summary[1:]
+                else $summary end),
       usage: (($header | sub("\\s+$"; ""))[0:1400]
               + (if ($usage | length) > 0 then "\n\n" + ($usage | sub("\\s+$"; ""))[0:1000] else "" end)
-              + (if ($opts | length) > 0 then "\n\nOptions the file parses: " + ($opts | join(" ")) else "\n\nOptions the file parses: (none found)" end)),
+              + (if ($ext | test("^(md|mdx|markdown|rst|txt|adoc|yml|yaml|json)$")) then ""
+                 elif ($opts | length) > 0 then "\n\nOptions the file parses: " + ($opts | join(" "))
+                 else "\n\nOptions the file parses: (none found)" end)),
       options: $opts,
       lines: (rows($lines) | map({n: (.[0] | tonumber), fn: .[1], text: (.[2:] | join(" "))})),
       refs: $refs,

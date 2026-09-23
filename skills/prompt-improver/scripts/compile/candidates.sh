@@ -41,7 +41,7 @@ if [ -z "$ROOT" ] || [ ! -d "$ROOT" ] || [ -z "$REQ_FILE" ] || [ ! -f "$REQ_FILE
 fi
 command -v jq >/dev/null 2>&1 || { echo "candidates: jq is required" >&2; exit 2; }
 
-INDEX_VERSION=8
+INDEX_VERSION=9
 MAX_CARDS="${PROMPT_IMPROVER_FAST_MAX_CARDS:-250}"
 case "$MAX_CARDS" in ''|*[!0-9]*) MAX_CARDS=250 ;; esac
 
@@ -397,6 +397,7 @@ jq -n --rawfile r "$WORK/request.txt" --slurpfile idx "$INDEX" '
   | ($paths | map({p: ., b: (split("/") | last)})) as $pb
   | (
       ents("url"; "https?://[^\\s)>\\]\"'"'"'`]+")
+    + ents("flag"; "(?<![\\w/.$-])(--?[A-Za-z][A-Za-z0-9_-]*=[^\\s,;)`\"'"'"']+)")
     + ents("flag"; "(?<![\\w/.$-])(--?[A-Za-z][A-Za-z0-9_-]*)")
     + ents("env"; "\\b([A-Z][A-Z0-9]*_[A-Z0-9_]*[A-Z0-9])\\b")
     + ents("file"; "(?<![\\w@/.-])((?:[\\w.-]+/)*[\\w-]+\\.[A-Za-z][A-Za-z0-9]{0,6})(?![\\w/])")
@@ -468,7 +469,9 @@ jq -n \
           + [$clauses[] as $c | ($c | length) as $cn | range(12; 1; -1) as $l | range(0; $cn) as $i | select($i + $l <= $cn and $l < $cn) | $c[$i:$i + $l] | join(" ")])
      end) as $all
   | ($all | reduce .[] as $s ([]; if index([$s]) then . else . + [$s] end) | .[0:250]) as $spans
-  | ([$w[] | ascii_downcase | select(length >= 3 and (test("^[a-z][a-z0-9_-]*$")) and (. as $x | stop | index([$x]) | not))]
+  # Words: each token, plus its alphanumeric parts ("--format=tsv" gives "format" and "tsv").
+  | ([$w[] | ascii_downcase | ., (splits("[^a-z0-9]+") | select(length > 0))]
+     | map(select(length >= 3 and test("^[a-z][a-z0-9_-]*$") and (. as $x | stop | index([$x]) | not)))
      | reduce .[] as $x ([]; if index([$x]) then . else . + [$x] end) | .[0:120]) as $words
   # Card ranking (only matters above $max).
   | ([$words[] | select(length >= 4)]) as $kw

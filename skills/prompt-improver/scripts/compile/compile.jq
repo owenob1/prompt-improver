@@ -27,6 +27,10 @@ def ind($n): ([range(0; $n)] | map(" ") | join(""));
 | ($c.tests // []) as $tests
 | ($u.test_file.path // null) as $test_file
 | {
+    target_path: ($t.path // null),
+    target_name: ($t.name // null),
+    target_stem: ($t.stem // null),
+    target_summary: ($t.summary // null),
     tool_path: ($t.path // null),
     tool_name: ($t.stem // null),
     runner: ($t.runner // null),
@@ -67,7 +71,8 @@ def ind($n): ([range(0; $n)] | map(" ") | join(""));
     end;
 
 # ---- cell-level requirements ----------------------------------------------
-  ([($cell.requires // [])[] | eval_guard(.)]) as $requires
+  ([($cell.requires // [])[] | eval_guard(.)]
+   + [($cell.key_slots // [])[] | select($vals[.] == null) | {id: "slot:\(.)", pass: false}]) as $requires
 | ([($cell.escalate // [])[] | . as $e | eval_guard($e) + {gap: $e.gap}]) as $escalate
 
 # ---- items -------------------------------------------------------------------

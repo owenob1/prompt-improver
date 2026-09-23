@@ -33,7 +33,7 @@
     complexity: ($A.complexity.score // null),
     risk: ($A.risk.score // null),
     clarity: ($A.clarity.score // null),
-    multi_task: noul("multi_task"),
+    multi_task: ([noul("multi_unrelated"), noul("multi_deliverables"), noul("multi_task")] | map(select(. != null)) | if length == 0 then null else max end),
     needs_research: noul("needs_research"),
     ui: noul("ui"),
     autonomous: noul("autonomous"),
