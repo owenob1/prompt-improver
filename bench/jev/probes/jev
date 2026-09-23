@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# bench/jev/probes/jev <request.json> → response JSON plus measured "ms".
+# Needs TYPESAFE_API_KEY or OPENROUTER_API_KEY in the environment. Uses the skill's client.
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../../skills/prompt-improver/scripts/lib/jev.sh
+source "$HERE/../../../skills/prompt-improver/scripts/lib/jev.sh"
+out=$(mktemp); trap 'rm -f "$out"' EXIT
+s=$(date +%s%N)
+PROMPT_IMPROVER_JEV_TIMEOUT_MS="${TMO:-15000}" pi_jev_call "$1" "$out" || { echo "jev call failed" >&2; exit 2; }
+jq --argjson ms "$(( ($(date +%s%N) - s) / 1000000 ))" '. + {ms: $ms}' "$out"

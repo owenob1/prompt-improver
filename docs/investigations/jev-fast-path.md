@@ -1,6 +1,6 @@
 # Investigation: a Jev fast path for prompt-improver
 
-*Branch `claude/jev-fast-path-investigation` · started 2026-09-23 · status: prototype built, live measurement pending an API key*
+*Branch `claude/jev-fast-path-investigation` · 2026-09-23 · status: **v1 measured and rejected. See [jev-v2-architecture.md](./jev-v2-architecture.md) for the redesign.***
 
 ## Question
 
@@ -184,29 +184,21 @@ Test coverage: smoke group `[25]` runs against a stub `/systemone` API and check
 
 ## Results
 
-Baseline (`off`, 1.1.0 LLM path, claude `opus`, this repo): **see the table below once `bench/jev/run.sh` finishes.** The Jev modes need an API key.
+Live run on 2026-09-23 against `jev-1.13.0` and `claude` opus, on this repo's 40-request corpus:
 
-| mode | n | p50 | p95 | served fast | fast p50 | Jev p50 | valid | win/tie/loss (all) | win/tie/loss (fast-served) |
-|---|---|---|---|---|---|---|---|---|---|
-| off | *pending* | | | | | | | | |
-| route | *pending API key* | | | | | | | | |
-| compose | *pending API key* | | | | | | | | |
-| auto | *pending API key* | | | | | | | | |
+| mode | n | p50 | p95 | served fast | fast p50 | Jev p50 | valid | win/tie/loss (fast-served) |
+|---|---|---|---|---|---|---|---|---|
+| auto (v1) | 40 | 31.2s | 42.9s | 12 (30%) | 1.7s | 403ms | 28/40 | **0/0/12** |
+| off (opus baseline) | 40 | 34.3s | 45.9s | 0 | – | – | 25/40 | – |
 
-To reproduce:
+**v1 fails the quality bar outright.** Opus beat every one of the 12 requests v1 served fast, in blind pairwise judgement. Jev's own rubric agrees: *specific 0.29 / actionable 0.33* for v1, against *2.0 / 0.98* for opus.
 
-```bash
-export TYPESAFE_API_KEY=…
-bash bench/jev/run.sh        # all modes over bench/jev/corpus.jsonl (resumable)
-bash bench/jev/judge.sh      # blind pairwise vs baseline, claude opus as judge
-bash bench/jev/report.sh     # the table above
-```
+v1 did show three useful things:
+- **Speed:** the compose path serves a request in about 1.7 s.
+- **Validity:** composed specs are valid by construction. Opus failed validation on 15 of 40.
+- **Question design matters:** a yes/no "vague" question scored 0.6–0.95 on nearly everything, whereas a 3-level clarity score separates vague from concrete requests.
 
-**Acceptance bar for "no quality loss":**
-- On the requests the fast path serves, the candidate wins or ties against the baseline in **≥ 90%** of blind pairwise judgements.
-- **100%** of served prompts pass `validate-prompt.sh`.
-
-If compose misses the bar, tighten `thresholds` (serve fewer requests fast) until it passes, and record the trade-off. The honest outcome may be that compose only clears the bar for `docs`/`config`/`tests`-type requests, and `route` carries the rest.
+The redesign is in [jev-v2-architecture.md](./jev-v2-architecture.md).
 
 ## Risks and open questions
 

@@ -1,140 +1,141 @@
 # Jev v2: compile-time LLM, run-time Jev
 
-*Branch `claude/jev-fast-path-investigation` · 2026-09-23 · status: design, backed by live probes against `jev-1.13.0`*
+*Branch `claude/jev-fast-path-investigation` · 2026-09-23 · status: research complete, design proposed, awaiting go-ahead*
+*Every number below comes from live calls to `jev-1.13.0` and the real `claude` CLI. The probes are reproducible from [`bench/jev/probes/`](../../bench/jev/probes).*
 
-## Why v1 is not good enough
+## 1. Verdict on v1
 
-v1 made a single Jev call. That call classified the request, picked one of 9 static templates, and pasted the request into it. On live data:
+v1 made one Jev call that classified the request and picked one of 9 static templates.
 
-- **Jev's own quality rubric** scored v1 specs as generic, while opus specs scored as specific and actionable:
-
-  | Spec for the `--verbose` request | faithful | specific (0–2) | actionable (0–2) |
-  |---|---|---|---|
-  | v1 template output | 0.75 | **0.29** | **0.33** |
-  | opus baseline | 0.83 | 2.00 | 0.98 |
-
-- **It served few requests.** In the first 38 corpus runs, v1 composed only about a quarter of requests; the rest paid the full 30–40 s opus call.
-- **It used Jev as a router.** v1 asked Jev ~10 questions, but Jev answers thousands of questions in one pass for roughly the same latency (see below).
-
-## What the probes established
-
-All numbers come from live calls through the session proxy on 2026-09-23. The raw scripts are in the session scratchpad; the method is described inline.
-
-| Probe | Result | Design consequence |
+| Benchmark: 40 requests, this repo | v1 `auto` | opus baseline (`off`) |
 |---|---|---|
-| **Questions per call** | 10 q → 383 ms · 100 → 616 ms · 800 → 618 ms · 1,500 → 791 ms · **2,500 → 1,144 ms** (~54k input tokens, about $0.002) | One *wide* pass can make every decision a spec needs. Stage count, not question count, drives latency. |
-| **Determinism** | 6 identical calls gave identical discrete choices; scores jittered by about ±0.05 | Quantise with margins wider than the jitter, then cache the decisions. Reruns become byte-identical. |
-| **Retrieval** (card-in-question: each file's path and header in its own yes/no question; state = request only) | Top-1 correct on **7/7** single-target requests (including "the claude backend" → `backends/claude.sh`); ~57 tokens per file | Jev ranks repo files for scope, about 1,000 files per call, with parallel shards beyond that. "Rename everywhere" needs exact evidence (identifier search) instead. |
-| **Extraction by choice** (every contiguous word span of the request as an option, ≤254) | Each role picked correctly on 5/5 requests: target, new element, desired behaviour, symptom, constraint, metric | Jev can't *write*, but it can *select any substring*. The request becomes a typed parse, and requirements and acceptance checks get request-specific wording. |
-| **Decomposition** (ordinal span choice "piece of work N", deduplicated) | 3/3 multi-part requests split correctly and in order; 1/1 single-task request stopped at one. Jev's own "count" score was poorly calibrated, so we don't use it | Multi-task specs without an LLM. |
-| **Curated bank selection** (one yes/no per expert-written item; 42 items) | The correct items were at the top for all 6 domain probes (auth, rate limiting, timezones, CSV, migrations, CLI). Some "attractor" items score 0.6–0.87 everywhere | **Select on lift over a per-item prior** measured on the corpus. With lift ≥ 0.25 and p ≥ 0.7, the selections were precise (e.g. `bump actions/checkout` → pin actions + check breaking changes; typo fix → nothing). |
-| **Verification** (coverage of each extracted span + rubric) | A spec for a different request: faithful 0.09, coverage ≤ 0.15. A matching spec: coverage ≥ 0.95 | Jev is a cheap coverage and fidelity gate, and a fast proxy metric during development. |
-| **Rubric vs a real judge** | A hand-compiled v2 mock scored 1.99/1.02 on Jev's rubric (equal to opus), but lost to opus 0/2 in a blind opus pairwise judgement. Opus + sonnet design notes ("Tier B") also lost 0/2 | **Jev's rubric is necessary but not sufficient.** Acceptance has to use pairwise judgement. The judge's written critique becomes the checklist for the pattern library (below). |
-| **Where opus spec content comes from** (Jev classified all 1,806 content lines of 31 opus specs) | 33% reusable practice · 22% repo facts/conventions · 7% restating the request · 5% structure · 34% "design". Many of those "design" lines are actually CLAUDE.md knowledge | **About 70% or more of an opus spec can be compiled** from the request, the repo and a curated library. The rest is domain design reasoning. |
-| **LLM floor** | The `claude -p` CLI costs about 3.3 s before any output. A sonnet design-notes micro-completion took 7.9 s | An LLM on the request path costs ≥ 3.3 s, and realistically 8 s or more. |
-| **Validity of today's LLM path** | **12/31 opus specs fail `validate-prompt.sh`**, mostly from tag drift (`<verification_commands>`, `<acceptance_criteria>`) | A compiled spec is valid by construction. The validator and generator prompt also need fixing on `main` (tracked separately). |
+| p50 latency | 31.2 s (1.7 s on the 30% served fast) | 34.3 s |
+| Served without an LLM | 12 / 40 | 0 |
+| Valid per `validate-prompt.sh` | 28 / 40 (all 12 fast-served are valid) | **25 / 40** |
+| **Blind pairwise, fast-served vs opus** | **0 win / 0 tie / 12 loss** | — |
 
-### What the opus judge said v2 was missing
+Jev's own rubric agrees: the v1 spec for the `--verbose` request scored *specific 0.29 / actionable 0.33* against opus's 2.0 / 0.98. **v1 is not fit for purpose.**
 
-This critique of v2 against opus is effectively the quality checklist:
-- **Companion work:** a regression-test task and a CHANGELOG entry, per CLAUDE.md.
-- **Exact output formats and states,** such as `hit / miss / skipped (<reason>)`.
-- **Examples with `<reasoning>`.**
-- **Checks that run as written,** e.g. `diff <(cmd) <(cmd --verbose 2>/dev/null)`.
-- **Negative checks.**
-- **A current-behaviour statement.**
-- **Callers that must not change.**
-- **Project rules spelled out,** with a check for each.
-- **An "inventory first" approach** with explicit decision criteria.
-- **A specific escape.**
-- **An explicit out-of-scope list.**
+## 2. What Jev can do (probed live)
 
-The one *defect* in the Tier B mock came from the LLM: sonnet's helper used `echo` on variable text, which CLAUDE.md forbids.
+| Capability | Evidence | Source |
+|---|---|---|
+| **Wide calls** | 10 q → 383 ms · 800 → 618 ms · 2,500 → 1,144 ms (54k input tokens, ~$0.002). A real 141-question L1 call runs in 519–808 ms | `scale.sh` |
+| **Near-determinism** | Discrete choices were identical across 6 runs; scores jitter by about ±0.05. The docs confirm it is *not* bit-deterministic: a top label flipped on 2 of 8 questions over 15 runs, and a policy of "top p < 0.60 → uncertain" restores 99.2% agreement | `determinism.sh`; docs cookbooks |
+| **Retrieval (card in question)** | Top-1 correct on 7/7 single-target requests at ~57 tokens per file. This is TypeSafe's documented "candidate in instructions" pattern. Packing rows into *state* degrades (a position effect of about 0.42 on late rows) | `retrieval.sh`; docs §6 |
+| **Extraction by choice** | Every role was correct on 5/5 requests: target, new element, desired behaviour, symptom, constraint, metric. The docs' official pattern for this is "turn extraction into a Choice over the options". Very wide choices lose resolution (95.8% of options in a 200-option choice return 0.00), so over-find with regexes and clauses, then choose | `extract.sh`; docs |
+| **Decomposition** | Ordinal span choices split 3/3 multi-part requests correctly. Jev's own "count" score was poorly calibrated, so it isn't used | probe |
+| **Selecting from a curated bank** | The correct expert items came top in every domain probed. "Attractor" items are handled with lift over a per-item corpus prior | `bank.sh` |
+| **Rule selection** | Sentence-level CLAUDE.md units with the phrasing "would an engineer need to follow this rule while changing the code?" selected the same rules opus used. Paragraph units and other phrasings did worse | `slots.sh` |
+| **Item guards** (premised on the request) | They caught every failure the judge found in an out-of-sample spec (table in §4). A generic "is this section wrong?" battery did **not** discriminate | `guards.sh` |
+| **Confidence** | `confidence = (K·p_max − 1)/(K − 1)`, so it depends on option count. Use p_max, margins and bands, not raw confidence | docs §4 |
+| **LLM floor for comparison** | `claude -p` costs about 3.3 s before any output. An 8-line sonnet section took 7.9 s. Opus specs took 30–46 s | probe |
 
-## The pivot
+## 3. The decisive experiments
 
-> **Move the LLM from the request path to the build path.**
-> Opus authors a large, reviewed library of parameterised patterns *offline*, once. At request time, Jev does all the understanding, retrieval, selection, critique and verification in wide parallel passes. Every word of the output comes from the user's request, the repository, or the reviewed library. Nothing is generated at request time unless Jev decides a gap can only be filled that way.
+| Experiment | Result |
+|---|---|
+| **A. Compiled spec on the request its library cell was written from** (`--verbose` → `gather-context.sh`) | **Tie with opus.** The judge chose whichever spec was shown first in all 4 runs, 2 in each order. Compile time is under 1 s; opus took 35 s |
+| **B. The same cell on an unseen request** (`--trace` → `generate-prompt.sh`) | **Opus won 4/4.** v2 compiled in **0.73 s**; opus took **39.5 s** and its spec failed validation. The judge said v2 mis-fit the request: `hit/miss` results for backend attempts, "every backends site", verification that runs the tool without its required `--raw-input`, positional-argument wording for a flag-only tool, and caller lists in the wrong direction. It also missed code-specific content: the cascade, limit classes and exit codes 0–4 |
+| **C. Would a generic verifier catch B?** | **No.** Five broad yes/no questions per section fired about equally on the good and bad specs |
+| **D. Would item guards catch B?** | **Yes.** See §4 |
 
-## Architecture
+The conclusion:
+- **Compilation can reach opus parity**, and it takes about a second instead of 35 s.
+- **But only when the selected library items actually fit the request.** Fit has to be proven item by item, by narrow guards written with each item.
+- **Requests that hinge on a specific module's internals need an LLM for exactly those parts.** For B, that meant the backend cascade and limit handling in `generate-prompt.sh`.
+
+## 4. Item guards: the robustness mechanism
+
+Every library item carries 1–3 narrow guard questions, written by the item's author. They are asked about the *request* (plus facts such as the target's usage text), never about the draft.
+
+| Guard | `--verbose` (fits) | `--trace` (does not fit) | Action when it fails |
+|---|---|---|---|
+| Reports on fixed checks/steps in the code? | 0.74 | **0.25** | Drop the "each … site" items |
+| Tool takes positional arguments? | 0.97 | **0.12** | Drop "accepted before or after positional arguments" |
+| Tool runs with no arguments? | 0.77 | **0.22** | Swap to a verification item that supplies the required arguments |
+| Reports a sequence of attempts that succeed or fail? | 0.49 | **0.61** | Use success/limit/error result vocabulary instead of hit/miss |
+| Each reported thing is a lookup that can come up empty? | 0.74 | 0.62 | Weak on its own; combined with the attempts guard |
+
+Guards make Tier A deterministic and auditable. Every compiled line has passed a logged precondition. When a *required* section has no item whose guards pass, that section is a **gap**, and only the gap goes to an LLM.
+
+## 5. Where opus's quality comes from
+
+Jev classified all 1,806 content lines of 31 opus specs:
+
+| Source | Share | How v2 covers it |
+|---|---|---|
+| Reusable practice | 33% | Library items (with guards) |
+| Repo facts and conventions | 22% | Sentence-level rule selection, file cards, command discovery, and reference lines with direction |
+| Request restatement | 7% | Extraction by choice |
+| Structure | 5% | Compiler |
+| "Design" | 34% | Partly library "house defaults" (formats, states, examples). Many of these lines are really CLAUDE.md knowledge. The code-specific part goes to Tier B |
+
+## 6. Architecture
 
 ```text
-request ─┐
-         ▼
-L0  Candidates (shell, deterministic, cached by repo HEAD)                   ~50–150 ms
-    • request: every word span ≤12 words (≤254) + regex entities (paths, flags, env vars, identifiers, quantities)
-    • repo:    git ls-files → file cards (path + own header); caller/reference edges for extracted identifiers
-    • rules:   CLAUDE.md / AGENTS.md / CONTRIBUTING / .cursorrules split into rule units
-    • commands: CI run: steps, package.json scripts, Makefile targets, fenced shell in docs
-    • library: reviewed pattern items (below), each with a corpus prior
-         ▼
-L1  UNDERSTAND + RETRIEVE + SELECT — one Jev call, ~300–1,000 questions          ~0.5–0.7 s
-    triage · fine-grained intent · element kind · clarity/complexity/risk (paraphrase twins)
-    roles by span choice (target, new element, desired, symptom, constraint, metric, ambiguity)
-    decomposition by ordinal span choice · file relevance (card-in-question) · rule relevance
-    command roles (test/lint/typecheck/build) · library relevance (lift over prior)
+L0  Candidates (shell, deterministic, cached by repo HEAD)                            ≤150 ms
+    request: regex entities (paths, flags, env vars, identifiers, quantities) + clause/NP chunks
+             (over-find, then choose; no 200-wide span choices)
+    repo:    git ls-files → file cards; git grep -n -F for extracted identifiers (lines, with direction)
+    rules:   CLAUDE.md / AGENTS.md / CONTRIBUTING → sentence units
+    usage:   target's own usage/help text, read from the file (not executed)
+    commands: CI run: steps, package scripts, Makefile targets, fenced shell in docs
+    library: typed items {kind, cell, slots, text, check, guards[], prior}, arranged as a taxonomy
+
+L1  ONE wide Jev call (premised fan-out, every question independent of every other) ~0.6–0.9 s
+    triage · intent/element taxonomy (top levels) · clarity/complexity/risk (+ paraphrase twins)
+    roles by choice over candidates + an "exists?" noul per role · ordinal decomposition
+    file relevance (card in question) · rule relevance · command roles · reference direction
+    library item relevance (lift) · ALL guards of candidate items (premised on the request + usage)
     companion needs (regression test, docs, changelog, migration note, compatibility)
-         ▼
-L2  COMPILE (shell) — typed spec AST → XML, one <task> per decomposed piece       ~50 ms
-    patterns are parameterised by the parse: {target} {new_element} {desired} {runner} {test_cmd} …
-         ▼
-L3  CRITIQUE + VERIFY — one Jev call                                            ~0.4–0.5 s
-    coverage of every role span and task span · faithful · specific · actionable
-    the judge checklist as yes/no questions ("has a regression task?", "exact output format?", "negative check?" …)
-    rule-violation scan of every line against the selected rules · per-requirement relevance in context
-         ▼
-L4  REPAIR — only for failed checklist items                                     0 or ~0.4 s
-    select more library patterns for the missing dimension (Jev), recompile, re-verify
-         ▼
-L5  TIER DECISION
-    A  compiled + verified → serve                                              ≈ 1.5–2.5 s total
-    B  compiled + a gap only an LLM can fill → LLM writes ONLY that block,
-       Jev re-checks it against rules/coverage                                  ≈ 6–9 s
-    C  unclear / high-risk / novel → full LLM, with a Jev-shaped prompt
-       (retrieved files, selected rules, selected patterns, parse) → shorter,
-       grounded, cheaper tier possible                                          ≈ 15–30 s
-         ▼
-L6  CACHE + TRACE — decisions keyed by sha256(request, repo HEAD, library version, pinned model)
+
+L1b Parallel second calls only where the first answer changes the options          ~0.4 s
+    taxonomy beam (K=3) below the top levels · semantic-find over the target file's lines
+    (choice over line IDs + exists) → code anchors for the spec
+
+L2  COMPILE (shell): typed AST → XML; include only items whose guards pass (margin ±0.1)   ~50 ms
+    slots filled only from verbatim candidates; every line keeps a trace back to its item and guard
+
+L3  COVERAGE (Jev, narrow + grounded): each extracted role and each task span must be covered;
+    required sections present (current behaviour, verification per task, check, escape)   ~0.4 s
+
+L4  TIER
+    A  no gaps, all guards/coverage pass → serve                                       ≈1.5–2.5 s
+    B  gaps only → a fast LLM writes ONLY the gap sections (in parallel, capped length), given
+       the request + compiled context + code anchors; Jev re-checks those sections with the
+       gap-type guards; opus only if they still fail                                    ≈6–10 s
+    C  unclear / high-risk / no fitting cell → full LLM with a Jev-shaped prompt (retrieved
+       files, anchors, selected rules and items); still Jev-verified                   ≈15–30 s
+
+L5  Cache raw answers (re-threshold without calls) + trace; pin jev-1.13.0; fail open.
 ```
 
-### The pattern library: the core asset
+**Offline, the "compile-time LLM":**
+- Opus authors library cells per taxonomy node, *with guards and checks*.
+- Items are also distilled from real opus specs.
+- An autoresearch loop grows and tunes the library: the LLM proposes items and guard wordings, Jev answers over the corpus, the pairwise judge scores the results, and weak items are revised or dropped (TypeSafe's autoresearch cookbook).
+- Thresholds are placed "in the gap" on labelled runs, with raw answers stored.
+- Humans review every item before it ships.
 
-- **Schema.** Each item has:
-  - `id`, `kind` (requirement | check | approach | example | escape | out-of-scope | companion-task | format-default)
-  - `applies_to` (intent × element kind), `slots` (e.g. `{target}`, `{flag}`), `text`
-  - `check` (a runnable verification template, when there is one)
-  - `prior` (median relevance on the corpus, used for lift), `source`, `reviewed_by`
-- **Authoring (offline, one-time, then incremental):**
-  1. Opus writes candidate items per (intent × element kind) cell, e.g. "cli-flag × feature", "env-var × feature", "auth-session × bugfix", "migration × risky data".
-  2. Items are also **distilled from real opus specs**: Jev labels lines as reusable practice, and a Jev choice question deduplicates them against existing items.
-  3. A human reviews everything before it ships.
-- **Calibration.** Priors and thresholds are fitted on the benchmark corpus, and expanded to more repos over time.
-- **Target size.** 500–1,500 items is still well inside one call's capacity (≤2,500 questions).
+## 7. Honest expectations
 
-### Determinism and robustness
+- **Tier A share grows with library coverage.** It is limited by requests that hinge on a module's internals. A realistic first target is 30–50% of requests at *judge parity* in about 2 s.
+- **Tier B targets most of the rest in about 8 s,** 4× faster than today, with a grounded, verified skeleton. It still has to prove parity. The earlier Tier B mock lost, but it used a weak skeleton; v2's is the Experiment-A-quality skeleton minus the guard-failed items.
+- **Tier C remains for vague, high-risk or novel requests.**
+- **Validity is structural.** Compiled specs pass `validate-prompt.sh` by construction, whereas today's opus path fails it 37% of the time (15/40), mostly from tag drift.
 
-- **Pinned model** (`jev-1.13.0`, not `-latest`) plus the decision cache: the same request on the same tree gives byte-identical output.
-- **Margins:** decisions within ±0.1 of a threshold count as *uncertain*, and uncertain decisions route to the safer tier.
-- **Paraphrase twins** on the gates (clarity, multi-task, risk): both phrasings must agree, otherwise abstain.
-- **Nothing hallucinated:** the output text comes only from the request, the repo, or the reviewed library. Tier B/C LLM text is scanned against the selected rules before it's served.
-- **Fail open:** every Jev failure drops to the next tier.
+## 8. Build plan (milestones, each gated by the benchmark)
 
-## Evaluation protocol
+1. **Engine:** L0 candidates + the L1 wide call + the typed compiler with traces and guards. This replaces v1's `jev-decide.sh`/`fast-compose.sh`.
+2. **Library v0:** 6–8 cells for the commonest nodes (CLI flag and option kinds, env var, docs edit, CI/config bump, bugfix in a script, test addition, perf of a script), authored offline by opus with guards, then reviewed. Target: Tier A parity on those cells.
+3. **L1b + L3:** semantic-find code anchors, taxonomy beam, coverage.
+4. **Tier B:** parallel gap-section LLM completion with guard re-checks. Measure parity and latency.
+5. **Corpus + calibration:** grow to 100+ requests across several repos; autoresearch loop; thresholds in the gap.
+6. **Ship opt-in.** Default `off` until the judge numbers hold.
 
-- **Acceptance** is blind pairwise judgement against the opus baseline, in both orderings. Wins and ties must be ≥ 90% on the requests served at each tier, and 100% of served specs must be valid.
-- **Jev's rubric plus the judge checklist** is the fast inner-loop metric during library development: about 1 s per spec, near-zero cost.
-- The corpus grows from 40 requests on one repo to at least 100 across several repos (Node, Python, Go, a web app), because a single-repo corpus overfits the library.
+## 9. Decisions needed
 
-## Build plan
-
-1. **L0 + L1 + L2 engine.** Candidate generation, the wide call, and a typed compiler that produces a spec AST and then XML. It replaces `jev-decide.sh` and `fast-compose.sh`.
-2. **L3 + L4.** The checklist critic, coverage and rule-violation scan, and the repair loop.
-3. **Library v0.** About 300 items for the commonest cells, authored offline by opus from the judge checklist plus distillation of the 40 baseline specs, then human-reviewed.
-4. **Tiers B/C.** Gap-only LLM completion, and the Jev-shaped full-LLM prompt.
-5. **Calibration + evaluation** on the expanded corpus. Iterate the library until Tier A clears the bar on its served share.
-6. **Cache, trace and docs.** Keep it opt-in until the numbers hold.
-
-## Decisions needed
-
-1. **A deterministic repo index in the fast path.** This means `git ls-files` file cards, plus exact-identifier `git grep -l -F` for references and callers. CLAUDE.md currently limits context to fixed-path probes. The index is reproducible for a given tree, but it widens that rule. *Recommendation: allow it, fast path only, cached by HEAD.*
-2. **Offline opus authoring of the pattern library.** This is a one-time spend of tokens, with human review before items ship. *Recommendation: yes. This is where the quality comes from.*
+1. **Deterministic repo index in the fast path:** `git ls-files` cards, plus `git grep -n -F` on extracted identifiers, *reading* the target's usage text. CLAUDE.md currently restricts context to fixed-path probes. The index is reproducible for a given tree (cached by HEAD). *Recommendation: allow it for the fast path only.*
+2. **Offline opus authoring of the library,** with human review before any item ships. *Recommendation: yes; it is the quality engine.*
+3. **Tier B uses an LLM on the request path for gaps only.** *Recommendation: yes. Tier A alone cannot cover code-specific requests at parity, and Experiment B proves it.*

@@ -1,0 +1,29 @@
+approach	Before editing, read `{tool}` end to end and list every {sites} site the flag must report on — including ones inside helpers, loops and command substitutions.
+approach	Choose one design and commit to it: a single logging helper called at each site (preferred when sites are scattered), or wrapping an existing helper that the sites already share. Criteria: every site covered, smallest diff, stdout untouched.
+req.behaviour	`{tool} {flag}` {desired}.
+req.behaviour	Without `{flag}`, stdout is byte-for-byte identical to today's output.
+req.behaviour	Diagnostic output from `{flag}` goes to stderr only, so programs that consume stdout are unaffected.
+req.format	Each diagnostic line has a stable, greppable prefix and shape: `[{tool_name}] <event> <subject> -> <result>`.
+req.format	Report what did not happen as well as what did: results are `hit`, `miss`, or `skipped (<reason>)`, so "not checked" is distinguishable from "checked and absent".
+req.format	Finish with one summary line on stderr: `[{tool_name}] <n> {sites}, <h> hits`.
+req.interface	`{flag}` is accepted before or after positional arguments.
+req.interface	`{flag}` is listed in the usage/help text in the existing format, with a one-line description.
+example	`{runner} {tool_path} {flag}` in a normal project|stderr has one `[{tool_name}]` line per {sites} site plus the summary line; stdout is unchanged|Diagnostics are the feature; keeping them off stdout protects every consumer of the normal output.
+example	`{runner} {tool_path} {flag}` where a {sites} site cannot run|that site is reported as `skipped (<reason>)`|A site that never ran must still be visible, or users cannot tell "not checked" from "absent".
+example	`{runner} {tool_path}` without `{flag}`|no `[{tool_name}]` lines on stderr; stdout identical to before the change|The default path must not change at all.
+verify	`diff <({runner} {tool_path} 2>/dev/null) <({runner} {tool_path} {flag} 2>/dev/null)` produces no output.
+verify	`{runner} {tool_path} {flag} 2>&1 >/dev/null` prints one or more `[{tool_name}]` lines and the summary line.
+verify	`{runner} {tool_path} 2>&1 >/dev/null` prints no `[{tool_name}]` lines.
+companion	{test_file}|Add a regression check next to the existing coverage for `{tool}`: stdout is identical with and without `{flag}`, and stderr contains `[{tool_name}]` only with the flag.
+constraint	Callers of `{tool}` ({callers}) keep calling it without `{flag}`; do not change them.
+constraint	Do not reorder or reword any existing stdout output of `{tool}`.
+constraint	The flag only reports on {sites} that already exist; do not add new ones.
+out	Timing or profiling of each {sites} site.
+out	A configuration-file setting for the same option.
+escape	If some {sites} sites cannot be instrumented without restructuring (for example inside command substitutions or subshells), list them and ask before restructuring; do not skip them silently.
+check	Re-read `{tool}` and confirm every {sites} site reports, and that all diagnostics go to stderr.
+desc	Add `{flag}` to `{tool}` so that it {desired}.
+desired	`{tool} {flag}` {desired}; without `{flag}` the output is unchanged.
+current	`{tool}` — {tool_summary}. It has no `{flag}` option today.
+task2.desc	Cover the new behaviour with an automated check and record the change.
+verify	`{syntax_check}` succeeds.
