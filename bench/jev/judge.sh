@@ -5,6 +5,7 @@
 #   BENCH_JUDGE_MODEL=opus        claude model used as judge
 #   BENCH_MODES="route compose auto"
 #   BENCH_OUT=<dir>               results directory from run.sh
+#   BENCH_IDS="r01 r05"           judge a subset
 #
 # Writes $BENCH_OUT/judgements.jsonl: {id, mode, result: win|tie|loss} from the
 # candidate's point of view. Identical outputs are recorded as ties without a call.
@@ -19,6 +20,9 @@ touch "$OUT/judgements.jsonl"
 
 while IFS= read -r line; do
   id=$(jq -r .id <<<"$line")
+  if [ -n "${BENCH_IDS:-}" ]; then
+    case " $BENCH_IDS " in *" $id "*) ;; *) continue ;; esac
+  fi
   request=$(jq -r .request <<<"$line")
   base="$OUT/off/$id.xml"
   [ -s "$base" ] || continue
