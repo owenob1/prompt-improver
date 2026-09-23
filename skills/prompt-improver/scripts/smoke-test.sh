@@ -589,6 +589,36 @@ else
   bad "task/verification counting wrong: $(grep -i 'task' <<<"$_count_out")"
 fi
 
+# Tag drift: the generator used to be told to write <verification_commands>
+# while the validator counted only <verification>; 15/40 opus specs failed.
+_vd() { printf '%s\n' "$1" >"$T/vd.xml"; bash scripts/validate-prompt.sh "$T/vd.xml" 2>&1 || true; }
+_out=$(_vd '<task id="1"><verification_commands>bash -n x.sh</verification_commands></task>
+<check>Re-read every changed file.</check>')
+[[ "$_out" == *"VALIDATION: PASS"* ]] && ok "<verification_commands> counts as a task's verification" || bad "verification_commands variant rejected: $(grep '^FAIL' <<<"$_out")"
+_out=$(_vd '<task id="1"><verification>a</verification><verification>b</verification></task>
+<task id="2"><description>no checks here</description></task>
+<check>Re-read every changed file.</check>')
+[[ "$_out" == *"not all tasks have verification (1/2)"* ]] && ok "verification is checked per task (two blocks in one task hide nothing)" || bad "per-task verification: $(grep -i 'verification' <<<"$_out" | head -2)"
+_out=$(_vd '<task id="1"><description>Update the `<task>` and `<verification>` checks</description><verification>bash -n v.sh</verification></task>
+<check>Re-read every changed file.</check>')
+[[ "$_out" == *"all tasks have verification (1/1)"* ]] && ok "backticked tags in prose are not counted as structure" || bad "backticked tags counted: $(grep -iE 'task' <<<"$_out" | head -2)"
+_out=$(_vd '<task id="1"><acceptance_criteria>- The audit lists every call site</acceptance_criteria></task>
+<check>Confirm no files were changed.</check>')
+[[ "$_out" == *"VALIDATION: PASS"* && "$_out" == *"verified only by acceptance criteria"* ]] && ok "acceptance-criteria-only task passes with a warning" || bad "acceptance-only task: $(grep -E '^(FAIL|WARN)' <<<"$_out" | head -2)"
+for _phr in "Before presenting the plan, confirm every path was read." "Confirm \`git status --porcelain\` is empty." "Confirm every citation was re-checked against the file."; do
+  _out=$(_vd "<task id=\"1\"><verification>x</verification></task>
+<check>
+  - $_phr
+</check>")
+  [[ "$_out" == *"VALIDATION: PASS"* ]] && ok "read-only/re-check phrasing accepted: ${_phr:0:40}" || bad "check phrasing rejected: $_phr"
+done
+_gen=$(cat assets/generation-agent-prompt.md)
+if [[ "$_gen" == *'`<verification_commands>` —'* ]] || [[ "$_gen" != *'Every `<task>` contains its own `<verification>` block'* ]]; then
+  bad "generator prompt still instructs a tag the validator does not count"
+else
+  ok "generator prompt and validator agree on <verification>"
+fi
+
 # 17. 'model' in prose must not be read as a retryable limit failure
 echo ""
 echo "[17] bad-model heuristic is not triggered by prose"

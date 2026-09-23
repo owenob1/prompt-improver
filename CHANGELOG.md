@@ -66,6 +66,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - CI also runs on `macos-latest` under the stock `/bin/bash` 3.2.
 
 ### Fixed
+- **About 1 in 3 generated specs failed the skill's own validator (exit 4).**
+  The generator prompt told the model to put `<verification_commands>` in
+  each task, but `validate-prompt.sh` only counted `<verification>`.
+  Measured on 40 live opus runs: 15 failed validation before the fix, 1
+  after. The one remaining failure is a genuine omission.
+  - The generator prompt now names `<verification>` and states the output
+    contract.
+  - The validator checks verification per task instead of comparing totals,
+    so two blocks in one task can no longer hide a missing one elsewhere.
+  - It also accepts the `verification_commands`/`verify` variants.
+  - It accepts measurable `<acceptance_criteria>` for audit or design tasks,
+    with a warning.
+  - It ignores tags quoted in backticks, such as a request that is about
+    `<task>` itself.
+  - It recognises plan-only / read-only `<check>` phrasing, such as "before
+    presenting the plan" or "`git status --porcelain` is empty".
 - **opencode, cline, kimi and kiro backends were broken.** They used flags
   those CLIs don't have (`opencode -p`, `cline --prompt --headless`,
   `kimi --headless`, `kiro -p`). They now use `opencode run`,
