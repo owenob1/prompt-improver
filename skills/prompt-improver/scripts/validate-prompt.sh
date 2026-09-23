@@ -119,7 +119,22 @@ fi
 if _in "$PROMPT" -q '<escape'; then
   pass "escape clause present"
 else
-  warn "no escape clause found — add <escape> to prevent hallucinated workarounds"
+  warn "no escape clause found — name a contradiction once and continue"
+fi
+
+# 5b. Finish line and pause rule
+if _in "$PROMPT" -q '<done'; then
+  pass "done line present"
+else
+  warn "no <done> line — name the observable finish state in one sentence"
+fi
+if _in "$PROMPT" -q '<stops'; then
+  pass "stops block present"
+else
+  warn "no <stops> block — say when to keep going and when a destructive action must pause"
+fi
+if _in "$PROMPT" -qiE 'think step by step|think carefully|think hard|reason through|before implementing, reason'; then
+  warn "thinking instruction in the prompt — state the choice in <approach> instead"
 fi
 
 # --- Quality warnings (non-blocking) ---
@@ -134,7 +149,7 @@ done < <(_in "$PROMPT" -owiE "($VAGUE_WORDS)" | tr '[:upper:]' '[:lower:]' | sor
 
 # 7. No <approach> block
 if ! _in "$PROMPT" -q '<approach'; then
-  warn "no approach block found — consider adding think-before-act reasoning"
+  warn "no approach block — add one only when two designs were real, and state the choice"
 fi
 
 # --- Emphasis and signal quality ---
@@ -239,7 +254,7 @@ fi
 # --- Deprecated pattern warnings ---
 
 if _in "$PROMPT" -q '<evaluate'; then
-  warn "<evaluate> is deprecated — use <approach> for think-before-act reasoning"
+  warn "<evaluate> is deprecated — use <approach> and state the choice"
 fi
 if _in "$PROMPT" -qiE 'sequential.thinking|sequentialthinking'; then
   warn "sequential-thinking MCP reference detected — use native <approach> blocks instead"

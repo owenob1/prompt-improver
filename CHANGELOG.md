@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- Generated XML follows the Opus 5.5 run rules without naming the product the agent is running in.
+- `<done>` is the observable finish line. `<approach>` states a committed choice and is omitted when there is nothing to choose. It no longer says to reason through the decision.
+- `<stops>` says to keep going, and to pause only when blocked or before a destructive action. `<escape>` names a contradiction once and continues.
+- `<check>` reviews the diff for merge-blocking problems and reports Blocked on me, Changed, Found, Unconfirmed.
+- Long runs tell the agent to keep the checklist in `TASKS.md` and to check a subagent's evidence before accepting it.
+- `validate-prompt.sh` warns on a missing `<done>` or `<stops>`, and on "think step by step", "think hard", or "reason through".
+
 ## [1.1.0] — 2026-09-23
 
 ### Changed
