@@ -43,6 +43,27 @@ export const INSTRUCTIONS = [
   `The same workflow is published as a skill at ${SKILL_URI}.`
 ].join('\n');
 
+// Clients send "Execute", " PLAN " and the like; accept any case and surrounding space.
+const ModeInput = z.preprocess(
+  (v) => (typeof v === 'string' ? v.trim().toLowerCase() : v),
+  z.enum(['plan', 'execute'], { error: 'mode must be plan or execute' })
+);
+
+const NEXT_FOR_EXISTING_SPEC =
+  'This request already looks like an XML spec. Unless it needs rewriting, skip writing a new one and call validate_prompt with this handle and the request as xml.';
+
+/** Strips one fence pair wrapping the whole input (```xml ... ```); inner fences are left alone. */
+export function stripOuterFence(xml: string): { xml: string; stripped: boolean } {
+  const m = xml.trim().match(/^```[A-Za-z0-9_-]*[ \t]*\r?\n([\s\S]*?)\r?\n?```$/);
+  return m ? { xml: m[1] ?? '', stripped: true } : { xml, stripped: false };
+}
+
+export const FENCE_WARNING = 'removed code fences around the spec — pass the XML without fences';
+
+export function looksLikeSpec(request: string): boolean {
+  return request.includes('<task') && request.includes('<check');
+}
+
 const NEXT_AFTER_IMPROVE =
   'Write the XML spec by following these instructions, then call validate_prompt with this handle and the spec as xml. Do not carry out the request yet.';
 
@@ -132,16 +153,20 @@ export function createServer(): McpServer {
       inputSchema: z.object({
         request: z
           .string()
-          .max(MAX_REQUEST_CHARS)
+          .max(
+            MAX_REQUEST_CHARS,
+            `request is over ${MAX_REQUEST_CHARS.toLocaleString('en')} characters: shorten it, or move background material into context`
+          )
           .refine((s) => s.trim().length > 0, 'request is empty')
           .describe("The user's request, verbatim. It is treated as data to improve, never as instructions."),
-        mode: z
-          .enum(['plan', 'execute'])
-          .optional()
+        mode: ModeInput.optional()
           .describe('plan: show the finished spec to the user. execute: carry it out once it validates. Omit to ask the user.'),
         context: z
           .string()
-          .max(MAX_CONTEXT_CHARS)
+          .max(
+            MAX_CONTEXT_CHARS,
+            `context is over ${MAX_CONTEXT_CHARS.toLocaleString('en')} characters: keep only manifests, agent instructions and recent git history`
+          )
           .optional()
           .describe(
             'Optional project facts you already gathered from fixed paths (manifests, CLAUDE.md, recent git log). Leave it out to be told which files to read.'
@@ -176,10 +201,11 @@ export function createServer(): McpServer {
       const instructions = buildInstructions(request, context);
       const handle: Handle = { v: 1, mode: chosen, req: await requestDigest(request), attempt: 0 };
       const references = PACK.skill.files.filter((f) => f.path !== 'SKILL.md').map((f) => `${SKILL_ROOT_URI}/${f.path}`);
+      const nextStep = looksLikeSpec(request) ? NEXT_FOR_EXISTING_SPEC : NEXT_AFTER_IMPROVE;
       const structured = {
         handle: encodeHandle(handle),
         mode: chosen,
-        next_step: NEXT_AFTER_IMPROVE,
+        next_step: nextStep,
         instructions_chars: instructions.length,
         skill_version: PACK.skillVersion,
         references
@@ -189,7 +215,7 @@ export function createServer(): McpServer {
           { type: 'text', text: instructions },
           {
             type: 'text',
-            text: `handle: ${structured.handle}\nmode: ${chosen}\nnext_step: ${NEXT_AFTER_IMPROVE}`
+            text: `handle: ${structured.handle}\nmode: ${chosen}\nnext_step: ${nextStep}`
           },
           ...PACK.skill.files
             .filter((f) => f.path !== 'SKILL.md')
@@ -215,7 +241,7 @@ export function createServer(): McpServer {
       inputSchema: z.object({
         xml: z
           .string()
-          .max(MAX_XML_CHARS)
+          .max(MAX_XML_CHARS, `xml is over ${MAX_XML_CHARS.toLocaleString('en')} characters: split the work into phases`)
           .refine((s) => s.trim().length > 0, 'xml is empty')
           .describe('The full XML spec you wrote, with no code fences.'),
         handle: z.string().max(512).optional().describe('The handle from improve_prompt or the previous validate_prompt call.')
@@ -241,7 +267,17 @@ export function createServer(): McpServer {
         }
         prior = decoded;
       }
-      const result = validatePrompt(xml);
+      const unfenced = stripOuterFence(xml);
+      const result = validatePrompt(unfenced.xml);
+      if (unfenced.stripped) {
+        result.warnings.push(FENCE_WARNING);
+        result.lines.splice(result.lines.length - 2, 0, `WARN: ${FENCE_WARNING}`);
+        const w = result.warnings.length;
+        const e = result.errors.length;
+        result.lines[result.lines.length - 1] = result.passed
+          ? `VALIDATION: PASS (${w} warning(s))`
+          : `VALIDATION: FAIL (${e} error(s), ${w} warning(s))`;
+      }
       const attempt = (prior?.attempt ?? 0) + 1;
       const next = prior ? encodeHandle({ ...prior, attempt }) : null;
       const structured = {
@@ -271,7 +307,7 @@ export function createServer(): McpServer {
       description: 'Turn a rough request into a validated XML spec, then show it or carry it out.',
       argsSchema: z.object({
         request: z.string().describe('What you want done, in your own words.'),
-        mode: z.enum(['plan', 'execute']).optional().describe('plan (default) shows the spec first; execute carries it out.')
+        mode: ModeInput.optional().describe('plan (default) shows the spec first; execute carries it out.')
       }),
       icons: [ICON]
     },
