@@ -144,6 +144,9 @@ export function validatePrompt(input: string, options: ValidateOptions = {}): Va
   if (anyLine(P, /think step by step|think carefully|think hard|reason through|before implementing, reason/is)) {
     warn('thinking instruction in the prompt — state the choice in <approach> instead');
   }
+  if (anyLine(P, new RegExp(`(?<!${W})(?:latest|newest|current version)(?!${W})`, 'is')) && !has('<research')) {
+    warn('unpinned "latest" without a <research> step — look the version up and pin it');
+  }
 
   const vague = [...new Set(wordMatches(P, 'scalable|robust|clean|modern|good|proper|appropriate|efficient', 'i').map((w) => w.toLowerCase()))].sort();
   for (const w of vague) warn(`vague adjective "${w}" detected`);

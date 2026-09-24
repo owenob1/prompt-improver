@@ -495,3 +495,83 @@ add rate limiting to the API
 ```
 
 **Pattern shown**: The playbook's emphasis decision matrix in action. The eval() prohibition is a genuine security rule (CRITICAL severity) — it keeps NEVER with a WHY explanation. The workflow rules are MEDIUM severity — they use calm, direct instructions without capitalisation. Claude 4.6 follows calm instructions more reliably and may overtrigger on aggressive emphasis for non-safety rules. The authoritative tag name `<agent_constraints>` also adds semantic weight to the security rule.
+
+---
+
+## Example 9: No project context — research, pin, then build
+
+### Before (user input, no repository attached)
+```
+Create a simple Astro latest + shadcn/ui latest page at prompt-improver.example.com with strict
+nofollow, no crawl, no bots, no search engines, because it's public. The MCP endpoint must stay public.
+```
+
+### After (improved prompt)
+```xml
+<context>
+  <project>Greenfield: no repository context was supplied. Stack named by the user: Astro, shadcn/ui.</project>
+  <scope>One static info page on prompt-improver.example.com, served by the Cloudflare Worker that already answers /mcp.</scope>
+  <desired-behavior>People can read the page; search engines and crawlers do not index or follow it; MCP clients reach /mcp as before.</desired-behavior>
+</context>
+
+<done>The page is live with noindex headers and meta tags, robots.txt disallows all, a Googlebot user agent gets 403 on the page, and an MCP tools/list call to /mcp still succeeds.</done>
+
+<stops>
+  - If a step needs no input, keep going. Put status in the same message as the next action.
+  - Stop only when blocked on the user, or before deleting data, force-pushing, or writing outside this repository.
+  - Do not end the turn by asking whether to continue.
+</stops>
+
+<research>
+  Look up before task 1, from the named source:
+  - Current stable versions of astro, @astrojs/react, react, tailwindcss and the shadcn CLI (source: npm registry, `npm view <pkg> version`).
+  - How the shadcn CLI initialises an Astro project today, and whether it runs non-interactively (source: ui.shadcn.com installation docs for Astro).
+  - How a Worker serves a static build while still running code first on every request (source: Cloudflare Workers static assets docs, run_worker_first).
+  - Which crawler user agents the major search and AI companies publish (source: each vendor's crawler documentation).
+  Record the pinned versions with the date checked, and the source URLs, before task 1 starts.
+</research>
+
+<escape>
+  If a researched setup step conflicts with this spec (for example the shadcn CLI needs an interactive prompt), name the conflict once in the report, use the nearest documented non-interactive path, and continue.
+</escape>
+
+<task id="research-record" name="pin-versions">
+  <description>Answer every research question and record the answers in the report before building.</description>
+  <requirements>
+    - List each package with its pinned version and the date checked.
+    - Give a source URL for each setup step and for the crawler list.
+  </requirements>
+  <verification>
+    npm view astro version (matches the pinned version)
+  </verification>
+</task>
+
+<task id="page" name="build-page" depends-on="research-record">
+  <description>Build the page with the pinned versions, and add the crawler controls.</description>
+  <requirements>
+    - Default (confirm in research): a static build served through the Worker's static assets, so /mcp keeps its code path and one deploy ships both.
+    - Every response carries X-Robots-Tag: noindex, nofollow; the page head carries meta robots noindex, nofollow; robots.txt disallows everything.
+    - Crawler user agents from the research list get 403 on page paths only — never on /mcp.
+  </requirements>
+  <verification>
+    npx astro check (typecheck) &amp;&amp; npm run build (smoke build; the page has no test suite)
+    curl -A Googlebot the page (expect 403); POST tools/list to /mcp (expect 200)
+    screenshot the page in a browser at 375px and 1280px and inspect both
+  </verification>
+</task>
+
+<check>
+  Re-read every changed file and the diff for a crawler rule that reaches /mcp.
+  Run the typecheck (npx astro check) and the smoke build again, then the curl checks against the live URL.
+  Report status for each requirement from the original request, including each pinned version and its source.
+  Report: Blocked on me / Changed / Found / Unconfirmed
+</check>
+```
+
+<reasoning>
+The request names "latest" twice and gives no repository, so the facts that decide the work — versions, the shadcn setup path, how the Worker serves assets, which crawlers exist — are not in any context the generator was given, and they change month to month. Writing them from memory produces a spec that is confidently wrong. The spec therefore turns each one into a research question with a named source, makes recording the answers the first task, and verifies one pin. Choices that are best practice rather than fact (static build through Worker assets) are stated as defaults marked "confirm in research".
+
+The same pattern covers any request without project context: a new framework or library, a third-party API integration, an app-store or platform policy question, a deployment target, or a non-code brief such as a launch email. For a non-code brief the research is about the audience, channel limits and facts to cite, and verification becomes a requirement checklist with length limits and sourced claims instead of typecheck and tests.
+</reasoning>
+
+**Pattern shown**: Missing context is a reason to look things up, not to write vaguer requirements. Time-sensitive facts become `<research>` questions with named sources, the first task records and pins the answers, and later tasks build on the pins.

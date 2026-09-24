@@ -136,6 +136,10 @@ fi
 if _in "$PROMPT" -qiE 'think step by step|think carefully|think hard|reason through|before implementing, reason'; then
   warn "thinking instruction in the prompt — state the choice in <approach> instead"
 fi
+# 5c. "Latest" is a fact that changes; it needs a research step that pins it.
+if _in "$PROMPT" -qiwE '(latest|newest|current version)' && ! _in "$PROMPT" -q '<research'; then
+  warn "unpinned \"latest\" without a <research> step — look the version up and pin it"
+fi
 
 # --- Quality warnings (non-blocking) ---
 

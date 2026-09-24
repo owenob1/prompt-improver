@@ -37,6 +37,8 @@ export function probeInstructions(): string {
     '',
     'For CLAUDE.md, AGENTS.md and .cursorrules read the first 40 lines. Do not grep, glob, find, list directories or explore beyond these paths. If you cannot read files, write the spec from the request alone and name what you could not confirm.',
     '',
+    'If the request depends on facts that change over time (latest or specific versions, setup commands, API shapes, pricing, platform policies) and you can search the web, look them up in official sources before writing the spec, and put what you found, with the source URL and the date checked, into <context>. If you cannot search, write each open fact as a question in <research> with the source that answers it, as the "No project context" rules below describe.',
+    '',
     '=== END PROJECT CONTEXT ===',
     '',
     ''

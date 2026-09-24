@@ -484,3 +484,19 @@ describe('info page and crawler policy', () => {
     expect(res.status).toBe(200);
   });
 });
+
+describe('no project context', () => {
+  test('without context, the instructions route time-sensitive facts to research', async () => {
+    const { result } = await call('improve_prompt', { request: 'Create a page with the latest Astro' });
+    const text = result.structuredContent.instructions as string;
+    expect(text).toContain('look them up in official sources before writing the spec');
+    expect(text).toContain('**No project context');
+    expect(text).toContain('Example 9: No project context');
+  });
+
+  test('an unpinned "latest" without a research block is warned about', async () => {
+    const xml = VALID.replace('<task name="fix-settings-path-leak">', '<task name="fix-settings-path-leak">\n  <!-- use the latest jq -->');
+    const { result } = await call('validate_prompt', { xml });
+    expect(result.structuredContent.warnings).toContain('unpinned "latest" without a <research> step — look the version up and pin it');
+  });
+});
