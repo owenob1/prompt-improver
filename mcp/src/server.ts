@@ -176,6 +176,7 @@ export function createServer(): McpServer {
         handle: z.string(),
         mode: z.enum(['plan', 'execute']),
         next_step: z.string(),
+        instructions: z.string().describe('The generation instructions (the same text as the first content block).'),
         instructions_chars: z.number().int(),
         skill_version: z.string(),
         references: z.array(z.string())
@@ -206,6 +207,8 @@ export function createServer(): McpServer {
         handle: encodeHandle(handle),
         mode: chosen,
         next_step: nextStep,
+        // Clients that honour outputSchema may show only structuredContent, so it carries the instructions too.
+        instructions,
         instructions_chars: instructions.length,
         skill_version: PACK.skillVersion,
         references

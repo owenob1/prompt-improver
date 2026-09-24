@@ -5,7 +5,11 @@
   "main": "src/worker.ts",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
-  "build": { "command": "node scripts/pack.mjs" },
+  // Packs the skill text, then builds the static info page (site/ must have its dependencies installed).
+  "build": { "command": "node scripts/pack.mjs && npm --prefix ../site run build" },
+  // The info page. run_worker_first sends every request through the worker, which adds X-Robots-Tag,
+  // blocks crawlers on page paths and keeps /mcp, /health and preflight for itself.
+  "assets": { "directory": "../site/dist", "binding": "ASSETS", "run_worker_first": true, "not_found_handling": "404-page" },
   "observability": { "enabled": true },
   // Custom domain: the deploy creates the DNS record and certificate (the zone must be on the same account).
   "routes": [{ "pattern": "prompt-improver.oweninnes.com", "custom_domain": true }],

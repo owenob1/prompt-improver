@@ -30,6 +30,18 @@ Any MCP client that speaks Streamable HTTP can use the server: claude.ai and Cla
   - Emoji, right-to-left text, control characters and 50,000-character requests pass through unchanged.
   - Oversize inputs return an error that says what to cut.
 
+## Info page
+
+`/` serves the static page from `site/`, built with Astro and shadcn/ui through Workers static assets. The worker sees every request first (`run_worker_first`), and handles them like this:
+- It adds `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet` to every response, including `/mcp`.
+- It answers self-identified crawlers (Googlebot, GPTBot, CCBot, ClaudeBot and others) with 403 on page paths only.
+- `/mcp`, `/health`, `/robots.txt` and preflight are never blocked.
+- The page carries noindex meta tags. Its `robots.txt` disallows everything, and there is no sitemap or Open Graph data.
+
+These measures only stop crawlers that follow the rules or identify themselves. For a hard lock on the page, use Cloudflare Access on the page paths. Don't turn on zone-level bot blocking: it would also challenge MCP clients on `/mcp`.
+
+Build: `wrangler deploy` runs `pack.mjs` and then `npm --prefix ../site run build`, so run `npm ci` in `site/` once first.
+
 ## Source of truth
 
 Nothing from the skill is copied by hand. `scripts/pack.mjs` builds the gitignored file `src/generated/pack.ts` from `skills/prompt-improver/` at build and test time:

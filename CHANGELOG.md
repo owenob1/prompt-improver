@@ -21,7 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
     - already-written specs routed straight to validation;
     - oversize-input errors that name the fix;
     - tests for protocol versions 2025-03-26 through 2026-07-28.
-  - It is served at `https://prompt-improver.oweninnes.com/mcp`. The old worker's Durable Object is deleted, and its AI and D1 bindings are dropped.
+  - It is served at `https://prompt-improver.oweninnes.com/mcp`.
+  - An info page at `/` (`site/`, Astro 7 + shadcn/ui), served from the same worker as static assets.
+    - Crawler blocking: noindex meta tags and an `X-Robots-Tag` header on every response, a `robots.txt` that disallows everything, and a 403 for known crawlers on page paths. `/mcp` stays open to every client.
+  - `improve_prompt` now puts the instructions in `structuredContent` too. Clients that show only structured output (Claude Code among them) were not receiving them. The old worker's Durable Object is deleted, and its AI and D1 bindings are dropped.
 
 ### Fixed
 - `scripts/validate-prompt.sh` is executable again.

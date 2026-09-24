@@ -1,0 +1,111 @@
+---
+import Base from '@/layouts/Base.astro';
+import { CopyButton } from '@/components/CopyButton';
+import { SetupTabs } from '@/components/SetupTabs';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+
+const endpoint = 'https://prompt-improver.oweninnes.com/mcp';
+
+const steps = [
+  {
+    title: 'improve_prompt',
+    body: 'Send the request as written. The server returns the rules a spec must follow, plus a handle. In plan mode you see the spec first; in execute mode the agent carries it out once it passes.'
+  },
+  {
+    title: 'Write the spec',
+    body: 'Your own agent writes the XML spec from those rules. It does not start the work yet.'
+  },
+  {
+    title: 'validate_prompt',
+    body: 'The server checks the spec and says what happens next: fix and check again (up to three times), show it to you, or carry it out.'
+  }
+];
+
+const surfaces = [
+  ['improve_prompt', 'Tool. Returns the generation instructions and a handle for the request.'],
+  ['validate_prompt', 'Tool. Checks a spec and returns the next step.'],
+  ['improve', 'Prompt. A slash command that starts the loop.'],
+  ['skill://prompt-improver/SKILL.md', 'Skill. The same workflow and its references, for clients that load skills over MCP.']
+];
+---
+
+<Base
+  title="prompt-improver MCP"
+  description="A remote MCP server that turns rough coding requests into checked XML specs."
+>
+  <main class="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-12 sm:py-16">
+    <header class="space-y-4">
+      <div class="flex flex-wrap gap-2">
+        <Badge variant="secondary">MCP 2026-07-28</Badge>
+        <Badge variant="outline">No model calls</Badge>
+        <Badge variant="outline">Stateless</Badge>
+      </div>
+      <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">prompt-improver</h1>
+      <p class="text-base leading-relaxed text-muted-foreground sm:text-lg">
+        A remote MCP server that turns a rough coding request into a precise, checkable XML spec before any work
+        starts. It never calls a model itself: the agent you are already using writes the spec, and the server
+        supplies the rules and checks the result.
+      </p>
+    </header>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>Endpoint</CardTitle>
+        <CardDescription>Streamable HTTP. No sign-in needed.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <code class="min-w-0 flex-1 break-all rounded-md border bg-muted px-3 py-2 font-mono text-sm">{endpoint}</code>
+        <CopyButton client:load value={endpoint} label="Copy URL" />
+      </CardContent>
+    </Card>
+
+    <section class="space-y-4">
+      <h2 class="text-xl font-semibold tracking-tight">Connect</h2>
+      <SetupTabs client:load />
+    </section>
+
+    <Separator />
+
+    <section class="space-y-4">
+      <h2 class="text-xl font-semibold tracking-tight">How it works</h2>
+      <ol class="grid gap-3 sm:grid-cols-3">
+        {
+          steps.map((step, i) => (
+            <li>
+              <Card className="h-full">
+                <CardHeader>
+                  <CardDescription>Step {i + 1}</CardDescription>
+                  <CardTitle className="font-mono text-base">{step.title}</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm leading-relaxed text-muted-foreground">{step.body}</CardContent>
+              </Card>
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+
+    <section class="space-y-4">
+      <h2 class="text-xl font-semibold tracking-tight">What it exposes</h2>
+      <dl class="divide-y rounded-lg border">
+        {
+          surfaces.map(([name, text]) => (
+            <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:gap-4">
+              <dt class="shrink-0 font-mono text-sm sm:w-64 break-all">{name}</dt>
+              <dd class="text-sm text-muted-foreground">{text}</dd>
+            </div>
+          ))
+        }
+      </dl>
+    </section>
+
+    <footer class="flex flex-col gap-2 border-t pt-6 text-sm text-muted-foreground sm:flex-row sm:justify-between">
+      <span>Also available as an Agent Skill for coding CLIs.</span>
+      <a class="underline underline-offset-4 hover:text-foreground" href="https://github.com/owenob1/prompt-improver" rel="nofollow noopener noreferrer">
+        github.com/owenob1/prompt-improver
+      </a>
+    </footer>
+  </main>
+</Base>

@@ -6,6 +6,7 @@ on:
     paths:
       - 'mcp/**'
       - 'skills/prompt-improver/**'
+      - 'site/**'
       - '.github/workflows/mcp-deploy.yml'
   workflow_dispatch:
 
@@ -40,9 +41,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: mcp/package-lock.json
+          cache-dependency-path: |
+            mcp/package-lock.json
+            site/package-lock.json
 
       - name: Install
+        run: npm ci
+
+      - name: Install the info page
+        working-directory: site
         run: npm ci
 
       - name: Typecheck and test

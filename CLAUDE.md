@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A pure-Bash Agent Skill (no build step, no package manager, no compiled code), plus `mcp/`, a TypeScript Cloudflare Worker that serves the skill's rules over MCP. It takes a vague coding request and rewrites it into a structured XML spec by shelling out to a *separate* coding CLI (`claude`, `grok`, `codex`, `gemini`, …) headlessly, then hands the result back to the host agent to execute.
+A pure-Bash Agent Skill (no build step, no package manager, no compiled code), plus `mcp/`, a TypeScript Cloudflare Worker that serves the skill's rules over MCP, and `site/`, the Astro + shadcn/ui info page that worker serves at `/`. It takes a vague coding request and rewrites it into a structured XML spec by shelling out to a *separate* coding CLI (`claude`, `grok`, `codex`, `gemini`, …) headlessly, then hands the result back to the host agent to execute.
 
 ## Commands
 
