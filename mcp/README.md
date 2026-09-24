@@ -1,5 +1,11 @@
 # prompt-improver MCP server
 
+Endpoint: `https://prompt-improver.oweninnes.com/mcp` (health check at `/health`).
+
+```bash
+claude mcp add --transport http prompt-improver https://prompt-improver.oweninnes.com/mcp
+```
+
 This is a Cloudflare Worker (`prompt-improver-mcp`) serving prompt-improver over MCP, protocol 2026-07-28. It is stateless, with no model calls and no storage. 2025-era clients are served statelessly by the SDK's fallback.
 
 | Surface | What it does |

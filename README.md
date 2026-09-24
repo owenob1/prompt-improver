@@ -107,7 +107,7 @@ git clone https://github.com/owenob1/prompt-improver.git && cp -R prompt-improve
 For clients that can't run the skill's scripts (claude.ai, IDE chat panes, other agents), `mcp/` is a Cloudflare Worker that serves the same rules over MCP (spec 2026-07-28, with 2025-era clients served statelessly).
 
 ```bash
-claude mcp add --transport http prompt-improver https://prompt-improver-mcp.<your-subdomain>.workers.dev/mcp
+claude mcp add --transport http prompt-improver https://prompt-improver.oweninnes.com/mcp
 ```
 
 The server does not call a model. The agent that connects to it writes the spec, and the server checks it:
