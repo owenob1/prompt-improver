@@ -84,6 +84,9 @@ const CASES: Array<[string, string]> = [
   ['deprecated patterns', `${valid}\n<evaluate>x</evaluate>\nUse sequential-thinking.`],
   ['no typecheck', valid.replace(/bash -n[^\n]*\n/g, '').replace(/No typecheck[^\n]*\n/, '').replace(/validate-prompt[^\n]*\n/g, '')],
   ['unicode', `${valid}\nCafé naïve résumé — “quotes” 日本語`],
+  ['latest without research', valid.replace('<approach>', '<approach>\n  Install the latest Node.')],
+  ['latest with research', '<research>Look up the current Node version and pin it.</research>\n' + valid.replace('<approach>', '<approach>\n  Install the latest Node.')],
+  ['latestness is not latest', valid.replace('<approach>', '<approach>\n  Track latestness of the cache.')],
   ['nested task tags', '<task id="x">\n<task id="y"><verification>v</verification></task>\n</task>\n<check>re-read</check>']
 ];
 

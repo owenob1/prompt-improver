@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **No project context now leads to research, not guesses.** Requests with no project context, whether greenfield, from a chat app or a non-code deliverable, are handled like this:
+  - Facts that change over time become `<research>` questions with named sources. That covers versions, setup commands, API shapes, pricing and platform policies.
+  - The first task records and pins the answers, and a verification step checks a pin.
+  - Non-code deliverables get artefact checks (requirement checklist, length limits, links, sourced claims) instead of typecheck and tests.
+  - Supporting changes:
+    - a worked example (Example 9);
+    - a validator warning for an unpinned "latest" with no `<research>` step;
+    - the MCP instructions tell a connected agent that can browse to look facts up before writing the spec.
 - **Hosted MCP server (`mcp/`)**: a Cloudflare Worker on MCP 2026-07-28 that replaces the earlier Workers AI `prompt-improver-mcp`. It makes no model calls:
   - `improve_prompt` hands the connected agent the same generation prompt the headless generator gets, and asks for the mode through elicitation when the mode is missing.
   - `validate_prompt` runs a TypeScript port of `validate-prompt.sh` and tells the agent whether to fix and re-validate, show the spec, or carry it out.

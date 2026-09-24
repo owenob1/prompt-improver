@@ -631,7 +631,23 @@ for _phr in "Before presenting the plan, confirm every path was read." "Confirm 
 </check>")
   [[ "$_out" == *"VALIDATION: PASS"* ]] && ok "read-only/re-check phrasing accepted: ${_phr:0:40}" || bad "check phrasing rejected: $_phr"
 done
+# "Latest" changes over time: without a <research> step the spec asserts a version from memory.
+_out=$(_vd '<task id="1"><description>Install the latest Astro</description><verification>bash -n x</verification></task>
+<check>Re-read every changed file.</check>')
+[[ "$_out" == *'unpinned "latest" without a <research> step'* ]] && ok "unpinned \"latest\" without <research> warns" || bad "latest without research: no warning"
+_out=$(_vd '<research>Look up the current astro version (npm view astro version) and pin it.</research>
+<task id="1"><description>Install the latest Astro at the pinned version</description><verification>bash -n x</verification></task>
+<check>Re-read every changed file.</check>')
+[[ "$_out" != *'unpinned "latest"'* ]] && ok "\"latest\" with a <research> step does not warn" || bad "latest with research still warned"
+_out=$(_vd '<task id="1"><description>Show the latestness score</description><verification>bash -n x</verification></task>
+<check>Re-read every changed file.</check>')
+[[ "$_out" != *'unpinned "latest"'* ]] && ok "\"latestness\" is not the word latest" || bad "latest matched inside another word"
 _gen=$(cat assets/generation-agent-prompt.md)
+if [[ "$_gen" != *'**No project context'* ]]; then
+  bad "generator prompt lost the no-project-context research rules"
+else
+  ok "generator prompt routes missing context to <research>"
+fi
 if [[ "$_gen" == *'`<verification_commands>` —'* ]] || [[ "$_gen" != *'Every `<task>` contains its own `<verification>` block'* ]]; then
   bad "generator prompt still instructs a tag the validator does not count"
 else

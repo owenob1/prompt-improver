@@ -26,12 +26,14 @@ The canonical template for improved prompts. Not every section is required — u
   </document>
 </documents>
 
-<!-- Research directive -->
+<!-- Research directive: required when no project context was given or the work depends on
+     facts that change over time (versions, setup commands, API shapes, pricing, policies) -->
 <research>
-  Search before implementing:
-  - {specific docs/APIs to look up}
+  Look up before task 1, from the named source:
+  - {specific question} (source: {official docs / package registry / release notes / policy page})
   Explore the codebase:
-  - {files/patterns to read}
+  - {files/patterns to read, when there is a codebase}
+  Record the pinned versions with the date checked, and the source URLs, before task 1 starts.
 </research>
 
 <!-- Tasks with think-then-implement pattern -->
@@ -247,7 +249,7 @@ When in planning mode:
 | `<desired-behavior>` | What should happen (fix/refactor) | For fix/refactor tasks |
 | `<error>` | Verbatim error message | When error is available |
 | `<documents>` | Reference material in document structure | When referencing external content |
-| `<research>` | Online search and codebase exploration | Default for non-trivial tasks |
+| `<research>` | Questions to answer from named sources before task 1; findings pinned and recorded | Required when no project context was given or the request depends on facts that change over time; otherwise for non-trivial tasks |
 | `<task>` | Single unit of work | Yes (at least one) |
 | `<description>` | What the task accomplishes | Yes |
 | `<requirements>` | Specific, testable specs | Yes |

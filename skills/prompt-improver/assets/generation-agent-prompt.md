@@ -24,7 +24,16 @@ Project facts (stack, TYPECHECK/TEST/BUILD commands, top-level layout, agent ins
 
 - Use that block for any paths, commands, or stack claims.
 - Prefer paths and scripts named there; do not invent file paths.
-- If context is missing or empty, keep requirements general and mark unknowns rather than exploring.
+- If context is missing or empty, do not explore and do not guess. Follow the "No project context" rules below.
+
+**No project context (greenfield, chat-app and non-code requests).**
+When the context block is missing or empty, or the request is not about an existing codebase, the facts that decide the work are not in a repo. Handle them like this:
+- Classify the request: repo-grounded, greenfield (a new project or page), or non-code deliverable (an email, brief, plan, analysis).
+- Any fact that changes over time is a research question, never a stated fact: "latest" or any version, install and setup commands, API and config shapes, pricing, platform or store policies, security guidance. Write each one into `<research>` as a specific question and name its authoritative source (official docs, the package registry, release notes, the vendor's policy page).
+- The first task records what research found — pinned versions with the date checked, and the source URLs — and later tasks use those pins. Give that task a verification line that checks a pin (for example `npm view astro version`).
+- State best-practice choices as defaults with a one-line reason, marked "confirm in research", so the executor checks them instead of inheriting them.
+- For a non-code deliverable, verification fits the artefact: a requirement-by-requirement checklist, length or format limits, links that resolve, claims that carry a source. Leave out typecheck and test-suite commands, and say so once in `<check>`: "No typecheck or test suite: non-code deliverable."
+- When `allow_web_search` is false, turn research questions into items to confirm with the user and list them as unconfirmed in the report.
 
 **CRITICAL: Match your output to the input quality.** Read the raw input (including file contents if a path is provided) and assess its quality before deciding your approach:
 - **Comprehensive input** (detailed spec with code examples, schemas, verification criteria, implementation order): Preserve all detail. Wrap in XML structure without compressing or stripping content.
