@@ -4,13 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A pure-Bash Agent Skill (no build step, no package manager, no compiled code). It takes a vague coding request and rewrites it into a structured XML spec by shelling out to a *separate* coding CLI (`claude`, `grok`, `codex`, `gemini`, …) headlessly, then hands the result back to the host agent to execute.
+A pure-Bash Agent Skill (no build step, no package manager, no compiled code), plus `mcp/`, a TypeScript Cloudflare Worker that serves the skill's rules over MCP. It takes a vague coding request and rewrites it into a structured XML spec by shelling out to a *separate* coding CLI (`claude`, `grok`, `codex`, `gemini`, …) headlessly, then hands the result back to the host agent to execute.
 
 ## Commands
 
 ```bash
 bash tests/smoke-test.sh                          # full suite — this is what CI runs
 bash skills/prompt-improver/scripts/smoke-test.sh # skill-package checks only (24 groups, offline stub CLIs)
+cd mcp && npm ci && npm run typecheck && npm test  # hosted MCP server (CI job `mcp`)
 ```
 
 There is no test-name filter. To iterate on one check, run the underlying script directly:
@@ -88,6 +89,8 @@ Four merge layers, later wins: `config/runtime-defaults.json` → `config/settin
 **Model ids are sanitised.** `pi_is_safe_model_id` rejects anything outside `[A-Za-z0-9._:/@+[]-]` before a model reaches a command line; templates also get `{model}` via `printf %q`.
 
 **Backend scripts share `lib/backend-common.sh`.** It owns the per-attempt timeout (`timeout` → `gtimeout` → pure-bash watchdog), the 120 KB argv cap (Linux `MAX_ARG_STRLEN` is 128 KiB per argument, regardless of `ARG_MAX`) with stdin/file fallbacks, closed stdin, and exit-code mapping. Generators must stay read-only: every script disables tools or avoids auto-approval where the CLI allows it.
+
+**`mcp/` is generated from the skill, never a second copy.** `mcp/scripts/pack.mjs` runs the real `assemble-generation-prompt.sh`, reads the probe list from `gather-context.sh`, and hashes the served files into the gitignored `mcp/src/generated/pack.ts`. `mcp/src/validate.ts` is a line-for-line port of `validate-prompt.sh`: change both together, and `mcp/test/validate.test.ts` fails on any output drift (it also runs every ```xml example in the references). The same holds for `mcp/src/assemble.ts` against the assembler. `mcp/skill/SKILL.md` is the MCP-facing skill (tool loop, no scripts), and it is the only other `SKILL.md` in the repo. The server is stateless and calls no model: the connected agent writes the spec.
 
 **Layout is enforced.** Installable content lives only under `skills/prompt-improver/`. `plugins/prompt-improver/skills/prompt-improver` is a symlink back to it, and `tests/smoke-test.sh` group `[1]` checks that the symlink resolves to a real `SKILL.md`. Never duplicate skill files at the repo root.
 

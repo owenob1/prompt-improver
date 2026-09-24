@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Replaces the earlier prompt-improver-mcp worker in place, so existing client URLs keep working.
+  "name": "prompt-improver-mcp",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "build": { "command": "node scripts/pack.mjs" },
+  "observability": { "enabled": true },
+  // Bound only so the previous worker's PromptSession class is not deleted by this deploy (see src/worker.ts).
+  "durable_objects": {
+    "bindings": [{ "name": "SESSIONS", "class_name": "PromptSession" }]
+  }
+  // Optional secret: `wrangler secret put AUTH_TOKEN` to require a bearer token on /mcp.
+}
