@@ -5,6 +5,8 @@ import { createServer, SERVER_NAME, SERVER_VERSION } from './server.js';
 export interface Env {
   /** When set, /mcp requires `Authorization: Bearer <AUTH_TOKEN>` (same as the previous worker). */
   AUTH_TOKEN?: string;
+  /** The static info page (site/dist), served through Workers static assets. Absent in unit tests. */
+  ASSETS?: { fetch(request: Request): Promise<Response> };
 }
 
 export const PUBLIC_URL = 'https://prompt-improver.oweninnes.com/mcp';
@@ -29,9 +31,23 @@ const PREFLIGHT_HEADERS: Record<string, string> = {
   'Access-Control-Max-Age': '86400'
 };
 
+// The page is public but not for search engines or archives; the header goes on every response,
+// including /mcp, so nothing on this host is indexed.
+export const ROBOTS_HEADER = 'noindex, nofollow, noarchive, nosnippet';
+
+// Self-identified crawlers get 403 on page paths. Never applied to /mcp, /health, /robots.txt or
+// preflight: some MCP clients fetch through agents whose user agents look like bots.
+const CRAWLER =
+  /googlebot|bingbot|duckduckbot|yandex(bot)?|baiduspider|applebot|gptbot|oai-searchbot|ccbot|claudebot|anthropic-ai|perplexitybot|bytespider|amazonbot|facebookexternalhit|meta-externalagent|ahrefsbot|semrushbot/i;
+
+export function isCrawler(userAgent: string | null): boolean {
+  return !!userAgent && CRAWLER.test(userAgent);
+}
+
 function withCors(response: Response): Response {
   const headers = new Headers(response.headers);
   for (const [k, v] of Object.entries(CORS_HEADERS)) headers.set(k, v);
+  headers.set('X-Robots-Tag', ROBOTS_HEADER);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
@@ -44,7 +60,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 async function route(request: Request, env: Env, url: URL): Promise<Response> {
-  if (url.pathname === '/' || url.pathname === '/health') {
+  if (url.pathname === '/health') {
     return Response.json({
       ok: true,
       name: `${SERVER_NAME}-mcp`,
@@ -65,7 +81,13 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
       { status: 410 }
     );
   }
-  if (url.pathname !== '/mcp') return new Response('Not found', { status: 404 });
+  if (url.pathname !== '/mcp') {
+    // Everything else is the static page.
+    if (url.pathname !== '/robots.txt' && isCrawler(request.headers.get('user-agent'))) {
+      return new Response('Forbidden', { status: 403 });
+    }
+    return env.ASSETS ? env.ASSETS.fetch(request) : new Response('Not found', { status: 404 });
+  }
   if (env.AUTH_TOKEN) {
     const auth = request.headers.get('authorization') ?? '';
     if (!timingSafeEqual(auth, `Bearer ${env.AUTH_TOKEN}`)) {
@@ -80,7 +102,10 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
   // Preflight is answered before the auth check: browsers never send credentials on it.
   if (request.method === 'OPTIONS') {
     const known = ['/', '/health', '/mcp'].includes(url.pathname);
-    return new Response(null, { status: known ? 204 : 404, headers: known ? PREFLIGHT_HEADERS : CORS_HEADERS });
+    return new Response(null, {
+      status: known ? 204 : 404,
+      headers: { ...(known ? PREFLIGHT_HEADERS : CORS_HEADERS), 'X-Robots-Tag': ROBOTS_HEADER }
+    });
   }
   return withCors(await route(request, env, url));
 }

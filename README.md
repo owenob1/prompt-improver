@@ -116,7 +116,7 @@ The server does not call a model. The agent that connects to it writes the spec,
 2. The agent writes the XML spec.
 3. `validate_prompt`: runs the same checks as `validate-prompt.sh`. It then tells the agent what to do next: fix and re-validate (up to three attempts), show the spec (`plan`), or carry it out (`execute`).
 
-It also serves an `improve` prompt and publishes the workflow as a skill at `skill://prompt-improver/SKILL.md` (MCP Skills extension). Set the `AUTH_TOKEN` secret to require `Authorization: Bearer <token>`. For deployment details, see [mcp/README.md](./mcp/README.md).
+The server also serves an info page at [prompt-improver.oweninnes.com](https://prompt-improver.oweninnes.com/) (`site/`, Astro + shadcn/ui). The page asks search engines not to index it and blocks known crawlers. It also serves an `improve` prompt and publishes the workflow as a skill at `skill://prompt-improver/SKILL.md` (MCP Skills extension). Set the `AUTH_TOKEN` secret to require `Authorization: Bearer <token>`. For deployment details, see [mcp/README.md](./mcp/README.md).
 
 ---
 

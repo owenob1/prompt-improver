@@ -56,10 +56,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: mcp/package-lock.json
+          cache-dependency-path: |
+            mcp/package-lock.json
+            site/package-lock.json
 
       - name: Install
         run: npm ci
+
+      - name: Install and check the info page
+        working-directory: site
+        run: npm ci && npx astro check
 
       - name: Typecheck
         run: npm run typecheck

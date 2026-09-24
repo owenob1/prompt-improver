@@ -398,3 +398,89 @@ describe('transports and protocol versions', () => {
     expect(validated.result.structuredContent.passed).toBe(true);
   });
 });
+
+describe('structured output', () => {
+  test('structuredContent carries the same instructions as the first content block', async () => {
+    const { result } = await call('improve_prompt', { request: 'add a --json flag' });
+    expect(result.structuredContent.instructions).toBe(result.content[0].text);
+    expect(result.structuredContent.instructions).toContain('<raw-request-to-improve>\nadd a --json flag\n</raw-request-to-improve>');
+    expect(result.structuredContent.instructions_chars).toBe(result.structuredContent.instructions.length);
+  });
+});
+
+describe('info page and crawler policy', () => {
+  const assets = {
+    fetch: async (req: Request) =>
+      new URL(req.url).pathname === '/robots.txt'
+        ? new Response('User-agent: *\nDisallow: /\n', { headers: { 'content-type': 'text/plain' } })
+        : new Response('<!doctype html><title>page</title>', { headers: { 'content-type': 'text/html' } })
+  };
+  const GOOGLEBOT = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
+
+  test('/ serves the static page with X-Robots-Tag', async () => {
+    const res = await handleRequest(new Request('https://example.test/'), { ASSETS: assets });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('<title>page</title>');
+    expect(res.headers.get('x-robots-tag')).toBe('noindex, nofollow, noarchive, nosnippet');
+  });
+
+  test('/mcp, /health and preflight carry X-Robots-Tag', async () => {
+    const list = await handleRequest(
+      new Request('https://example.test/mcp', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2025-06-18' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} })
+      }),
+      {}
+    );
+    expect(list.headers.get('x-robots-tag')).toContain('noindex');
+    const health = await handleRequest(new Request('https://example.test/health'), {});
+    expect(health.headers.get('x-robots-tag')).toContain('noindex');
+    const pre = await handleRequest(new Request('https://example.test/mcp', { method: 'OPTIONS' }), {});
+    expect(pre.headers.get('x-robots-tag')).toContain('noindex');
+  });
+
+  test.each([
+    GOOGLEBOT,
+    'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GPTBot/1.2; +https://openai.com/gptbot)',
+    'CCBot/2.0 (https://commoncrawl.org/faq/)',
+    'Mozilla/5.0 (compatible; ClaudeBot/1.0; +claudebot@anthropic.com)',
+    'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)'
+  ])('crawler %s gets 403 on the page', async (ua) => {
+    const res = await handleRequest(new Request('https://example.test/', { headers: { 'user-agent': ua } }), { ASSETS: assets });
+    expect(res.status).toBe(403);
+  });
+
+  test('a crawler can still read robots.txt, /health and call /mcp', async () => {
+    const robots = await handleRequest(new Request('https://example.test/robots.txt', { headers: { 'user-agent': GOOGLEBOT } }), {
+      ASSETS: assets
+    });
+    expect(robots.status).toBe(200);
+    expect(await robots.text()).toContain('Disallow: /');
+    const health = await handleRequest(new Request('https://example.test/health', { headers: { 'user-agent': GOOGLEBOT } }), {});
+    expect(health.status).toBe(200);
+    const res = await handleRequest(
+      new Request('https://example.test/mcp', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json, text/event-stream',
+          'mcp-protocol-version': '2025-06-18',
+          'user-agent': GOOGLEBOT
+        },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} })
+      }),
+      { ASSETS: assets }
+    );
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('improve_prompt');
+  });
+
+  test('a normal browser gets the page', async () => {
+    const res = await handleRequest(
+      new Request('https://example.test/', { headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_6) AppleWebKit/605.1.15 Safari/605.1.15' } }),
+      { ASSETS: assets }
+    );
+    expect(res.status).toBe(200);
+  });
+});
