@@ -11,9 +11,6 @@
   "routes": [{ "pattern": "prompt-improver.oweninnes.com", "custom_domain": true }],
   // The custom domain is the only URL.
   "workers_dev": false,
-  "preview_urls": false,
-  // The previous worker bound a KV-backed PromptSession Durable Object; this server is stateless,
-  // so its namespace is retired with a tombstone.
-  "exports": { "PromptSession": { "type": "durable-object", "state": "deleted" } }
+  "preview_urls": false
   // Optional secret: `wrangler secret put AUTH_TOKEN` to require a bearer token on /mcp.
 }

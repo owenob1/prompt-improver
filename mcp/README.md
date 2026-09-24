@@ -49,4 +49,4 @@ To deploy by hand, run `cd mcp && npx wrangler deploy`.
 
 To require a bearer token on `/mcp`, run `npx wrangler secret put AUTH_TOKEN`. Clients then send `Authorization: Bearer <token>`. Without the secret, the endpoint is open. It holds no data and calls no paid APIs.
 
-The worker replaces the earlier Workers AI `prompt-improver-mcp`. A `state: "deleted"` exports tombstone in `wrangler.jsonc` retired that worker's `PromptSession` Durable Object, and its AI and D1 bindings are gone. The only URL is the custom domain: `workers_dev` and `preview_urls` are off.
+The worker replaces the earlier Workers AI `prompt-improver-mcp`. That worker's `PromptSession` Durable Object was deleted on the first deploy, and its AI and D1 bindings are gone. The only URL is the custom domain: `workers_dev` and `preview_urls` are off.
