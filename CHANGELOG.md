@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - `validate_prompt` runs a TypeScript port of `validate-prompt.sh` and tells the agent whether to fix and re-validate, show the spec, or carry it out.
   - It also serves an `improve` prompt, the references as resources, and the workflow as a skill through the MCP Skills extension.
   - Tests hold both ports byte-identical to the bash scripts. CI runs them, and `mcp-deploy.yml` deploys on merge.
+  - Client coverage:
+    - CORS, with preflight answered before auth;
+    - a `410` pointing HTTP+SSE clients to `/mcp`;
+    - `mode` accepted in any case;
+    - fenced specs unwrapped, with a warning;
+    - already-written specs routed straight to validation;
+    - oversize-input errors that name the fix;
+    - tests for protocol versions 2025-03-26 through 2026-07-28.
   - It is served at `https://prompt-improver.oweninnes.com/mcp`. The old worker's Durable Object is deleted, and its AI and D1 bindings are dropped.
 
 ### Fixed

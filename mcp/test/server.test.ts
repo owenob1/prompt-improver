@@ -238,3 +238,163 @@ describe('http surface', () => {
     expect(text).toContain('prompt-improver');
   });
 });
+
+// --- Client and input coverage: every client shape and input the hosted server is expected to meet.
+
+async function legacy(method: string, params: Json, version: string, id = 1): Promise<Json> {
+  const res = await handleRequest(
+    new Request('https://example.test/mcp', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': version },
+      body: JSON.stringify({ jsonrpc: '2.0', id, method, params })
+    }),
+    {}
+  );
+  expect(res.status).toBe(200);
+  const text = await res.text();
+  if ((res.headers.get('content-type') ?? '').includes('text/event-stream')) {
+    const data = text.split('\n').filter((l) => l.startsWith('data: ')).pop() ?? '';
+    return JSON.parse(data.slice(6)) as Json;
+  }
+  return JSON.parse(text) as Json;
+}
+
+describe('CORS', () => {
+  test('preflight on /mcp is 204 with the allowed methods and headers', async () => {
+    const res = await handleRequest(
+      new Request('https://example.test/mcp', {
+        method: 'OPTIONS',
+        headers: { origin: 'https://chatgpt.com', 'access-control-request-method': 'POST' }
+      }),
+      {}
+    );
+    expect(res.status).toBe(204);
+    expect(res.headers.get('access-control-allow-origin')).toBe('*');
+    expect(res.headers.get('access-control-allow-methods')).toContain('POST');
+    const allowed = res.headers.get('access-control-allow-headers') ?? '';
+    for (const h of ['content-type', 'authorization', 'mcp-protocol-version', 'mcp-session-id', 'mcp-method', 'mcp-name', 'last-event-id']) {
+      expect(allowed).toContain(h);
+    }
+    expect(res.headers.get('access-control-max-age')).toBe('86400');
+  });
+
+  test('preflight is not blocked by AUTH_TOKEN', async () => {
+    const res = await handleRequest(new Request('https://example.test/mcp', { method: 'OPTIONS' }), { AUTH_TOKEN: 's3cret' });
+    expect(res.status).toBe(204);
+  });
+
+  test('MCP, health and 401 responses carry Access-Control-Allow-Origin', async () => {
+    const health = await handleRequest(new Request('https://example.test/health'), {});
+    expect(health.headers.get('access-control-allow-origin')).toBe('*');
+    const denied = await handleRequest(new Request('https://example.test/mcp', { method: 'POST', body: '{}' }), { AUTH_TOKEN: 'x' });
+    expect(denied.headers.get('access-control-allow-origin')).toBe('*');
+    const res = await handleRequest(
+      new Request('https://example.test/mcp', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2025-06-18' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} })
+      }),
+      {}
+    );
+    expect(res.headers.get('access-control-allow-origin')).toBe('*');
+    expect(res.headers.get('access-control-expose-headers')).toContain('mcp-session-id');
+  });
+});
+
+describe('input normalisation', () => {
+  test.each([
+    ['Execute', 'execute'],
+    [' PLAN ', 'plan'],
+    ['EXECUTE', 'execute']
+  ])('mode %j is accepted as %s', async (given, expected) => {
+    const { result } = await call('improve_prompt', { request: 'add a flag', mode: given });
+    expect(result.isError).toBeFalsy();
+    expect(result.structuredContent.mode).toBe(expected);
+  });
+
+  test('an unknown mode names the valid values', async () => {
+    const res = await call('improve_prompt', { request: 'add a flag', mode: 'yolo' });
+    const text = JSON.stringify(res);
+    expect(text).toContain('mode must be plan or execute');
+  });
+
+  test('the improve prompt accepts mode in any case', async () => {
+    const { result } = await rpc('prompts/get', { name: 'improve', arguments: { request: 'x', mode: 'Execute' } });
+    expect(result.messages[0].content.text).toContain('execute mode');
+  });
+
+  test('an oversize request or context names the fix', async () => {
+    const big = await call('improve_prompt', { request: 'a'.repeat(100_001) });
+    expect(JSON.stringify(big)).toContain('shorten it, or move background material into context');
+    const ctx = await call('improve_prompt', { request: 'x', context: 'c'.repeat(200_001) });
+    expect(JSON.stringify(ctx)).toContain('keep only manifests');
+  });
+
+  test('a fenced spec is unwrapped, validated and warned about', async () => {
+    const { result } = await call('validate_prompt', { xml: '```xml\n' + VALID + '\n```\n' });
+    expect(result.structuredContent.passed).toBe(true);
+    expect(result.structuredContent.warnings).toContain('removed code fences around the spec — pass the XML without fences');
+    const text = result.content[0].text as string;
+    expect(text).toContain('WARN: removed code fences');
+    expect(text).toMatch(/VALIDATION: PASS \(\d+ warning\(s\)\)/);
+  });
+
+  test('fences inside the spec are left alone', async () => {
+    const inner = VALID.replace('<check>', '<check>\n```bash\nbash -n x\n```');
+    const { result } = await call('validate_prompt', { xml: '```\n' + inner + '\n```' });
+    expect(result.structuredContent.warnings).toContain('removed code fences around the spec — pass the XML without fences');
+    const plain = await call('validate_prompt', { xml: inner });
+    expect(plain.result.structuredContent.warnings).not.toContain('removed code fences around the spec — pass the XML without fences');
+    expect(plain.result.structuredContent.passed).toBe(result.structuredContent.passed);
+  });
+
+  test('a request that is already a spec is pointed straight at validate_prompt', async () => {
+    const { result } = await call('improve_prompt', { request: VALID });
+    expect(result.structuredContent.next_step).toContain('already looks like an XML spec');
+    const plain = await call('improve_prompt', { request: 'add a flag' });
+    expect(plain.result.structuredContent.next_step).not.toContain('already looks like');
+  });
+
+  test.each([
+    ['emoji', 'make the 🚀 button faster 👍🏽'],
+    ['right-to-left', 'أضف خيار --json إلى أمر التصدير'],
+    ['control characters', 'line\u0000one\u0007\u001b[31m red \u0008 end'],
+    ['50,000 characters', 'fix the parser. '.repeat(3_125)]
+  ])('%s survive unchanged inside the request wrapper', async (_name, request) => {
+    const { result } = await call('improve_prompt', { request });
+    expect(result.isError).toBeFalsy();
+    expect(result.content[0].text).toContain(`<raw-request-to-improve>\n${request.replace(/\n+$/, '')}\n</raw-request-to-improve>`);
+  });
+});
+
+describe('transports and protocol versions', () => {
+  test.each(['/sse', '/messages'])('%s answers 410 and names the Streamable HTTP endpoint', async (path) => {
+    for (const method of ['GET', 'POST']) {
+      const res = await handleRequest(new Request(`https://example.test${path}`, { method }), {});
+      expect(res.status).toBe(410);
+      const body = (await res.json()) as Json;
+      expect(body.endpoint).toBe('https://prompt-improver.oweninnes.com/mcp');
+      expect(body.transport).toBe('streamable-http');
+    }
+  });
+
+  test.each(['2025-03-26', '2025-06-18', '2025-11-25'])('protocol %s: initialise, list and call', async (version) => {
+    const init = await legacy(
+      'initialize',
+      { protocolVersion: version, capabilities: {}, clientInfo: { name: 'client', version: '1' } },
+      version
+    );
+    expect(init.result.protocolVersion).toBe(version);
+    const tools = await legacy('tools/list', {}, version, 2);
+    expect(tools.result.tools.map((t: Json) => t.name)).toEqual(['improve_prompt', 'validate_prompt']);
+    const improved = await legacy('tools/call', { name: 'improve_prompt', arguments: { request: 'add a flag', mode: 'execute' } }, version, 3);
+    expect(improved.result.structuredContent.mode).toBe('execute');
+    const validated = await legacy(
+      'tools/call',
+      { name: 'validate_prompt', arguments: { xml: VALID, handle: improved.result.structuredContent.handle } },
+      version,
+      4
+    );
+    expect(validated.result.structuredContent.passed).toBe(true);
+  });
+});

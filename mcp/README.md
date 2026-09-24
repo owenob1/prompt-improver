@@ -15,6 +15,21 @@ This is a Cloudflare Worker (`prompt-improver-mcp`) serving prompt-improver over
 | `improve` prompt | A slash-command entry point to the loop. |
 | `skill://prompt-improver/...` | `mcp/skill/SKILL.md`, the skill's references and the examples, served as resources. They are also served through the Skills extension (`skills/list`, `skills/get`, sha256 manifest). |
 
+## Clients and inputs
+
+Any MCP client that speaks Streamable HTTP can use the server: claude.ai and Claude Code, ChatGPT, Grok, and coding-agent CLIs. Register it as a remote MCP server with the URL above and no authentication, or with a bearer token if `AUTH_TOKEN` is set. Tests cover the following:
+
+- **Protocol versions:** 2025-03-26, 2025-06-18, 2025-11-25 and 2026-07-28 (the tests cover initialise, `tools/list` and both tools). Each request is served statelessly, so there is no session to lose.
+- **Browsers:** CORS is open (`Access-Control-Allow-Origin: *`), and preflight is answered before the auth check.
+- **Old transport:** clients still on the deprecated HTTP+SSE transport get `410` from `/sse` and `/messages`, with the `/mcp` URL.
+- **Chats without file access:** the instructions say to write the spec from the request alone and to name what could not be confirmed.
+- **Input shapes:**
+  - `mode` is accepted in any letter case.
+  - A spec wrapped in ```` ```xml ```` fences is unwrapped, with a warning.
+  - A request that is already a spec is pointed straight at `validate_prompt`.
+  - Emoji, right-to-left text, control characters and 50,000-character requests pass through unchanged.
+  - Oversize inputs return an error that says what to cut.
+
 ## Source of truth
 
 Nothing from the skill is copied by hand. `scripts/pack.mjs` builds the gitignored file `src/generated/pack.ts` from `skills/prompt-improver/` at build and test time:
