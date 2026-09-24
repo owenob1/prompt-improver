@@ -40,3 +40,32 @@ jobs:
 
       - name: Run repo smoke tests
         run: bash tests/smoke-test.sh
+
+  mcp:
+    name: MCP server (typecheck, tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mcp/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test (includes parity with the bash validator and assembler)
+        run: npm test
+
+      - name: Bundle check
+        run: npx wrangler deploy --dry-run --outdir dist

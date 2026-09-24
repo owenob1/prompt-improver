@@ -102,6 +102,24 @@ git clone https://github.com/owenob1/prompt-improver.git && cp -R prompt-improve
 
 ---
 
+## 🔌 Hosted MCP server
+
+For clients that can't run the skill's scripts (claude.ai, IDE chat panes, other agents), `mcp/` is a Cloudflare Worker that serves the same rules over MCP (spec 2026-07-28, with 2025-era clients served statelessly).
+
+```bash
+claude mcp add --transport http prompt-improver https://prompt-improver.oweninnes.com/mcp
+```
+
+The server does not call a model. The agent that connects to it writes the spec, and the server checks it:
+
+1. `improve_prompt`: returns the generation instructions the headless generator would get, plus a handle. If `mode` is missing, the server asks the user through elicitation, or defaults to `plan`.
+2. The agent writes the XML spec.
+3. `validate_prompt`: runs the same checks as `validate-prompt.sh`. It then tells the agent what to do next: fix and re-validate (up to three attempts), show the spec (`plan`), or carry it out (`execute`).
+
+It also serves an `improve` prompt and publishes the workflow as a skill at `skill://prompt-improver/SKILL.md` (MCP Skills extension). Set the `AUTH_TOKEN` secret to require `Authorization: Bearer <token>`. For deployment details, see [mcp/README.md](./mcp/README.md).
+
+---
+
 ## 🧠 Default generator models
 
 | Backend CLI | Default model | Notes |

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Hosted MCP server (`mcp/`)**: a Cloudflare Worker on MCP 2026-07-28 that replaces the earlier Workers AI `prompt-improver-mcp`. It makes no model calls:
+  - `improve_prompt` hands the connected agent the same generation prompt the headless generator gets, and asks for the mode through elicitation when the mode is missing.
+  - `validate_prompt` runs a TypeScript port of `validate-prompt.sh` and tells the agent whether to fix and re-validate, show the spec, or carry it out.
+  - It also serves an `improve` prompt, the references as resources, and the workflow as a skill through the MCP Skills extension.
+  - Tests hold both ports byte-identical to the bash scripts. CI runs them, and `mcp-deploy.yml` deploys on merge.
+  - It is served at `https://prompt-improver.oweninnes.com/mcp`. The old worker's Durable Object is retired with an exports tombstone, and its AI and D1 bindings are dropped.
+
+### Fixed
+- `scripts/validate-prompt.sh` is executable again.
+
 ### Changed
 - Generated XML follows the Opus 5.5 run rules without naming the product the agent is running in.
 - `<done>` is the observable finish line. `<approach>` states a committed choice and is omitted when there is nothing to choose. It no longer says to reason through the decision.
