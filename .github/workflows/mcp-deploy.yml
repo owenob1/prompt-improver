@@ -21,6 +21,17 @@ jobs:
       run:
         working-directory: mcp
     steps:
+      - name: Check deploy secrets
+        env:
+          HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+          HAS_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+        working-directory: .
+        run: |
+          if [ "$HAS_TOKEN" != "true" ] || [ "$HAS_ACCOUNT" != "true" ]; then
+            echo "::error::Add the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets to deploy the MCP server."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
 

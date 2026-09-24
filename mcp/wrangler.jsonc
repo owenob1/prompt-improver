@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  // Replaces the earlier prompt-improver-mcp worker in place, so existing client URLs keep working.
+  // Replaces the earlier prompt-improver-mcp worker in place.
   "name": "prompt-improver-mcp",
   "main": "src/worker.ts",
   "compatibility_date": "2026-09-01",
@@ -9,9 +9,11 @@
   "observability": { "enabled": true },
   // Custom domain: the deploy creates the DNS record and certificate (the zone must be on the same account).
   "routes": [{ "pattern": "prompt-improver.oweninnes.com", "custom_domain": true }],
-  // Bound only so the previous worker's PromptSession class is not deleted by this deploy (see src/worker.ts).
-  "durable_objects": {
-    "bindings": [{ "name": "SESSIONS", "class_name": "PromptSession" }]
-  }
+  // The custom domain is the only URL.
+  "workers_dev": false,
+  "preview_urls": false,
+  // The previous worker bound a KV-backed PromptSession Durable Object; this server is stateless,
+  // so its namespace is retired with a tombstone.
+  "exports": { "PromptSession": { "type": "durable-object", "state": "deleted" } }
   // Optional secret: `wrangler secret put AUTH_TOKEN` to require a bearer token on /mcp.
 }
