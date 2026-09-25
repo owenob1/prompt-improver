@@ -2,6 +2,18 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* dark: applies when the reader chose dark, or chose nothing and the system is dark. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
 /*
  * Design spec. Everything on the page reads these tokens; components carry no raw values.
  *
@@ -14,6 +26,8 @@
  *   stack-tight    8px  between closely related items (a code block and its button)
  *   inline        12px  between items on one line
  *   inset-x/y  12/8px  padding inside inline surfaces (code blocks, list rows)
+ *   inset-tight    4px  padding around a button inside a frame (code block header, endpoint field)
+ *   fade          32px  width of the fade where clipped text runs out of its field
  * Measure: content column max 48rem (container-content, class max-w-content); running text max 65ch (max-w-prose).
  *
  * Type (system font stacks, so nothing swaps in after load; every size has a fixed line height)
@@ -23,9 +37,12 @@
  *   body     16px / 24px                          default
  *   small    14px / 20px                          secondary text, descriptions
  *   code     13px / 20px                          URLs, commands, config
+ *   leading-bar  32px line height for text that shares a row with a small button
  *
- * Colour: shadcn neutral tokens only. Dark mode follows the system through prefers-color-scheme,
- * which is Tailwind 4's default dark variant, so it needs no script and never flashes.
+ * Colour: shadcn neutral tokens only, each written once as light-dark(light, dark). The page follows
+ * the system's colour scheme; the theme toggle pins light or dark by setting data-theme on <html>,
+ * which sets color-scheme and so picks the other side of every light-dark(). A saved choice is applied
+ * by an inline script in <head> before first paint, so it never flashes.
  */
 @theme {
   --spacing-gutter: 1rem;
@@ -39,6 +56,8 @@
   --spacing-inline: 0.75rem;
   --spacing-inset-x: 0.75rem;
   --spacing-inset-y: 0.5rem;
+  --spacing-inset-tight: 0.25rem;
+  --spacing-fade: 2rem;
 
   --container-content: 48rem;
 
@@ -54,6 +73,10 @@
   --text-small--line-height: 1.25rem;
   --text-code: 0.8125rem;
   --text-code--line-height: 1.25rem;
+
+  /* A small button's height. Text sharing a row with one takes this line height, so the row is the
+     same height before the button has loaded as after. */
+  --leading-bar: 2rem;
 }
 
 @theme inline {
@@ -80,46 +103,35 @@
 }
 
 :root {
-  color-scheme: light;
+  /* Follow the system until the reader picks a theme; the toggle sets data-theme on <html>. */
+  color-scheme: light dark;
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --background: light-dark(oklch(1 0 0), oklch(0.145 0 0));
+  --foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
+  --card: light-dark(oklch(1 0 0), oklch(0.205 0 0));
+  --card-foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
+  --primary: light-dark(oklch(0.205 0 0), oklch(0.922 0 0));
+  --primary-foreground: light-dark(oklch(0.985 0 0), oklch(0.205 0 0));
+  --secondary: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
+  --secondary-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
+  --muted: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
+  --muted-foreground: light-dark(oklch(0.556 0 0), oklch(0.708 0 0));
+  --accent: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
+  --accent-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
+  --destructive: light-dark(oklch(0.577 0.245 27.325), oklch(0.704 0.191 22.216));
+  --border: light-dark(oklch(0.922 0 0), oklch(1 0 0 / 10%));
+  --input: light-dark(oklch(0.922 0 0), oklch(1 0 0 / 15%));
+  --ring: light-dark(oklch(0.708 0 0), oklch(0.556 0 0));
 }
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+/* Set by the theme toggle for one frame, so the whole page changes scheme at once. */
+.theme-switching * {
+  transition: none !important;
 }
 
 @layer base {
@@ -155,6 +167,8 @@
   display: grid;
   & > * {
     grid-area: 1 / 1;
+    /* Grid items default to their content's width; a code block that scrolls sideways must not widen the page. */
+    min-width: 0;
   }
 }
 
@@ -166,21 +180,96 @@
 }
 
 /*
- * Code blocks: Shiki (via Astro's <Code>) writes GitHub light and dark colours as --shiki-light and
- * --shiki-dark on every token; the page picks one per colour scheme. The surface uses the page tokens,
- * not the theme's own background, so code sits on the same muted surface in both schemes.
+ * One-line field for a value that may be longer than the field (the endpoint URL). The value is
+ * clipped behind a fade; on hover or focus it glides to its end and back. The track is padded by the
+ * fade width, so at the end of the glide the last character sits clear of the fade. Container query
+ * units make the distance exact: 100cqw is the field's width, 100% the track's own width, and
+ * min(0px, ...) keeps a value that fits from moving at all. Reduced motion: scroll sideways instead.
  */
-@utility code-block {
-  @apply rounded-md border bg-muted px-inset-x py-inset-y font-mono text-code;
-  background-color: var(--muted) !important;
+@utility marquee {
+  container-type: inline-size;
+  overflow: hidden;
+  white-space: nowrap;
+  /* Exactly one line box from first paint, whatever the track is doing. */
+  block-size: 1lh;
+  mask-image: linear-gradient(to right, black calc(100% - var(--spacing-fade)), transparent);
+  border-radius: var(--radius-sm);
+  & > * {
+    display: block;
+    width: max-content;
+    padding-inline-end: var(--spacing-fade);
+  }
+  &:hover > *,
+  &:focus > * {
+    animation: marquee 6s ease-in-out 0.3s infinite alternate;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    overflow-x: auto;
+    &:hover > *,
+    &:focus > * {
+      animation: none;
+    }
+  }
+}
+@keyframes marquee {
+  0%,
+  15% {
+    transform: translateX(0);
+  }
+  85%,
+  100% {
+    transform: translateX(min(0px, calc(100cqw - 100%)));
+  }
+}
+
+/*
+ * Code: Shiki (via Astro's <Code>) writes One Light and One Dark Pro colours as --shiki-light and
+ * --shiki-dark on every token, bracket colours by depth included; the page picks one set per colour
+ * scheme. The surface uses the page tokens, not the theme's background, so code sits on the card in
+ * both schemes. Indent guides use the border token; line numbers are CSS counters, so copying a
+ * snippet never picks them up.
+ */
+@utility code-body {
+  @apply px-inset-x py-inset-y font-mono text-code;
+  background-color: var(--card) !important;
+  & .indent {
+    position: relative;
+  }
+  & .indent::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    border-left: 1px solid var(--border);
+  }
+}
+@utility code-lines {
+  counter-reset: line;
+  & .line::before {
+    counter-increment: line;
+    content: counter(line);
+    display: inline-block;
+    width: 2ch;
+    margin-right: var(--spacing-inline);
+    text-align: right;
+    color: var(--muted-foreground);
+    user-select: none;
+  }
 }
 .astro-code,
 .astro-code span {
-  color: var(--shiki-light);
+  color: light-dark(var(--shiki-light), var(--shiki-dark));
 }
-@media (prefers-color-scheme: dark) {
-  .astro-code,
-  .astro-code span {
-    color: var(--shiki-dark);
+
+/* The theme toggle: a round button fixed to the corner the thumb reaches on phones (bottom right),
+   and to the top right from sm up. Clear of notches and home indicators via the safe-area insets. */
+@utility corner-fab {
+  position: fixed;
+  z-index: 50;
+  right: calc(var(--spacing-gutter) + env(safe-area-inset-right));
+  bottom: calc(var(--spacing-gutter) + env(safe-area-inset-bottom));
+  @variant sm {
+    top: var(--spacing-gutter);
+    bottom: auto;
   }
 }

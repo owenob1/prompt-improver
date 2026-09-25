@@ -1,0 +1,19 @@
+---
+// The endpoint as a read-only field: one line at every width. A URL longer than the field is clipped
+// behind a fade, and hovering or focusing the field (a tap on touch screens) glides it across so the
+// end can be read; the full value is also in the tooltip, and the copy button copies all of it.
+// With reduced motion the field scrolls sideways instead.
+import { CopyButton } from '@/components/CopyButton';
+
+interface Props {
+  value: string;
+}
+const { value } = Astro.props;
+---
+
+<div class="flex items-center gap-stack-tight rounded-md border bg-muted py-inset-tight pr-inset-tight pl-inset-x">
+  <div class="marquee min-w-0 flex-1 font-mono text-code leading-bar" tabindex="0" title={value}>
+    <span>{value}</span>
+  </div>
+  <CopyButton client:visible value={value} label="Copy" />
+</div>

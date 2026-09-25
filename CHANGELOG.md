@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - Content lives in one module (`site/src/lib/site.ts`), composed through `Section` and `CodeBlock`.
   - Dark mode follows the system through CSS only, with no script.
   - Layout shift measures 0 at 320 to 1280px in both themes, including tab switches and copy clicks.
+- **Light/dark toggle on the info page.** A round button, bottom right on phones and top right from tablet up, that starts on the system theme. A click flips the theme and remembers it; flipping back to match the system forgets the choice again. A saved choice is applied before first paint, so the page never flashes, and colour tokens are now written once each with `light-dark()`.
+- **Endpoint field and code blocks on the info page.** The endpoint URL is a one-line field at every width: a URL longer than the field fades out at the edge and glides across on hover or focus (tap on touch screens), with a sideways scroll instead under reduced motion. Code blocks now sit in a labelled frame (what the snippet is, its language, a copy button), use One Light and One Dark Pro, colour brackets by depth, draw indent guides and number multi-line snippets. The Reference shows the full JSON-RPC request and response for each tool.
 - **Info page redesigned around progressive disclosure and a clearer visual hierarchy.**
   - Always visible: what it is, the endpoint (the only emphasised container), how to connect, and the three steps.
   - Behind labelled `<details>` disclosures: each tool's arguments and response, the `next_step` values, and everything the server exposes.

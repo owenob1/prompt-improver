@@ -1,0 +1,52 @@
+---
+// Light/dark toggle. With no saved choice the page follows the system (and keeps following it if the
+// system changes). A click flips the theme you see; picking the system's own scheme clears the saved
+// choice again, so there is never a third "system" state to explain. The icon is chosen by CSS, not
+// script, so it is right from first paint; the script only handles clicks and aria-pressed.
+import { Moon, Sun } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+---
+
+<Button
+  id="theme-toggle"
+  variant="outline"
+  size="icon-lg"
+  className="corner-fab rounded-full bg-card shadow-sm dark:bg-card dark:hover:bg-accent"
+  aria-label="Dark theme"
+  aria-pressed="false"
+  title="Toggle light and dark theme"
+>
+  <Sun className="dark:hidden" aria-hidden />
+  <Moon className="hidden dark:block" aria-hidden />
+</Button>
+
+<script>
+  const KEY = 'theme';
+  const root = document.documentElement;
+  const system = matchMedia('(prefers-color-scheme: dark)');
+  const button = document.getElementById('theme-toggle')!;
+  const current = () => root.dataset.theme ?? (system.matches ? 'dark' : 'light');
+  const sync = () => button.setAttribute('aria-pressed', String(current() === 'dark'));
+
+  button.addEventListener('click', () => {
+    // Switch every colour in one frame: without this, elements with a transition fade while the rest snap.
+    root.classList.add('theme-switching');
+    const next = current() === 'dark' ? 'light' : 'dark';
+    try {
+      if (next === (system.matches ? 'dark' : 'light')) {
+        delete root.dataset.theme;
+        localStorage.removeItem(KEY);
+      } else {
+        root.dataset.theme = next;
+        localStorage.setItem(KEY, next);
+      }
+    } catch {
+      root.dataset.theme = next; // storage blocked: the choice lasts for this page view
+    }
+    sync();
+    getComputedStyle(root).color; // apply the new scheme with transitions off
+    requestAnimationFrame(() => root.classList.remove('theme-switching'));
+  });
+  system.addEventListener('change', sync);
+  sync();
+</script>
