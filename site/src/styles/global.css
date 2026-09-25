@@ -9,6 +9,7 @@
  *   gutter        16px  side padding of the page (gutter-wide 24px from sm up)
  *   page          48px  top and bottom padding of the page (page-wide 80px from sm up)
  *   section       48px  between top-level sections
+ *   group         32px  between sub-sections inside a section
  *   stack         16px  between a heading and its content, and between stacked items
  *   stack-tight    8px  between closely related items (a code block and its button)
  *   inline        12px  between items on one line
@@ -32,6 +33,7 @@
   --spacing-page: 3rem;
   --spacing-page-wide: 5rem;
   --spacing-section: 3rem;
+  --spacing-group: 2rem;
   --spacing-stack: 1rem;
   --spacing-stack-tight: 0.5rem;
   --spacing-inline: 0.75rem;
