@@ -2,6 +2,18 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* dark: applies when the reader chose dark, or chose nothing and the system is dark. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
 /*
  * Design spec. Everything on the page reads these tokens; components carry no raw values.
  *
@@ -27,8 +39,10 @@
  *   code     13px / 20px                          URLs, commands, config
  *   leading-bar  32px line height for text that shares a row with a small button
  *
- * Colour: shadcn neutral tokens only. Dark mode follows the system through prefers-color-scheme,
- * which is Tailwind 4's default dark variant, so it needs no script and never flashes.
+ * Colour: shadcn neutral tokens only, each written once as light-dark(light, dark). The page follows
+ * the system's colour scheme; the theme toggle pins light or dark by setting data-theme on <html>,
+ * which sets color-scheme and so picks the other side of every light-dark(). A saved choice is applied
+ * by an inline script in <head> before first paint, so it never flashes.
  */
 @theme {
   --spacing-gutter: 1rem;
@@ -89,46 +103,35 @@
 }
 
 :root {
-  color-scheme: light;
+  /* Follow the system until the reader picks a theme; the toggle sets data-theme on <html>. */
+  color-scheme: light dark;
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --background: light-dark(oklch(1 0 0), oklch(0.145 0 0));
+  --foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
+  --card: light-dark(oklch(1 0 0), oklch(0.205 0 0));
+  --card-foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
+  --primary: light-dark(oklch(0.205 0 0), oklch(0.922 0 0));
+  --primary-foreground: light-dark(oklch(0.985 0 0), oklch(0.205 0 0));
+  --secondary: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
+  --secondary-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
+  --muted: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
+  --muted-foreground: light-dark(oklch(0.556 0 0), oklch(0.708 0 0));
+  --accent: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
+  --accent-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
+  --destructive: light-dark(oklch(0.577 0.245 27.325), oklch(0.704 0.191 22.216));
+  --border: light-dark(oklch(0.922 0 0), oklch(1 0 0 / 10%));
+  --input: light-dark(oklch(0.922 0 0), oklch(1 0 0 / 15%));
+  --ring: light-dark(oklch(0.708 0 0), oklch(0.556 0 0));
 }
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+/* Set by the theme toggle for one frame, so the whole page changes scheme at once. */
+.theme-switching * {
+  transition: none !important;
 }
 
 @layer base {
@@ -255,11 +258,18 @@
 }
 .astro-code,
 .astro-code span {
-  color: var(--shiki-light);
+  color: light-dark(var(--shiki-light), var(--shiki-dark));
 }
-@media (prefers-color-scheme: dark) {
-  .astro-code,
-  .astro-code span {
-    color: var(--shiki-dark);
+
+/* The theme toggle: a round button fixed to the corner the thumb reaches on phones (bottom right),
+   and to the top right from sm up. Clear of notches and home indicators via the safe-area insets. */
+@utility corner-fab {
+  position: fixed;
+  z-index: 50;
+  right: calc(var(--spacing-gutter) + env(safe-area-inset-right));
+  bottom: calc(var(--spacing-gutter) + env(safe-area-inset-bottom));
+  @variant sm {
+    top: var(--spacing-gutter);
+    bottom: auto;
   }
 }
