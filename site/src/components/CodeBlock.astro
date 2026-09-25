@@ -1,0 +1,26 @@
+---
+// A highlighted, copyable value. Shiki (Astro's <Code>) highlights at build time with GitHub's light
+// and dark themes; global.css switches between them with the page's colour scheme. Only the copy
+// button hydrates.
+import { Code } from 'astro:components';
+import { CopyButton } from '@/components/CopyButton';
+
+interface Props {
+  code: string;
+  lang: 'bash' | 'json' | 'text';
+  label?: string;
+}
+const { code, lang, label } = Astro.props;
+---
+
+<div class="flex flex-col gap-stack-tight sm:flex-row sm:items-start sm:gap-inline">
+  <Code
+    class="code-block min-w-0 flex-1"
+    code={code}
+    lang={lang}
+    themes={{ light: 'github-light', dark: 'github-dark' }}
+    defaultColor={false}
+    wrap
+  />
+  <CopyButton client:visible value={code} label={label} />
+</div>

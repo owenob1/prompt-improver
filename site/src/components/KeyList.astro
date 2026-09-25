@@ -1,0 +1,26 @@
+---
+// A divided term/description list (it sits inside a Disclosure, which provides the border). Terms are monospace when they are identifiers (tool names, URIs).
+interface Item {
+  term: string;
+  lead?: string;
+  text: string;
+}
+interface Props {
+  items: Item[];
+  mono?: boolean;
+}
+const { items, mono = false } = Astro.props;
+---
+
+<dl class="divide-y">
+  {
+    items.map((item) => (
+      <div class="flex flex-col gap-stack-tight p-inset-x sm:flex-row sm:gap-stack">
+        <dt class:list={['sm:w-1/3 sm:shrink-0', mono ? 'font-mono text-code' : 'text-small font-medium']}>{item.term}</dt>
+        <dd class="text-small text-muted-foreground">
+          {item.lead && <span class="font-medium text-foreground">{item.lead}.</span>} {item.text}
+        </dd>
+      </div>
+    ))
+  }
+</dl>

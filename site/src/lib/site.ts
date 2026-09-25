@@ -9,9 +9,10 @@ export const META = {
 };
 
 export const HERO = {
-  badges: ['MCP 2026-07-28', 'No model calls', 'Stateless'],
   title: 'prompt-improver',
-  lead: 'A remote MCP server that turns a rough coding request into a precise, checkable XML spec before any work starts. It never calls a model itself: the agent you already use writes the spec, and the server supplies the rules and checks the result.'
+  lead: 'Turns a rough coding request into a precise, checkable spec before any work starts.',
+  detail: 'A remote MCP server. It never calls a model: the agent you already use writes the spec, and the server supplies the rules and checks the result.',
+  meta: ['MCP 2026-07-28', 'Stateless', 'No sign-in']
 };
 
 export const SETUP = {
@@ -26,15 +27,9 @@ export const SETUP = {
 };
 
 export const STEPS = [
-  {
-    title: 'improve_prompt',
-    body: 'Send the request as written. The server returns the rules a spec must follow, plus a handle. Plan mode shows you the spec first; execute mode carries it out once it passes.'
-  },
-  { title: 'Write the spec', body: 'Your own agent writes the XML spec from those rules. It does not start the work yet.' },
-  {
-    title: 'validate_prompt',
-    body: 'The server checks the spec and says what happens next: fix and check again (up to three times), show it to you, or carry it out.'
-  }
+  { title: 'improve_prompt', body: 'Send the request as written. You get the rules a spec must follow, and a handle.' },
+  { title: 'Write the spec', body: 'Your agent writes the XML spec from those rules, without starting the work.' },
+  { title: 'validate_prompt', body: 'The server checks it and says what next: fix it, show it to you, or carry it out.' }
 ];
 
 export const SURFACES = [
@@ -42,4 +37,56 @@ export const SURFACES = [
   { name: 'validate_prompt', kind: 'Tool', text: 'Checks a spec and returns the next step.' },
   { name: 'improve', kind: 'Prompt', text: 'A slash command that starts the loop.' },
   { name: 'skill://prompt-improver/SKILL.md', kind: 'Skill', text: 'The same workflow and its references, for clients that load skills over MCP.' }
+];
+
+// Request and response shapes, taken from the live server's output (long values shortened with …).
+const HANDLE = 'eyJ2IjoxLCJtb2RlIjoicGxhbiIs…';
+const json = (value: unknown) => JSON.stringify(value, null, 2);
+
+export const API = [
+  {
+    name: 'improve_prompt',
+    summary:
+      'Send the request exactly as the user wrote it. Leave mode out and the server asks the user, or defaults to plan when the client cannot ask.',
+    request: json({
+      request: 'Add a dark mode toggle to the settings page',
+      mode: 'plan',
+      context: 'Optional. Facts from package.json, CLAUDE.md, recent git log.'
+    }),
+    responseNote: 'Text only: a short header, then the generation instructions (about 75 KB), then links to the references.',
+    responseLang: 'text' as const,
+    response: [
+      `handle: ${HANDLE}`,
+      'mode: plan',
+      'next_step: Write the XML spec by following these instructions, then call validate_prompt with this handle and the spec as xml. Do not carry out the request yet.',
+      '',
+      '<the generation instructions: rules, template, worked examples, and your request wrapped in <raw-request-to-improve> as data>',
+      '',
+      'resource_link × 5  skill://prompt-improver/references/…'
+    ].join('\n')
+  },
+  {
+    name: 'validate_prompt',
+    summary:
+      'Send the spec your agent wrote, without code fences, and the handle from the previous call. Every call returns a new handle; after three failed attempts the server says to stop.',
+    request: json({ xml: '<context>…</context> … <check>…</check>', handle: HANDLE }),
+    responseNote: 'Structured JSON, with the validator report as text alongside.',
+    responseLang: 'json' as const,
+    response: json({
+      passed: false,
+      errors: ['no check block found'],
+      warnings: ['no escape clause found — name a contradiction once and continue'],
+      attempt: 1,
+      mode: 'plan',
+      handle: 'eyJ2IjoxLCJtb2RlIjoicGxhbiIs…',
+      next_step: 'Fix exactly the errors above, change nothing else, and call validate_prompt again with the new handle.'
+    })
+  }
+];
+
+export const NEXT_STEPS = [
+  { when: 'Errors', then: 'Fix only the listed errors and validate again with the new handle.' },
+  { when: 'Third failure', then: 'Stop and show the spec and its errors to the user.' },
+  { when: 'Passed, plan', then: 'Show the spec to the user and stop.' },
+  { when: 'Passed, execute', then: 'Carry out the spec, then run its check block.' }
 ];
