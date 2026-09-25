@@ -44,6 +44,14 @@ async function rpc(method: string, params: Json = {}, opts: { elicitation?: bool
 
 const call = (name: string, args: Json, opts: { elicitation?: boolean } = {}) => rpc('tools/call', { name, arguments: args }, opts);
 
+/** improve_prompt answers in text only: a header block (handle, mode, next_step), then the instructions. */
+function imp(result: Json): { handle: string; mode: string; next_step: string; instructions: string } {
+  const header = Object.fromEntries(
+    (result.content[0].text as string).split('\n').map((line) => [line.slice(0, line.indexOf(':')), line.slice(line.indexOf(':') + 2)])
+  );
+  return { handle: header.handle ?? '', mode: header.mode ?? '', next_step: header.next_step ?? '', instructions: result.content[1].text };
+}
+
 describe('discovery', () => {
   test('server/discover advertises tools, prompts, resources and the skills extension', async () => {
     const { result } = await rpc('server/discover');
@@ -58,7 +66,7 @@ describe('discovery', () => {
     const { result } = await rpc('tools/list');
     expect(result.tools.map((t: Json) => t.name)).toEqual(['improve_prompt', 'validate_prompt']);
     for (const t of result.tools) {
-      expect(t.outputSchema).toBeDefined();
+      if (t.name === 'validate_prompt') expect(t.outputSchema).toBeDefined();
       expect(t.annotations.readOnlyHint).toBe(true);
       expect(t.icons.length).toBe(1);
     }
@@ -91,7 +99,7 @@ describe('improve → validate loop', () => {
       { elicitation: true }
     );
     expect(retry.result.resultType).toBe('complete');
-    expect(retry.result.structuredContent.mode).toBe('execute');
+    expect(imp(retry.result).mode).toBe('execute');
   });
 
   test('a declined elicitation falls back to plan', async () => {
@@ -100,25 +108,25 @@ describe('improve → validate loop', () => {
       { name: 'improve_prompt', arguments: { request: 'add a flag' }, inputResponses: { mode: { action: 'decline' } } },
       { elicitation: true }
     );
-    expect(retry.result.structuredContent.mode).toBe('plan');
+    expect(imp(retry.result).mode).toBe('plan');
   });
 
   test('without elicitation support, mode defaults to plan and the instructions are returned', async () => {
     const { result } = await call('improve_prompt', { request: 'add a --json flag to export' });
     expect(result.resultType).toBe('complete');
-    const s = result.structuredContent;
+    const s = imp(result);
+    expect(result.structuredContent).toBeUndefined();
     expect(s.mode).toBe('plan');
     expect(s.next_step).toContain('validate_prompt');
-    expect(result.content[0].text).toContain('<raw-request-to-improve>\nadd a --json flag to export\n</raw-request-to-improve>');
-    expect(result.content[0].text.length).toBe(s.instructions_chars);
-    expect(result.content.filter((c: Json) => c.type === 'resource_link').length).toBe(s.references.length);
+    expect(s.instructions).toContain('<raw-request-to-improve>\nadd a --json flag to export\n</raw-request-to-improve>');
+    expect(result.content.filter((c: Json) => c.type === 'resource_link').length).toBe(5);
     const handle = decodeHandle(s.handle);
     expect(handle).toMatchObject({ mode: 'plan', attempt: 0 });
   });
 
   test('fail → fix → pass, with next_step per mode', async () => {
     const improved = await call('improve_prompt', { request: 'fix settings', mode: 'execute' });
-    let handle = improved.result.structuredContent.handle as string;
+    let handle = imp(improved.result).handle;
 
     const bad = await call('validate_prompt', { handle, xml: INVALID });
     expect(bad.result.structuredContent.passed).toBe(false);
@@ -133,7 +141,7 @@ describe('improve → validate loop', () => {
     expect(good.result.structuredContent.next_step).toContain('Carry it out now');
 
     const plan = await call('improve_prompt', { request: 'fix settings', mode: 'plan' });
-    const planned = await call('validate_prompt', { handle: plan.result.structuredContent.handle, xml: VALID });
+    const planned = await call('validate_prompt', { handle: imp(plan.result).handle, xml: VALID });
     expect(planned.result.structuredContent.next_step).toContain('stop');
   });
 
@@ -309,7 +317,7 @@ describe('input normalisation', () => {
   ])('mode %j is accepted as %s', async (given, expected) => {
     const { result } = await call('improve_prompt', { request: 'add a flag', mode: given });
     expect(result.isError).toBeFalsy();
-    expect(result.structuredContent.mode).toBe(expected);
+    expect(imp(result).mode).toBe(expected);
   });
 
   test('an unknown mode names the valid values', async () => {
@@ -350,9 +358,9 @@ describe('input normalisation', () => {
 
   test('a request that is already a spec is pointed straight at validate_prompt', async () => {
     const { result } = await call('improve_prompt', { request: VALID });
-    expect(result.structuredContent.next_step).toContain('already looks like an XML spec');
+    expect(imp(result).next_step).toContain('already looks like an XML spec');
     const plain = await call('improve_prompt', { request: 'add a flag' });
-    expect(plain.result.structuredContent.next_step).not.toContain('already looks like');
+    expect(imp(plain.result).next_step).not.toContain('already looks like');
   });
 
   test.each([
@@ -363,7 +371,7 @@ describe('input normalisation', () => {
   ])('%s survive unchanged inside the request wrapper', async (_name, request) => {
     const { result } = await call('improve_prompt', { request });
     expect(result.isError).toBeFalsy();
-    expect(result.content[0].text).toContain(`<raw-request-to-improve>\n${request.replace(/\n+$/, '')}\n</raw-request-to-improve>`);
+    expect(imp(result).instructions).toContain(`<raw-request-to-improve>\n${request.replace(/\n+$/, '')}\n</raw-request-to-improve>`);
   });
 });
 
@@ -388,10 +396,10 @@ describe('transports and protocol versions', () => {
     const tools = await legacy('tools/list', {}, version, 2);
     expect(tools.result.tools.map((t: Json) => t.name)).toEqual(['improve_prompt', 'validate_prompt']);
     const improved = await legacy('tools/call', { name: 'improve_prompt', arguments: { request: 'add a flag', mode: 'execute' } }, version, 3);
-    expect(improved.result.structuredContent.mode).toBe('execute');
+    expect(imp(improved.result).mode).toBe('execute');
     const validated = await legacy(
       'tools/call',
-      { name: 'validate_prompt', arguments: { xml: VALID, handle: improved.result.structuredContent.handle } },
+      { name: 'validate_prompt', arguments: { xml: VALID, handle: imp(improved.result).handle } },
       version,
       4
     );
@@ -399,12 +407,23 @@ describe('transports and protocol versions', () => {
   });
 });
 
-describe('structured output', () => {
-  test('structuredContent carries the same instructions as the first content block', async () => {
+describe('result size', () => {
+  test('improve_prompt carries the instructions exactly once, in text, and fits Claude Code inline', async () => {
     const { result } = await call('improve_prompt', { request: 'add a --json flag' });
-    expect(result.structuredContent.instructions).toBe(result.content[0].text);
-    expect(result.structuredContent.instructions).toContain('<raw-request-to-improve>\nadd a --json flag\n</raw-request-to-improve>');
-    expect(result.structuredContent.instructions_chars).toBe(result.structuredContent.instructions.length);
+    const serialized = JSON.stringify(result);
+    const marker = '<raw-request-to-improve>\nadd a --json flag\n</raw-request-to-improve>';
+    expect(serialized.split(marker.replace(/\n/g, '\\n')).length - 1).toBe(1);
+    expect(result.structuredContent).toBeUndefined();
+    // Claude Code counts text content; the raised limit (200,000) covers it, and it stays under the 80,000 budget.
+    const textChars = result.content.filter((c: Json) => c.type === 'text').reduce((n: number, c: Json) => n + c.text.length, 0);
+    expect(textChars).toBeLessThan(80_000);
+  });
+
+  test('tools/list declares a raised inline limit for improve_prompt', async () => {
+    const { result } = await rpc('tools/list');
+    const tool = result.tools.find((t: Json) => t.name === 'improve_prompt');
+    expect(tool.outputSchema).toBeUndefined();
+    expect(tool._meta['anthropic/maxResultSizeChars']).toBe(200_000);
   });
 });
 
@@ -488,7 +507,7 @@ describe('info page and crawler policy', () => {
 describe('no project context', () => {
   test('without context, the instructions route time-sensitive facts to research', async () => {
     const { result } = await call('improve_prompt', { request: 'Create a page with the latest Astro' });
-    const text = result.structuredContent.instructions as string;
+    const text = imp(result).instructions;
     expect(text).toContain('look them up in official sources before writing the spec');
     expect(text).toContain('**No project context');
     expect(text).toContain('Example 9: No project context');

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **Info page rebuilt on a written spacing and type spec.**
+  - All spacing, type and measure come from global tokens in `site/src/styles/global.css`, and `npm run check:tokens` (run in CI) rejects arbitrary values, raw colours, inline styles, and numeric spacing or type utilities.
+  - Content lives in one module (`site/src/lib/site.ts`), composed through `Section` and `CodeBlock`.
+  - Dark mode follows the system through CSS only, with no script.
+  - Layout shift measures 0 at 320 to 1280px in both themes, including tab switches and copy clicks.
+- **`improve_prompt` returns the instructions once, as text, and declares `anthropic/maxResultSizeChars`.** The previous result carried them twice, which pushed it past Claude Code's inline limit.
+
 ### Added
 - **No project context now leads to research, not guesses.** Requests with no project context, whether greenfield, from a chat app or a non-code deliverable, are handled like this:
   - Facts that change over time become `<research>` questions with named sources. That covers versions, setup commands, API shapes, pricing and platform policies.

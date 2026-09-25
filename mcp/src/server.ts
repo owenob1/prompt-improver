@@ -172,15 +172,9 @@ export function createServer(): McpServer {
             'Optional project facts you already gathered from fixed paths (manifests, CLAUDE.md, recent git log). Leave it out to be told which files to read.'
           )
       }),
-      outputSchema: z.object({
-        handle: z.string(),
-        mode: z.enum(['plan', 'execute']),
-        next_step: z.string(),
-        instructions: z.string().describe('The generation instructions (the same text as the first content block).'),
-        instructions_chars: z.number().int(),
-        skill_version: z.string(),
-        references: z.array(z.string())
-      }),
+      // No outputSchema: clients that honour one show only structuredContent, and duplicating the
+      // ~70 KB instructions there pushed results past Claude Code's inline limit. One text copy it is.
+      _meta: { 'anthropic/maxResultSizeChars': 200_000 },
       annotations: { readOnlyHint: true, idempotentHint: true, destructiveHint: false, openWorldHint: false },
       icons: [ICON]
     },
@@ -201,25 +195,11 @@ export function createServer(): McpServer {
       }
       const instructions = buildInstructions(request, context);
       const handle: Handle = { v: 1, mode: chosen, req: await requestDigest(request), attempt: 0 };
-      const references = PACK.skill.files.filter((f) => f.path !== 'SKILL.md').map((f) => `${SKILL_ROOT_URI}/${f.path}`);
       const nextStep = looksLikeSpec(request) ? NEXT_FOR_EXISTING_SPEC : NEXT_AFTER_IMPROVE;
-      const structured = {
-        handle: encodeHandle(handle),
-        mode: chosen,
-        next_step: nextStep,
-        // Clients that honour outputSchema may show only structuredContent, so it carries the instructions too.
-        instructions,
-        instructions_chars: instructions.length,
-        skill_version: PACK.skillVersion,
-        references
-      };
       return {
         content: [
+          { type: 'text', text: `handle: ${encodeHandle(handle)}\nmode: ${chosen}\nnext_step: ${nextStep}` },
           { type: 'text', text: instructions },
-          {
-            type: 'text',
-            text: `handle: ${structured.handle}\nmode: ${chosen}\nnext_step: ${nextStep}`
-          },
           ...PACK.skill.files
             .filter((f) => f.path !== 'SKILL.md')
             .map((f) => ({
@@ -228,8 +208,7 @@ export function createServer(): McpServer {
               name: f.path,
               mimeType: 'text/markdown'
             }))
-        ],
-        structuredContent: structured
+        ]
       };
     }
   );
