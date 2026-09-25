@@ -2,6 +2,7 @@ import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
+// Sits inside a frame (a code block header or the endpoint field), so it is a ghost button.
 // The visible label never changes, so the button keeps its width; only the icon swaps.
 // A polite live region tells screen readers the copy happened.
 export function CopyButton({ value, label = 'Copy' }: { value: string; label?: string }) {
@@ -18,7 +19,7 @@ export function CopyButton({ value, label = 'Copy' }: { value: string; label?: s
   }
 
   return (
-    <Button type="button" variant="outline" size="sm" onClick={copy} className="shrink-0 self-start">
+    <Button type="button" variant="ghost" size="sm" onClick={copy} className="shrink-0">
       {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
       {label}
       <span className="sr-only" aria-live="polite">

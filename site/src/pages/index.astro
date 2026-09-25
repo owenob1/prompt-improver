@@ -6,6 +6,7 @@
 import Base from '@/layouts/Base.astro';
 import CodeBlock from '@/components/CodeBlock.astro';
 import Disclosure from '@/components/Disclosure.astro';
+import EndpointField from '@/components/EndpointField.astro';
 import KeyList from '@/components/KeyList.astro';
 import Section from '@/components/Section.astro';
 import { SetupTabs } from '@/components/SetupTabs';
@@ -25,16 +26,16 @@ import { API, ENDPOINT, HERO, META, NEXT_STEPS, REPO, SETUP, STEPS, SURFACES } f
 
     <div class="flex flex-col gap-stack rounded-xl border bg-card p-gutter shadow-sm sm:p-gutter-wide">
       <p class="font-medium">Endpoint</p>
-      <CodeBlock code={ENDPOINT} lang="text" label="Copy URL" />
+      <EndpointField value={ENDPOINT} />
     </div>
 
     <Section title="Connect">
       <SetupTabs client:load>
-        <CodeBlock slot="claudeCode" code={SETUP.claudeCode} lang="bash" />
+        <CodeBlock slot="claudeCode" title="Terminal" code={SETUP.claudeCode} lang="bash" />
         <ol slot="chat" class="flex list-decimal flex-col gap-stack-tight pl-gutter text-muted-foreground">
           {SETUP.chatSteps.map((step) => <li>{step}</li>)}
         </ol>
-        <CodeBlock slot="json" code={SETUP.json} lang="json" />
+        <CodeBlock slot="json" title="MCP client config" code={SETUP.json} lang="json" />
       </SetupTabs>
     </Section>
 
@@ -56,20 +57,13 @@ import { API, ENDPOINT, HERO, META, NEXT_STEPS, REPO, SETUP, STEPS, SURFACES } f
       <div class="flex flex-col gap-stack-tight">
         {
           API.map((tool) => (
-            <Disclosure mono title={tool.name} hint="Arguments and response">
+            <Disclosure mono title={tool.name} hint="Request and response">
               <p class="max-w-prose text-small text-muted-foreground">{tool.summary}</p>
-              {[
-                { label: 'Arguments', note: '', code: tool.request, lang: 'json' as const },
-                { label: 'Response', note: tool.responseNote, code: tool.response, lang: tool.responseLang }
-              ].map((part) => (
-                <div class="flex flex-col gap-stack-tight">
-                  <p class="text-small">
-                    <span class="font-medium">{part.label}</span>
-                    {part.note && <span class="text-muted-foreground"> · {part.note}</span>}
-                  </p>
-                  <CodeBlock code={part.code} lang={part.lang} />
-                </div>
-              ))}
+              <CodeBlock title="Request" code={tool.request} lang="json" />
+              <div class="flex flex-col gap-stack-tight">
+                <p class="max-w-prose text-small text-muted-foreground">{tool.responseNote}</p>
+                <CodeBlock title="Response" code={tool.response} lang="jsonc" />
+              </div>
             </Disclosure>
           ))
         }

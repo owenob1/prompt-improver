@@ -1,26 +1,40 @@
 ---
-// A highlighted, copyable value. Shiki (Astro's <Code>) highlights at build time with GitHub's light
-// and dark themes; global.css switches between them with the page's colour scheme. Only the copy
-// button hydrates.
+// A highlighted, copyable snippet in a labelled frame: the header says what the snippet is and in
+// which language, so nobody has to guess. Shiki (Astro's <Code>) highlights at build time with One
+// Light and One Dark Pro, whose keys, strings and literals are clearly different colours. Brackets
+// are coloured by depth and indentation carries guides, so nesting reads at a glance; multi-line
+// snippets get line numbers and scroll sideways instead of wrapping. Only the copy button hydrates.
 import { Code } from 'astro:components';
+import { transformerColorizedBrackets } from '@shikijs/colorized-brackets';
+import { transformerRenderIndentGuides } from '@shikijs/transformers';
 import { CopyButton } from '@/components/CopyButton';
+
+const LANGS = { bash: 'Shell', json: 'JSON', jsonc: 'JSON' } as const;
+const transformers = [transformerColorizedBrackets(), transformerRenderIndentGuides()];
 
 interface Props {
   code: string;
-  lang: 'bash' | 'json' | 'text';
-  label?: string;
+  lang: keyof typeof LANGS;
+  /** What the snippet is: "Terminal", "Request", "Response". */
+  title: string;
 }
-const { code, lang, label } = Astro.props;
+const { code, lang, title } = Astro.props;
+const multiline = code.includes('\n');
 ---
 
-<div class="flex flex-col gap-stack-tight sm:flex-row sm:items-start sm:gap-inline">
+<figure class="flex min-w-0 flex-col overflow-hidden rounded-md border bg-card">
+  <figcaption class="flex items-center gap-inline border-b bg-muted py-inset-tight pr-inset-tight pl-inset-x">
+    <span class="text-small leading-bar font-medium">{title}</span>
+    <span class="ml-auto text-small leading-bar text-muted-foreground">{LANGS[lang]}</span>
+    <CopyButton client:visible value={code} />
+  </figcaption>
   <Code
-    class="code-block min-w-0 flex-1"
+    class:list={['code-body', multiline && 'code-lines']}
     code={code}
     lang={lang}
-    themes={{ light: 'github-light', dark: 'github-dark' }}
+    themes={{ light: 'one-light', dark: 'one-dark-pro' }}
     defaultColor={false}
-    wrap
+    transformers={transformers}
+    wrap={!multiline}
   />
-  <CopyButton client:visible value={code} label={label} />
-</div>
+</figure>
