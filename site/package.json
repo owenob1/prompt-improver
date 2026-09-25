@@ -7,7 +7,8 @@
     "dev": "astro dev",
     "build": "astro build",
     "check": "astro check",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "check:tokens": "node scripts/check-tokens.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^7.0.0",

@@ -1,0 +1,12 @@
+---
+// A titled block of the page: one heading style and one heading-to-content gap for every section.
+interface Props {
+  title: string;
+}
+const { title } = Astro.props;
+---
+
+<section class="flex flex-col gap-stack">
+  <h2 class="text-title font-semibold tracking-tight">{title}</h2>
+  <slot />
+</section>

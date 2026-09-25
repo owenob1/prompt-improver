@@ -1,55 +1,42 @@
+import { CodeBlock } from '@/components/CodeBlock';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CopyButton } from '@/components/CopyButton';
+import { SETUP } from '@/lib/site';
 
-const URL = 'https://prompt-improver.oweninnes.com/mcp';
+const PANELS = [
+  { value: 'claude-code', label: 'Claude Code', body: <CodeBlock value={SETUP.claudeCode} /> },
+  {
+    value: 'chat',
+    label: 'Chat apps',
+    body: (
+      <ol className="flex list-decimal flex-col gap-stack-tight pl-gutter text-small text-muted-foreground">
+        {SETUP.chatSteps.map((step) => (
+          <li key={step}>{step}</li>
+        ))}
+      </ol>
+    )
+  },
+  { value: 'json', label: 'JSON config', body: <CodeBlock value={SETUP.json} /> }
+];
 
-const CLAUDE_CODE = `claude mcp add --transport http prompt-improver ${URL}`;
-const JSON_CONFIG = JSON.stringify({ mcpServers: { 'prompt-improver': { type: 'http', url: URL } } }, null, 2);
-
-function Snippet({ code }: { code: string }) {
-  return (
-    <div className="space-y-2">
-      <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-md border bg-muted p-3 font-mono text-xs leading-relaxed sm:text-sm">
-        <code>{code}</code>
-      </pre>
-      <CopyButton value={code} />
-    </div>
-  );
-}
-
-function Steps({ items }: { items: string[] }) {
-  return (
-    <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
-      {items.map((item) => (
-        <li key={item}>{item}</li>
-      ))}
-    </ol>
-  );
-}
-
+// Every panel stays mounted in one grid cell, so the tab area always has the height of the
+// tallest panel and nothing below it moves when the tab changes.
 export function SetupTabs() {
   return (
-    <Tabs defaultValue="claude-code" className="w-full">
+    <Tabs defaultValue={PANELS[0]!.value} className="gap-stack">
       <TabsList className="w-full">
-        <TabsTrigger value="claude-code">Claude Code</TabsTrigger>
-        <TabsTrigger value="chat">Chat apps</TabsTrigger>
-        <TabsTrigger value="json">JSON config</TabsTrigger>
+        {PANELS.map((p) => (
+          <TabsTrigger key={p.value} value={p.value}>
+            {p.label}
+          </TabsTrigger>
+        ))}
       </TabsList>
-      <TabsContent value="claude-code" className="pt-3">
-        <Snippet code={CLAUDE_CODE} />
-      </TabsContent>
-      <TabsContent value="chat" className="space-y-3 pt-3">
-        <Steps
-          items={[
-            'In Claude, ChatGPT or Grok, open the connector settings and add a custom (remote) MCP server.',
-            `Use the URL ${URL}.`,
-            'Leave authentication off. The server keeps no data and calls no paid APIs.'
-          ]}
-        />
-      </TabsContent>
-      <TabsContent value="json" className="pt-3">
-        <Snippet code={JSON_CONFIG} />
-      </TabsContent>
+      <div className="stack-cell">
+        {PANELS.map((p) => (
+          <TabsContent key={p.value} value={p.value} forceMount className="panel-inactive-hidden">
+            {p.body}
+          </TabsContent>
+        ))}
+      </div>
     </Tabs>
   );
 }

@@ -65,7 +65,7 @@ jobs:
 
       - name: Install and check the info page
         working-directory: site
-        run: npm ci && npx astro check
+        run: npm ci && npx astro check && npm run check:tokens
 
       - name: Typecheck
         run: npm run typecheck

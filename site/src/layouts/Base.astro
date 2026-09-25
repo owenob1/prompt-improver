@@ -27,15 +27,8 @@ const robots = 'noindex, nofollow, noarchive, nosnippet, noimageindex, notransla
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d97757' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6l-6 6 6 6'/%3E%3Cpath d='M16 6l6 6-6 6'/%3E%3Cpath d='M13 4l-2 16'/%3E%3C/svg%3E"
     />
-    <script is:inline>
-      // Follow the system colour scheme; shadcn's tokens switch on the .dark class.
-      const media = window.matchMedia('(prefers-color-scheme: dark)');
-      const apply = () => document.documentElement.classList.toggle('dark', media.matches);
-      apply();
-      media.addEventListener('change', apply);
-    </script>
   </head>
-  <body class="min-h-screen bg-background text-foreground antialiased">
+  <body class="min-h-screen">
     <slot />
   </body>
 </html>
