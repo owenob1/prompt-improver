@@ -13,7 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - Content lives in one module (`site/src/lib/site.ts`), composed through `Section` and `CodeBlock`.
   - Dark mode follows the system through CSS only, with no script.
   - Layout shift measures 0 at 320 to 1280px in both themes, including tab switches and copy clicks.
-- **Info page: "Requests and responses" section.** It shows the arguments each tool takes and what it returns, taken from the live server's output, plus what each `next_step` asks the agent to do.
+- **Info page redesigned around progressive disclosure and a clearer visual hierarchy.**
+  - Always visible: what it is, the endpoint (the only emphasised container), how to connect, and the three steps.
+  - Behind labelled `<details>` disclosures: each tool's arguments and response, the `next_step` values, and everything the server exposes.
+  - Code is highlighted at build time by Shiki (Astro's `<Code>`) with GitHub light and dark themes, which follow the colour scheme.
 - **`improve_prompt` returns the instructions once, as text, and declares `anthropic/maxResultSizeChars`.** The previous result carried them twice, which pushed it past Claude Code's inline limit.
 
 ### Added

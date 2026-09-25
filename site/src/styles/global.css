@@ -164,3 +164,23 @@
     visibility: hidden;
   }
 }
+
+/*
+ * Code blocks: Shiki (via Astro's <Code>) writes GitHub light and dark colours as --shiki-light and
+ * --shiki-dark on every token; the page picks one per colour scheme. The surface uses the page tokens,
+ * not the theme's own background, so code sits on the same muted surface in both schemes.
+ */
+@utility code-block {
+  @apply rounded-md border bg-muted px-inset-x py-inset-y font-mono text-code;
+  background-color: var(--muted) !important;
+}
+.astro-code,
+.astro-code span {
+  color: var(--shiki-light);
+}
+@media (prefers-color-scheme: dark) {
+  .astro-code,
+  .astro-code span {
+    color: var(--shiki-dark);
+  }
+}

@@ -1,12 +1,15 @@
 ---
+// Two levels, per progressive disclosure: what everyone needs is visible (what it is, the endpoint,
+// how to connect, the loop); the reference detail sits behind labelled disclosures.
+// Hierarchy: one large element (the title), section titles, then body and small text; the endpoint
+// is the only emphasised container.
 import Base from '@/layouts/Base.astro';
-import { CodeBlock } from '@/components/CodeBlock';
+import CodeBlock from '@/components/CodeBlock.astro';
+import Disclosure from '@/components/Disclosure.astro';
 import KeyList from '@/components/KeyList.astro';
 import Section from '@/components/Section.astro';
 import { SetupTabs } from '@/components/SetupTabs';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { API, ENDPOINT, HERO, META, NEXT_STEPS, REPO, STEPS, SURFACES } from '@/lib/site';
+import { API, ENDPOINT, HERO, META, NEXT_STEPS, REPO, SETUP, STEPS, SURFACES } from '@/lib/site';
 ---
 
 <Base title={META.title} description={META.description}>
@@ -14,78 +17,69 @@ import { API, ENDPOINT, HERO, META, NEXT_STEPS, REPO, STEPS, SURFACES } from '@/
     class="mx-auto flex max-w-content flex-col gap-section px-gutter py-page sm:px-gutter-wide sm:py-page-wide"
   >
     <header class="flex flex-col gap-stack">
-      <ul class="flex flex-wrap gap-stack-tight">
-        {HERO.badges.map((b, i) => <li><Badge variant={i === 0 ? 'secondary' : 'outline'}>{b}</Badge></li>)}
-      </ul>
       <h1 class="text-display font-semibold tracking-tight">{HERO.title}</h1>
-      <p class="max-w-prose text-lead text-muted-foreground">{HERO.lead}</p>
+      <p class="max-w-prose text-title">{HERO.lead}</p>
+      <p class="max-w-prose text-muted-foreground">{HERO.detail}</p>
+      <p class="text-small text-muted-foreground">{HERO.meta.join(' · ')}</p>
     </header>
 
-    <Card>
-      <CardHeader>
-        <CardTitle>Endpoint</CardTitle>
-        <CardDescription>Streamable HTTP. No sign-in needed.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <CodeBlock client:load value={ENDPOINT} label="Copy URL" />
-      </CardContent>
-    </Card>
+    <div class="flex flex-col gap-stack rounded-xl border bg-card p-gutter shadow-sm sm:p-gutter-wide">
+      <p class="font-medium">Endpoint</p>
+      <CodeBlock code={ENDPOINT} lang="text" label="Copy URL" />
+    </div>
 
     <Section title="Connect">
-      <SetupTabs client:load />
+      <SetupTabs client:load>
+        <CodeBlock slot="claudeCode" code={SETUP.claudeCode} lang="bash" />
+        <ol slot="chat" class="flex list-decimal flex-col gap-stack-tight pl-gutter text-muted-foreground">
+          {SETUP.chatSteps.map((step) => <li>{step}</li>)}
+        </ol>
+        <CodeBlock slot="json" code={SETUP.json} lang="json" />
+      </SetupTabs>
     </Section>
 
     <Section title="How it works">
-      <ol class="grid gap-stack sm:grid-cols-3">
+      <ol class="grid gap-stack sm:grid-cols-3 sm:gap-gutter-wide">
         {
           STEPS.map((step, i) => (
-            <li>
-              <Card className="h-full">
-                <CardHeader>
-                  <CardDescription>Step {i + 1}</CardDescription>
-                  <CardTitle className="font-mono text-small">{step.title}</CardTitle>
-                </CardHeader>
-                <CardContent className="text-small text-muted-foreground">{step.body}</CardContent>
-              </Card>
+            <li class="flex flex-col gap-stack-tight">
+              <span class="text-small text-muted-foreground">Step {i + 1}</span>
+              <span class="font-mono font-semibold">{step.title}</span>
+              <span class="text-muted-foreground">{step.body}</span>
             </li>
           ))
         }
       </ol>
     </Section>
 
-    <Section title="Requests and responses">
-      <div class="flex flex-col gap-group">
+    <Section title="Reference">
+      <div class="flex flex-col gap-stack-tight">
         {
           API.map((tool) => (
-            <article class="flex flex-col gap-stack">
-              <div class="flex flex-col gap-stack-tight">
-                <h3 class="font-mono text-body font-semibold">{tool.name}</h3>
-                <p class="max-w-prose text-small text-muted-foreground">{tool.summary}</p>
-              </div>
+            <Disclosure mono title={tool.name} hint="Arguments and response">
+              <p class="max-w-prose text-small text-muted-foreground">{tool.summary}</p>
               {[
-                { label: 'Arguments', note: '', value: tool.request },
-                { label: 'Response', note: tool.responseNote, value: tool.response }
+                { label: 'Arguments', note: '', code: tool.request, lang: 'json' as const },
+                { label: 'Response', note: tool.responseNote, code: tool.response, lang: tool.responseLang }
               ].map((part) => (
                 <div class="flex flex-col gap-stack-tight">
                   <p class="text-small">
                     <span class="font-medium">{part.label}</span>
                     {part.note && <span class="text-muted-foreground"> · {part.note}</span>}
                   </p>
-                  <CodeBlock client:visible value={part.value} />
+                  <CodeBlock code={part.code} lang={part.lang} />
                 </div>
               ))}
-            </article>
+            </Disclosure>
           ))
         }
-        <div class="flex flex-col gap-stack-tight">
-          <p class="text-small font-medium">What next_step asks for</p>
+        <Disclosure title="next_step values" hint="What the agent does after validating">
           <KeyList items={NEXT_STEPS.map((n) => ({ term: n.when, text: n.then }))} />
-        </div>
+        </Disclosure>
+        <Disclosure title="Everything the server exposes" hint="Tools, prompt and skill">
+          <KeyList mono items={SURFACES.map((s) => ({ term: s.name, lead: s.kind, text: s.text }))} />
+        </Disclosure>
       </div>
-    </Section>
-
-    <Section title="What it exposes">
-      <KeyList mono items={SURFACES.map((s) => ({ term: s.name, lead: s.kind, text: s.text }))} />
     </Section>
 
     <footer
