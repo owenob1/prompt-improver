@@ -1,0 +1,40 @@
+name: Publish to Owen Tools
+on:
+  push:
+    branches: [main]
+    paths: [tool.json, '**/SKILL.md', .github/workflows/publish-tool.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: publish-tool
+  cancel-in-progress: true
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      REGISTRY: https://tools.oweninnes.com
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check listed URLs respond
+        run: |
+          jq -r '.homepage, (.surfaces[] | if .type == "mcp" then (.health // empty) else (.url // empty) end)' tool.json |
+            sort -u | while read -r url; do
+              curl -fsS -o /dev/null --max-time 20 "$url" || { echo "::error::$url did not respond"; exit 1; }
+            done
+      - name: Publish
+        run: |
+          skill_path=$(jq -r '[.surfaces[] | select(.type == "skill") | .path][0] // empty' tool.json)
+          if [ -n "$skill_path" ]; then
+            jq -n --slurpfile m tool.json --rawfile s "$skill_path" '{manifest: $m[0], skill: $s}' > body.json
+          else
+            jq -n --slurpfile m tool.json '{manifest: $m[0]}' > body.json
+          fi
+          token=$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$REGISTRY" | jq -r .value)
+          curl -fsS --fail-with-body -X POST "$REGISTRY/api/registry/publish" \
+            -H "Authorization: Bearer $token" -H 'content-type: application/json' --data @body.json
