@@ -36,5 +36,5 @@ jobs:
           fi
           token=$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$REGISTRY" | jq -r .value)
-          curl -fsS --fail-with-body -X POST "$REGISTRY/api/registry/publish" \
+          curl -sS --fail-with-body -X POST "$REGISTRY/api/registry/publish" \
             -H "Authorization: Bearer $token" -H 'content-type: application/json' --data @body.json
