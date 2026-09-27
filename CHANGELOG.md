@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Listed on Owen Tools.** `tool.json` describes the tool for [tools.oweninnes.com](https://tools.oweninnes.com), and `.github/workflows/publish-tool.yml` republishes it (with `skills/prompt-improver/SKILL.md`) on each push to `main` that changes either, authenticated by GitHub's OIDC token. No secrets are stored.
+
 ### Changed
 - **Info page rebuilt on a written spacing and type spec.**
   - All spacing, type and measure come from global tokens in `site/src/styles/global.css`, and `npm run check:tokens` (run in CI) rejects arbitrary values, raw colours, inline styles, and numeric spacing or type utilities.

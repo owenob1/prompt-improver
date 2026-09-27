@@ -1,0 +1,32 @@
+{
+  "$schema": "https://tools.oweninnes.com/api/registry/schema.json",
+  "id": "prompt-improver",
+  "name": "Prompt Improver",
+  "summary": "Turn vague agent prompts into precise, verifiable specs, then run them.",
+  "category": "productivity",
+  "tags": ["prompting", "workflow", "agent-skills"],
+  "status": "live",
+  "visibility": "public",
+  "version": "1.1.0",
+  "homepage": "https://prompt-improver.oweninnes.com/",
+  "source": { "repo": "owenob1/prompt-improver", "show": true },
+  "surfaces": [
+    {
+      "type": "mcp",
+      "url": "https://prompt-improver.oweninnes.com/mcp",
+      "transport": "streamable-http",
+      "health": "https://prompt-improver.oweninnes.com/health"
+    },
+    {
+      "type": "skill",
+      "name": "prompt-improver",
+      "path": "skills/prompt-improver/SKILL.md",
+      "install": "npx skills add -g owenob1/prompt-improver"
+    },
+    {
+      "type": "claude-plugin",
+      "install": "/plugin marketplace add owenob1/prompt-improver"
+    },
+    { "type": "web", "url": "https://prompt-improver.oweninnes.com/" }
+  ]
+}
